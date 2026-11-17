@@ -19,7 +19,7 @@ test('un visiteur est renvoyé vers la connexion', async ({ page }) => {
 test('l’accueil annonce le mode test et les tarifs', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Mode test')).toBeVisible();
-  await expect(page.getByText('14,90 €')).toBeVisible();
+  await expect(page.getByText('14,90 €').first()).toBeVisible();
   await photo(page, '1-accueil');
 });
 
