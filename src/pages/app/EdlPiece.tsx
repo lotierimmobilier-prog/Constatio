@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alerte, Bouton, Carte, Champ } from '../../components/ui';
-import { avancement, type Element, type Piece } from '../../lib/edl';
-import { supabase } from '../../lib/supabase';
+import { avancement, chargerEdl, type Element, type Piece } from '../../lib/edl';
+import { local } from '../../lib/local';
 import { ETATS, detailAttendu, libelleEtat, type Etat } from '../../lib/trame';
 
 type Origine = Pick<Element, 'id' | 'etat' | 'observations'>;
@@ -16,62 +16,56 @@ export function EdlPiece() {
   const [elements, setElements] = useState<Element[]>([]);
   const [origines, setOrigines] = useState<Map<string, Origine>>(new Map());
   const [verrouille, setVerrouille] = useState(false);
-  const [charge, setCharge] = useState(false);
+  // La pièce dont les éléments sont à l'écran : tant que ce n'est pas celle de l'adresse, on n'affiche rien d'elle.
+  const [chargee, setChargee] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
-  const [erreur, setErreur] = useState(false);
   const [nouveau, setNouveau] = useState('');
   const [gestion, setGestion] = useState(false);
   const [nomPiece, setNomPiece] = useState('');
 
   const charger = useCallback(async () => {
-    setCharge(false);
-    const [a, b, c] = await Promise.all([
-      supabase.from('edl_pieces').select('*').eq('edl_id', id!).order('ordre').order('created_at'),
-      supabase.from('edl_elements').select('*').eq('piece_id', pieceId!).order('ordre').order('created_at'),
-      supabase.from('edl').select('statut').eq('id', id!).maybeSingle(),
-    ]);
-    const els = (b.data as Element[]) ?? [];
-    setPieces((a.data as Piece[]) ?? []);
+    const fiche = await chargerEdl(id!);
+    const lesPieces = await local.lister<Piece>('edl_pieces', 'edl_id', id!);
+    const els = await local.lister<Element>('edl_elements', 'piece_id', pieceId!);
+    setPieces(lesPieces);
     setElements(els);
-    setVerrouille(c.data?.statut === 'signe');
-    setNomPiece(((a.data as Piece[]) ?? []).find((p) => p.id === pieceId)?.nom ?? '');
-    // Sortie : l'état constaté à l'entrée, affiché en regard.
-    const ids = els.map((x) => x.origine_id).filter(Boolean) as string[];
-    if (ids.length) {
-      const { data } = await supabase.from('edl_elements').select('id, etat, observations').in('id', ids);
-      setOrigines(new Map(((data as Origine[]) ?? []).map((o) => [o.id, o])));
-    } else setOrigines(new Map());
+    setVerrouille(fiche?.edl.statut === 'signe');
+    setNomPiece(lesPieces.find((p) => p.id === pieceId)?.nom ?? '');
+    // Sortie : l'état constaté à l'entrée, affiché en regard (lu sur l'appareil).
+    const trouves = new Map<string, Origine>();
+    if (fiche?.edl.entree_id) {
+      await local.tirerEdl(fiche.edl.entree_id);
+      for (const x of els) {
+        const o = x.origine_id ? await local.lire<Origine>('edl_elements', x.origine_id) : undefined;
+        if (o) trouves.set(o.id, o);
+      }
+    }
+    setOrigines(trouves);
     setOuvert(null);
     setGestion(false);
-    setCharge(true);
+    setChargee(pieceId!);
   }, [id, pieceId]);
   useEffect(() => { void charger(); }, [charger]);
 
   const piece = pieces.find((p) => p.id === pieceId);
-  if (!charge) return <p className="text-center text-discret">Chargement…</p>;
+  if (chargee !== pieceId) return <p className="text-center text-discret">Chargement…</p>;
   if (!piece) return <Alerte>Cette pièce n’existe plus. <Link to={`/app/edl/${id}`} className="font-semibold underline">Revenir à l’état des lieux</Link></Alerte>;
 
   const rang = pieces.findIndex((p) => p.id === pieceId);
   const suivante = pieces[rang + 1];
   const av = avancement(elements);
 
-  /** Mise à jour immédiate à l'écran, puis enregistrement ; en cas d'échec on le dit et on recharge. */
+  /** Mise à jour immédiate à l'écran et sur l'appareil ; l'envoi au serveur suit. */
   async function modifier(elId: string, champs: Partial<Element>) {
-    setErreur(false);
     setElements((liste) => liste.map((x) => (x.id === elId ? { ...x, ...champs } : x)));
-    const { data, error } = await supabase.from('edl_elements').update(champs).eq('id', elId).select('id');
-    if (error || !data?.length) {
-      setErreur(true);
-      await charger();
-    }
+    await local.modifier('edl_elements', elId, champs, `${piece!.nom}, ${elements.find((x) => x.id === elId)?.libelle ?? 'élément'}`);
   }
 
   async function ajouterElement() {
     const libelle = nouveau.trim();
     if (!libelle) return;
     const ligne = { id: crypto.randomUUID(), edl_id: id!, piece_id: pieceId!, categorie: 'autre', libelle, ordre: elements.length ? Math.max(...elements.map((x) => x.ordre)) + 1 : 0 };
-    const { error } = await supabase.from('edl_elements').insert(ligne);
-    if (error) return setErreur(true);
+    await local.inserer('edl_elements', { ...ligne, nature: null, etat: null, observations: null, detail: null, origine_id: null }, `${piece!.nom}, ${libelle}`);
     setNouveau('');
     setElements((liste) => [...liste, { ...ligne, nature: null, etat: null, observations: null, detail: null, origine_id: null }]);
   }
@@ -84,7 +78,6 @@ export function EdlPiece() {
         <p className="whitespace-nowrap text-sm text-discret tabular-nums">pièce {rang + 1} / {pieces.length} · {av.faits} / {av.total}</p>
       </div>
       {verrouille && <Alerte ton="info">État des lieux signé : il ne peut plus être modifié.</Alerte>}
-      {erreur && <Alerte>La dernière modification n’a pas été enregistrée. Vérifiez votre connexion et recommencez.</Alerte>}
 
       <ul className="flex flex-col gap-3">
         {elements.map((el) => {
@@ -133,8 +126,8 @@ export function EdlPiece() {
                       {el.etat === 'sans_objet' ? 'Remettre à constater' : 'Sans objet'}
                     </Bouton>
                     <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => {
-                      const { error } = await supabase.from('edl_elements').delete().eq('id', el.id);
-                      if (error) setErreur(true); else setElements((liste) => liste.filter((x) => x.id !== el.id));
+                      await local.supprimer('edl_elements', el.id, `${piece.nom}, ${el.libelle}`);
+                      setElements((liste) => liste.filter((x) => x.id !== el.id));
                     }}>Retirer</Bouton>
                   </div>
                 </fieldset>
@@ -157,8 +150,8 @@ export function EdlPiece() {
           onBlur={async (e) => {
             const v = e.target.value.trim() || null;
             if (v === piece.observations) return;
-            const { error } = await supabase.from('edl_pieces').update({ observations: v }).eq('id', piece.id);
-            if (error) setErreur(true); else setPieces((l) => l.map((p) => (p.id === piece.id ? { ...p, observations: v } : p)));
+            await local.modifier('edl_pieces', piece.id, { observations: v }, piece.nom);
+            setPieces((l) => l.map((p) => (p.id === piece.id ? { ...p, observations: v } : p)));
           }} />
       </div>
 
@@ -178,12 +171,13 @@ export function EdlPiece() {
             <Champ id="renommer" libelle="Nom de la pièce" value={nomPiece} onChange={(e) => setNomPiece(e.target.value)} />
             <div className="grid grid-cols-2 gap-3">
               <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => {
-                const { error } = await supabase.from('edl_pieces').delete().eq('id', piece.id);
-                if (error) setErreur(true); else aller(`/app/edl/${id}`, { replace: true });
+                await local.supprimer('edl_pieces', piece.id, piece.nom);
+                aller(`/app/edl/${id}`, { replace: true });
               }}>Supprimer la pièce</Bouton>
               <Bouton disabled={!nomPiece.trim()} onClick={async () => {
-                const { error } = await supabase.from('edl_pieces').update({ nom: nomPiece.trim() }).eq('id', piece.id);
-                if (error) setErreur(true); else { setPieces((l) => l.map((p) => (p.id === piece.id ? { ...p, nom: nomPiece.trim() } : p))); setGestion(false); }
+                await local.modifier('edl_pieces', piece.id, { nom: nomPiece.trim() }, piece.nom);
+                setPieces((l) => l.map((p) => (p.id === piece.id ? { ...p, nom: nomPiece.trim() } : p)));
+                setGestion(false);
               }}>Renommer</Bouton>
             </div>
           </Carte>

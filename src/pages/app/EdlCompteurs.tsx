@@ -4,7 +4,7 @@ import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
 import { Alerte, Carte, Champ, classesBouton } from '../../components/ui';
 import { COMPTEURS, type TypeCompteur } from '../../lib/controles';
 import { lireIndex } from '../../lib/edl';
-import { supabase } from '../../lib/supabase';
+import { local } from '../../lib/local';
 
 interface Ligne {
   absent: boolean;
@@ -27,15 +27,17 @@ const fr = (n: number | null) => (n === null ? '' : String(n).replace('.', ','))
 export function EdlCompteurs() {
   const { id, verrouille } = useVerrou();
   const [lignes, setLignes] = useState<Record<TypeCompteur, Ligne> | null>(null);
-  const [etat, setEtat] = useState<Partial<Record<TypeCompteur, 'ok' | 'erreur' | 'saisie'>>>({});
+  const [etat, setEtat] = useState<Partial<Record<TypeCompteur, 'ok' | 'saisie'>>>({});
 
   useEffect(() => {
-    supabase.from('edl_compteurs').select('*').eq('edl_id', id).then(({ data }) => {
+    void (async () => {
+      await local.tirerEdl(id);
+      const data = await local.lister<{ type: TypeCompteur; absent: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }>('edl_compteurs', 'edl_id', id);
       const depart = Object.fromEntries(COMPTEURS.map((c) => [c.type, vide()])) as Record<TypeCompteur, Ligne>;
-      for (const c of data ?? [])
-        depart[c.type as TypeCompteur] = { absent: c.absent, numero: c.numero ?? '', double_tarif: c.double_tarif, index_1: fr(c.index_1), index_2: fr(c.index_2), emplacement: c.emplacement ?? '' };
+      for (const c of data)
+        depart[c.type] = { absent: c.absent, numero: c.numero ?? '', double_tarif: c.double_tarif, index_1: fr(c.index_1), index_2: fr(c.index_2), emplacement: c.emplacement ?? '' };
       setLignes(depart);
-    });
+    })();
   }, [id]);
 
   if (!lignes) return <p className="text-center text-discret">Chargement…</p>;
@@ -45,11 +47,13 @@ export function EdlCompteurs() {
     const i1 = l.absent ? null : lireIndex(l.index_1);
     const i2 = l.absent || !l.double_tarif ? null : lireIndex(l.index_2);
     if (Number.isNaN(i1) || Number.isNaN(i2)) return setEtat((s) => ({ ...s, [type]: 'saisie' }));
-    const { error } = await supabase.from('edl_compteurs').upsert(
-      { edl_id: id, type, absent: l.absent, numero: l.absent ? null : l.numero.trim() || null, double_tarif: !l.absent && l.double_tarif, index_1: i1, index_2: i2, emplacement: l.emplacement.trim() || null },
-      { onConflict: 'edl_id,type' },
+    await local.poser(
+      'edl_compteurs',
+      { edl_id: id, type },
+      { absent: l.absent, numero: l.absent ? null : l.numero.trim() || null, double_tarif: !l.absent && l.double_tarif, index_1: i1, index_2: i2, emplacement: l.emplacement.trim() || null },
+      `Compteur ${COMPTEURS.find((c) => c.type === type)!.libelle.toLowerCase()}`,
     );
-    setEtat((s) => ({ ...s, [type]: error ? 'erreur' : 'ok' }));
+    setEtat((s) => ({ ...s, [type]: 'ok' }));
   }
   const changer = (type: TypeCompteur, champs: Partial<Ligne>, sauver = false) => {
     const suivant = { ...lignes![type], ...champs };
@@ -99,7 +103,6 @@ export function EdlCompteurs() {
               )}
             </fieldset>
             {etat[k] === 'saisie' && <Alerte>L’index doit être un nombre, par exemple 18432 ou 214,5.</Alerte>}
-            {etat[k] === 'erreur' && <Alerte>Ce relevé n’a pas été enregistré. Vérifiez votre connexion et recommencez.</Alerte>}
           </Carte>
         );
       })}

@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { avancement, lignesDepuisModele } from './edl';
 import { MODELES_LOGEMENT, PIECES_TYPES, detailAttendu, pieceType } from './trame';

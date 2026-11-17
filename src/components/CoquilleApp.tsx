@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { BandeauModeTest } from './BandeauModeTest';
+import { BandeauSync } from './BandeauSync';
 import { Logo } from './ui';
 
 const ONGLETS = [
@@ -17,6 +18,7 @@ export function CoquilleApp() {
   return (
     <div className="flex min-h-full flex-col">
       <BandeauModeTest />
+      <BandeauSync />
       <header className="border-b border-trait bg-surface px-4 py-3">
         <div className="mx-auto max-w-2xl">
           <Logo vers="/app" />

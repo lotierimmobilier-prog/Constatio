@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
-import { Alerte, Bouton, Champ } from '../../components/ui';
+import { Bouton, Champ } from '../../components/ui';
 import { MOBILIER_DECRET } from '../../lib/controles';
-import { supabase } from '../../lib/supabase';
+import { local } from '../../lib/local';
 import { ETATS, type Etat } from '../../lib/trame';
 
 interface Ligne { id: string; code_decret: string | null; libelle: string; quantite: number; etat: Etat | null; observations: string | null; ordre: number }
@@ -12,31 +12,28 @@ export function EdlInventaire() {
   const { id, verrouille } = useVerrou();
   const [lignes, setLignes] = useState<Ligne[] | null>(null);
   const [nouveau, setNouveau] = useState('');
-  const [erreur, setErreur] = useState(false);
 
   const charger = useCallback(async () => {
-    const { data } = await supabase.from('edl_inventaire').select('id, code_decret, libelle, quantite, etat, observations, ordre').eq('edl_id', id).order('ordre').order('created_at');
-    setLignes((data as Ligne[]) ?? []);
+    await local.tirerEdl(id);
+    setLignes(await local.lister<Ligne>('edl_inventaire', 'edl_id', id));
   }, [id]);
   useEffect(() => { void charger(); }, [charger]);
 
   if (!lignes) return <p className="text-center text-discret">Chargement…</p>;
 
-  async function ajouter(libelle: string, code: string | null) {
-    const ligne: Ligne = { id: crypto.randomUUID(), code_decret: code, libelle, quantite: 1, etat: null, observations: null, ordre: lignes!.length ? Math.max(...lignes!.map((l) => l.ordre)) + 1 : 0 };
-    const { error } = await supabase.from('edl_inventaire').insert({ ...ligne, edl_id: id });
-    if (error) return setErreur(true);
-    setLignes([...lignes!, ligne]);
+  async function ajouter(nouveaux: { libelle: string; code: string | null }[]) {
+    const depart = lignes!.length ? Math.max(...lignes!.map((l) => l.ordre)) + 1 : 0;
+    const ajoutees: Ligne[] = nouveaux.map((x, i) => ({ id: crypto.randomUUID(), code_decret: x.code, libelle: x.libelle, quantite: 1, etat: null, observations: null, ordre: depart + i }));
+    await local.inserer('edl_inventaire', ajoutees.map((l) => ({ ...l, edl_id: id })), 'Inventaire');
+    setLignes([...lignes!, ...ajoutees]);
   }
   async function modifier(ligneId: string, champs: Partial<Ligne>) {
-    setErreur(false);
     setLignes((l) => l!.map((x) => (x.id === ligneId ? { ...x, ...champs } : x)));
-    const { data, error } = await supabase.from('edl_inventaire').update(champs).eq('id', ligneId).select('id');
-    if (error || !data?.length) { setErreur(true); await charger(); }
+    await local.modifier('edl_inventaire', ligneId, champs, 'Inventaire');
   }
   async function retirer(ligneId: string) {
-    const { error } = await supabase.from('edl_inventaire').delete().eq('id', ligneId);
-    if (error) setErreur(true); else setLignes((l) => l!.filter((x) => x.id !== ligneId));
+    await local.supprimer('edl_inventaire', ligneId, 'Inventaire');
+    setLignes((l) => l!.filter((x) => x.id !== ligneId));
   }
 
   const manquants = MOBILIER_DECRET.filter((m) => !lignes.some((l) => l.code_decret === m.code));
@@ -66,7 +63,6 @@ export function EdlInventaire() {
   return (
     <>
       <EnteteEdl id={id} titre="Inventaire du mobilier" intro="Un logement loué meublé doit comporter au moins onze équipements (décret n° 2015-981). S’il en manque un, le bail peut être requalifié en location vide." verrouille={verrouille} />
-      {erreur && <Alerte>La dernière modification n’a pas été enregistrée. Vérifiez votre connexion et recommencez.</Alerte>}
 
       <h2 className="text-lg font-bold">Équipements obligatoires</h2>
       <p className="text-sm" data-testid="decompte-decret">
@@ -77,18 +73,18 @@ export function EdlInventaire() {
         <div className="flex flex-col gap-2">
           <p className="text-sm text-discret">Touchez ce qui est présent dans le logement :</p>
           {manquants.map((m) => (
-            <button key={m.code} type="button" onClick={() => ajouter(m.libelle, m.code)} className="flex min-h-[48px] items-center justify-between gap-3 rounded-xl border-2 border-dashed border-trait px-3 text-left">
+            <button key={m.code} type="button" onClick={() => ajouter([{ libelle: m.libelle, code: m.code }])} className="flex min-h-[48px] items-center justify-between gap-3 rounded-xl border-2 border-dashed border-trait px-3 text-left">
               <span>{m.libelle}</span><span className="whitespace-nowrap text-sm font-semibold text-marque">Présent</span>
             </button>
           ))}
-          {manquants.length > 1 && <Bouton variante="contour" onClick={async () => { for (const m of manquants) await ajouter(m.libelle, m.code); await charger(); }}>Tout est présent</Bouton>}
+          {manquants.length > 1 && <Bouton variante="contour" onClick={() => ajouter(manquants.map((m) => ({ libelle: m.libelle, code: m.code })))}>Tout est présent</Bouton>}
         </div>
       )}
 
       <h2 className="mt-2 text-lg font-bold">Autres meubles et équipements</h2>
       <ul className="flex flex-col gap-2">{lignes.filter((l) => !l.code_decret).map(fiche)}</ul>
       {!verrouille && (
-        <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (nouveau.trim()) { void ajouter(nouveau.trim(), null); setNouveau(''); } }}>
+        <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (nouveau.trim()) { void ajouter([{ libelle: nouveau.trim(), code: null }]); setNouveau(''); } }}>
           <div className="flex-1"><Champ id="nouveau-meuble" libelle="Ajouter" value={nouveau} onChange={(e) => setNouveau(e.target.value)} placeholder="Canapé, lave-linge, télévision…" /></div>
           <Bouton type="submit" variante="contour" className="!w-auto" disabled={!nouveau.trim()}>Ajouter</Bouton>
         </form>

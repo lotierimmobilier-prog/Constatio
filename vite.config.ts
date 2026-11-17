@@ -1,6 +1,7 @@
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -14,8 +15,40 @@ export default defineConfig(({ mode }) => {
         }
       : undefined;
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Application installable, ouverte même sans réseau : l'interface est mise en
+      // cache par le service worker ; les données, elles, vivent dans le magasin local.
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.svg'],
+        manifest: {
+          name: 'Constatio — états des lieux',
+          short_name: 'Constatio',
+          description: 'Un état des lieux incontestable en 20 minutes, depuis votre téléphone.',
+          lang: 'fr',
+          start_url: '/app',
+          scope: '/',
+          display: 'standalone',
+          orientation: 'portrait',
+          background_color: '#f3f6f5',
+          theme_color: '#0f4c4a',
+          icons: [
+            { src: '/icone-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icone-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icone-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+          navigateFallback: '/index.html',
+          // Les appels au serveur ne passent jamais par le cache.
+          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//],
+        },
+      }),
+    ],
     server: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
+    preview: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
     test: {
       include: ['src/**/*.test.ts'],
       // Les tests de fonctions n'appellent jamais Supabase ; ces valeurs évitent seulement l'erreur de configuration.

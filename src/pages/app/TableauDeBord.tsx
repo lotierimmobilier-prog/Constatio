@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { Link } from 'react-router-dom';
 import { Alerte, Carte, classesBouton } from '../../components/ui';
+import type { EdlLigne } from '../../lib/edl';
+import { local } from '../../lib/local';
 import { supabase } from '../../lib/supabase';
 
 interface LigneEdl {
@@ -23,23 +25,25 @@ export function TableauDeBord() {
   const { profil, organisation } = useAuth();
   const [edl, setEdl] = useState<LigneEdl[] | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
-  const [erreur, setErreur] = useState(false);
 
   useEffect(() => {
     if (!organisation) return;
     let actif = true;
-    Promise.all([
-      supabase
-        .from('edl')
-        .select('id, type, statut, date_edl, logements(libelle, ville)')
-        .eq('organisation_id', organisation.id)
-        .order('updated_at', { ascending: false }),
-      supabase.from('credit_lots').select('restant').eq('organisation_id', organisation.id).gt('expire_le', new Date().toISOString()),
-    ]).then(([a, b]) => {
+    void (async () => {
+      await local.tirerListe(organisation.id);
+      const logements = await local.lister<{ id: string; libelle: string; ville: string }>('logements', 'organisation_id', organisation.id);
+      const lignes = await local.lister<EdlLigne>('edl', 'organisation_id', organisation.id);
+      const date = (e: EdlLigne) => e.updated_at ?? e._cree ?? e.date_edl;
+      if (actif) setEdl(lignes.sort((x, y) => date(y).localeCompare(date(x))).map((e) => ({ ...e, logements: logements.find((l) => l.id === e.logement_id) ?? null })));
+    })();
+    // Le solde de crédits ne se lit qu'en ligne ; hors connexion, on affiche le dernier connu.
+    const cle = `constatio.credits.${organisation.id}`;
+    supabase.from('credit_lots').select('restant').eq('organisation_id', organisation.id).gt('expire_le', new Date().toISOString()).then(({ data, error }) => {
       if (!actif) return;
-      if (a.error || b.error) return setErreur(true);
-      setEdl(a.data as unknown as LigneEdl[]);
-      setCredits(b.data.reduce((s, l) => s + l.restant, 0));
+      if (error) return setCredits(Number(localStorage.getItem(cle) ?? 0));
+      const total = data.reduce((s, l) => s + l.restant, 0);
+      localStorage.setItem(cle, String(total));
+      setCredits(total);
     });
     return () => {
       actif = false;
@@ -54,7 +58,6 @@ export function TableauDeBord() {
           {credits === null ? '' : `${credits} crédit${credits > 1 ? 's' : ''}`}
         </p>
       </div>
-      {erreur && <Alerte>Impossible de charger vos états des lieux. Vérifiez votre connexion puis rechargez la page.</Alerte>}
       <Link to="/app/edl/nouveau" className={classesBouton('plein')}>
         Nouvel état des lieux
       </Link>

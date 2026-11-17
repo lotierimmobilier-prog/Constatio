@@ -16,6 +16,10 @@ const connecter = async (page: Page) => {
 const element = (page: Page, categorie: string) => page.getByTestId(`element-${categorie}`).first();
 
 test.describe.configure({ mode: 'serial' });
+// Chaque test repart d'un navigateur vierge : on laisse la file d'envoi se vider avant de le fermer.
+test.afterEach(async ({ page }) => {
+  await expect(page.getByTestId('envoi')).toHaveCount(0, { timeout: 15_000 });
+});
 
 test('création d’un état des lieux d’entrée (T2 meublé)', async ({ page }) => {
   await page.goto('/inscription');

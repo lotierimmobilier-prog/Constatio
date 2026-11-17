@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { chargerEdl } from '../lib/edl';
 import { Alerte } from './ui';
 
 /** En-tête commun des étapes d'un EDL : retour, titre, et le verrou une fois signé. */
@@ -8,7 +8,7 @@ export function useVerrou(): { id: string; verrouille: boolean } {
   const { id } = useParams();
   const [verrouille, setVerrouille] = useState(false);
   useEffect(() => {
-    supabase.from('edl').select('statut').eq('id', id!).maybeSingle().then(({ data }) => setVerrouille(data?.statut === 'signe'));
+    void chargerEdl(id!).then((r) => setVerrouille(r?.edl.statut === 'signe'));
   }, [id]);
   return { id: id!, verrouille };
 }

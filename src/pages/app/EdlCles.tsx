@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
-import { Alerte, Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
-import { supabase } from '../../lib/supabase';
+import { Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
+import { local } from '../../lib/local';
 
 type Nature = 'cle' | 'badge' | 'bip' | 'telecommande' | 'carte' | 'autre';
 interface Cle { id: string; nature: Nature; nombre: number; destination: string; ordre: number }
@@ -21,12 +21,11 @@ const COURANTS: { nature: Nature; destination: string }[] = [
 export function EdlCles() {
   const { id, verrouille } = useVerrou();
   const [cles, setCles] = useState<Cle[] | null>(null);
-  const [erreur, setErreur] = useState(false);
   const minuteurs = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const charger = useCallback(async () => {
-    const { data } = await supabase.from('edl_cles').select('id, nature, nombre, destination, ordre').eq('edl_id', id).order('ordre').order('created_at');
-    setCles((data as Cle[]) ?? []);
+    await local.tirerEdl(id);
+    setCles(await local.lister<Cle>('edl_cles', 'edl_id', id));
   }, [id]);
   useEffect(() => { void charger(); }, [charger]);
 
@@ -34,26 +33,23 @@ export function EdlCles() {
 
   async function ajouter(nature: Nature, destination: string) {
     const ligne = { id: crypto.randomUUID(), edl_id: id, nature, nombre: 1, destination, ordre: cles!.length ? Math.max(...cles!.map((c) => c.ordre)) + 1 : 0 };
-    const { error } = await supabase.from('edl_cles').insert(ligne);
-    if (error) return setErreur(true);
+    await local.inserer('edl_cles', ligne, 'Clé');
     setCles([...cles!, ligne]);
   }
   async function modifier(cleId: string, champs: Partial<Cle>) {
-    setErreur(false);
     setCles((l) => l!.map((c) => (c.id === cleId ? { ...c, ...champs } : c)));
-    const { data, error } = await supabase.from('edl_cles').update(champs).eq('id', cleId).select('id');
-    if (error || !data?.length) { setErreur(true); await charger(); }
+    await local.modifier('edl_cles', cleId, champs, 'Clé');
   }
   // La destination s'enregistre peu après la dernière frappe, sans attendre que
   // l'on quitte le champ : sur téléphone, on passe souvent à l'écran suivant sans le faire.
   function saisirDestination(cleId: string, destination: string) {
     setCles((l) => l!.map((c) => (c.id === cleId ? { ...c, destination } : c)));
     clearTimeout(minuteurs.current.get(cleId));
-    minuteurs.current.set(cleId, setTimeout(() => void modifier(cleId, { destination: destination.trim() }), 500));
+    minuteurs.current.set(cleId, setTimeout(() => void local.modifier('edl_cles', cleId, { destination: destination.trim() }, 'Clé'), 300));
   }
   async function retirer(cleId: string) {
-    const { error } = await supabase.from('edl_cles').delete().eq('id', cleId);
-    if (error) setErreur(true); else setCles((l) => l!.filter((c) => c.id !== cleId));
+    await local.supprimer('edl_cles', cleId, 'Clé');
+    setCles((l) => l!.filter((c) => c.id !== cleId));
   }
 
   const total = cles.reduce((s, c) => s + c.nombre, 0);
@@ -62,7 +58,6 @@ export function EdlCles() {
   return (
     <>
       <EnteteEdl id={id} titre="Clés et accès" intro="Notez chaque clé, badge ou télécommande remis au locataire, avec ce qu’il ouvre. C’est ce qui sera réclamé à la sortie." verrouille={verrouille} />
-      {erreur && <Alerte>La dernière modification n’a pas été enregistrée. Vérifiez votre connexion et recommencez.</Alerte>}
       <p className="text-sm font-semibold" data-testid="total-cles">{total} élément{total > 1 ? 's' : ''} remis</p>
 
       {cles.map((c) => (

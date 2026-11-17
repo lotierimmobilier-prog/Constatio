@@ -17,6 +17,10 @@ const connecter = async (page: Page) => {
 const retour = (page: Page) => page.getByRole('link', { name: '← Retour à l’état des lieux' }).click();
 
 test.describe.configure({ mode: 'serial' });
+// Chaque test repart d'un navigateur vierge : on laisse la file d'envoi se vider avant de le fermer.
+test.afterEach(async ({ page }) => {
+  await expect(page.getByTestId('envoi')).toHaveCount(0, { timeout: 15_000 });
+});
 
 test('un brouillon neuf : les contrôles listent ce qui manque et y renvoient', async ({ page }) => {
   await page.goto('/inscription');

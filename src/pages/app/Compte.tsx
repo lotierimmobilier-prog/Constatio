@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, type TypeCompte } from '../../auth/AuthProvider';
 import { Alerte, Bouton, Carte, Champ, Liste } from '../../components/ui';
 import { traduireErreur } from '../../lib/erreurs';
+import { useSync } from '../../lib/local';
 import { supabase } from '../../lib/supabase';
 import { LONGUEUR_MOT_DE_PASSE, codePostalValide, motDePasseValide, siretValide } from '../../lib/validation';
 
@@ -12,6 +13,8 @@ const ROLES = { proprietaire: 'Propriétaire du compte', admin: 'Administrateur'
 export function Compte() {
   const { session, profil, organisation, role, recharger, deconnecter } = useAuth();
   const aller = useNavigate();
+  const { enAttente, enLigne } = useSync();
+  const [confirmer, setConfirmer] = useState(false);
   if (!profil || !organisation) return null;
   const peutGerer = role === 'proprietaire' || role === 'admin';
 
@@ -24,14 +27,22 @@ export function Compte() {
       <FormulaireProfil key={profil.id} recharger={recharger} />
       <FormulaireOrganisation key={organisation.id} lectureSeule={!peutGerer} recharger={recharger} />
       <FormulaireMotDePasse />
+      {!enLigne && <Alerte ton="info">Hors connexion : les modifications du compte seront possibles au retour du réseau.</Alerte>}
+      {confirmer && (
+        <Alerte>
+          {enAttente} modification{enAttente > 1 ? 's' : ''} faite{enAttente > 1 ? 's' : ''} hors connexion {enAttente > 1 ? 'ne sont' : 'n’est'} pas encore envoyée{enAttente > 1 ? 's' : ''}. Si vous vous déconnectez maintenant, {enAttente > 1 ? 'elles seront perdues' : 'elle sera perdue'}.
+        </Alerte>
+      )}
       <Bouton
         variante="contour"
         onClick={async () => {
+          // Se déconnecter efface la copie locale : on prévient s'il reste des saisies non envoyées.
+          if (enAttente > 0 && !confirmer) return setConfirmer(true);
           await deconnecter();
           aller('/', { replace: true });
         }}
       >
-        Se déconnecter
+        {confirmer ? 'Me déconnecter quand même' : 'Se déconnecter'}
       </Bouton>
     </>
   );

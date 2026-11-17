@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alerte, Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
-import { STATUTS_EDL, TYPES_EDL, avancement, controlerEdl, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
-import { supabase } from '../../lib/supabase';
+import { STATUTS_EDL, TYPES_EDL, avancement, chargerEdl, controlerEdl, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
+import { local } from '../../lib/local';
 import { PIECES_TYPES, pieceType } from '../../lib/trame';
 
 interface Fiche {
@@ -32,17 +32,14 @@ export function Edl() {
   const [controle, setControle] = useState<Awaited<ReturnType<typeof controlerEdl>>>(null);
 
   const charger = useCallback(async () => {
-    const [a, b, c, d] = await Promise.all([
-      supabase.from('edl').select('id, type, statut, date_edl, entree_id, credit_consomme, remarques_generales, logements(*)').eq('id', id!).maybeSingle(),
-      supabase.from('edl_pieces').select('*').eq('edl_id', id!).order('ordre').order('created_at'),
-      supabase.from('edl_elements').select('piece_id, etat').eq('edl_id', id!),
-      supabase.from('edl_parties').select('role, nom, prenom').eq('edl_id', id!).order('ordre'),
-    ]);
-    if (!a.data) return setIntrouvable(true);
-    setEdl(a.data as unknown as Fiche);
-    setPieces((b.data as Piece[]) ?? []);
-    setElements(c.data ?? []);
-    setParties(d.data ?? []);
+    const fiche = await chargerEdl(id!);
+    if (!fiche) return setIntrouvable(true);
+    // L'entrée de référence est gardée sur l'appareil : la sortie l'affichera même sans réseau.
+    if (fiche.edl.entree_id) void local.tirerEdl(fiche.edl.entree_id);
+    setEdl({ ...fiche.edl, logements: fiche.logement });
+    setPieces(await local.lister<Piece>('edl_pieces', 'edl_id', id!));
+    setElements(await local.lister('edl_elements', 'edl_id', id!));
+    setParties(await local.lister('edl_parties', 'edl_id', id!));
     setControle(await controlerEdl(id!));
   }, [id]);
   useEffect(() => { void charger(); }, [charger]);
@@ -61,8 +58,8 @@ export function Edl() {
     const type = pieceType(typeAjout);
     const pieceId = crypto.randomUUID();
     const ordre = pieces.length ? Math.max(...pieces.map((p) => p.ordre)) + 1 : 0;
-    const { error } = await supabase.from('edl_pieces').insert({ id: pieceId, edl_id: edl!.id, zone: type.zone, nom: nomAjout.trim() || type.label, type_piece: type.id, ordre });
-    if (!error) await supabase.from('edl_elements').insert(elementsDePiece(edl!.id, pieceId, type.id));
+    await local.inserer('edl_pieces', { id: pieceId, edl_id: edl!.id, zone: type.zone, nom: nomAjout.trim() || type.label, type_piece: type.id, observations: null, ordre }, 'Pièce');
+    await local.inserer('edl_elements', elementsDePiece(edl!.id, pieceId, type.id), 'Éléments');
     setAjout(false);
     setNomAjout('');
     await charger();
@@ -152,7 +149,7 @@ export function Edl() {
           className="w-full rounded-xl border border-trait bg-surface px-3 py-2 text-base placeholder:text-discret"
           onBlur={async (e) => {
             const v = e.target.value.trim() || null;
-            if (v !== edl.remarques_generales) { await supabase.from('edl').update({ remarques_generales: v }).eq('id', edl.id); await charger(); }
+            if (v !== edl.remarques_generales) { await local.modifier('edl', edl.id, { remarques_generales: v }, 'Remarques générales'); await charger(); }
           }} />
       </div>
       <Link to="controles" className={`${classesBouton(bloquants ? 'contour' : 'repere')}`} data-testid="lien-controles">
@@ -168,7 +165,7 @@ export function Edl() {
               <button
                 className={`${classesBouton('plein')} !bg-hs !text-surface`}
                 onClick={async () => {
-                  await supabase.from('edl').delete().eq('id', edl.id);
+                  await local.supprimer('edl', edl.id, 'Suppression du brouillon');
                   aller('/app', { replace: true });
                 }}
               >

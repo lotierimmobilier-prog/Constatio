@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
 import { Bouton } from '../../components/ui';
 import type { Alerte } from '../../lib/controles';
-import { controlerEdl } from '../../lib/edl';
+import { chargerEdl, controlerEdl } from '../../lib/edl';
 
 /** Chaque alerte renvoie à l'étape à corriger. */
 export function EdlControles() {
   const { id, verrouille } = useVerrou();
   const [alertes, setAlertes] = useState<Alerte[] | null>(null);
-  useEffect(() => { controlerEdl(id).then((r) => setAlertes(r?.alertes ?? [])); }, [id]);
+  useEffect(() => { void chargerEdl(id).then(() => controlerEdl(id)).then((r) => setAlertes(r?.alertes ?? [])); }, [id]);
   if (!alertes) return <p className="text-center text-discret">Chargement…</p>;
 
   const bloquants = alertes.filter((a) => a.niveau === 'bloquant');

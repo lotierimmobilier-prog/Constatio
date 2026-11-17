@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { local } from './local';
 import { MODELES_LOGEMENT, pieceType, type Etat } from './trame';
 
 export type TypeEdl = 'entrant' | 'sortant' | 'releve';
@@ -94,74 +94,92 @@ export interface DemandeCreation {
   /** Logement existant, ou nouveau logement à créer avec son modèle de pièces. */
   logementId?: string;
   nouveauLogement?: Omit<Logement, 'id'> & { modeleId: string; nb_pieces: number | null; a_exterieur: boolean };
+  /** Modèle de pièces pour un logement déjà enregistré. */
+  modeleId?: string;
   /** EDL d'entrée dont on repart (sortie ou relevé). */
   entreeId?: string;
   bailleur: { nom: string; adresse: string | null };
 }
 
-const echec = (e: { message: string } | null) => {
-  if (e) throw new Error(e.message);
-};
+export interface EdlLigne {
+  id: string;
+  organisation_id: string;
+  logement_id: string;
+  type: TypeEdl;
+  statut: StatutEdl;
+  date_edl: string;
+  entree_id: string | null;
+  date_edl_entree: string | null;
+  bail_type: string;
+  bail_date_entree: string | null;
+  depot_garantie_cents: number | null;
+  credit_consomme: boolean;
+  remarques_generales: string | null;
+  updated_at?: string;
+  _cree?: string;
+}
+
+/** Met à jour la copie locale si le réseau le permet, puis la lit. null : inconnu de l'appareil. */
+export async function chargerEdl(id: string): Promise<{ edl: EdlLigne; logement: Logement } | null> {
+  await local.tirerEdl(id);
+  const edl = await local.lire<EdlLigne>('edl', id);
+  const logement = edl && (await local.lire<Logement>('logements', edl.logement_id));
+  return edl && logement ? { edl, logement } : null;
+}
 
 /**
- * Crée l'EDL et tout son contenu de départ. Les identifiants sont générés ici :
- * la même fonction servira hors connexion, les lignes étant envoyées plus tard.
- * En cas d'échec en cours de route, l'EDL entamé est supprimé (ses lignes suivent).
+ * Crée l'EDL et tout son contenu de départ dans la copie locale ; l'envoi au
+ * serveur suit dès qu'il y a du réseau. Fonctionne donc dans une cave.
  */
 export async function creerEdl(d: DemandeCreation): Promise<string> {
   const edlId = uuid();
   let logementId = d.logementId;
-  let modeleId = 't2';
+  let modeleId = d.modeleId ?? 't2';
 
   if (d.nouveauLogement) {
     const { modeleId: m, ...logement } = d.nouveauLogement;
     modeleId = m;
     logementId = uuid();
-    echec((await supabase.from('logements').insert({ id: logementId, organisation_id: d.organisationId, ...logement })).error);
+    await local.inserer('logements', { id: logementId, organisation_id: d.organisationId, ...logement }, 'Logement');
   }
   if (!logementId) throw new Error('Logement manquant');
 
-  let entree: { date_edl: string; bail_type: string; bail_date_entree: string | null; depot_garantie_cents: number | null } | null = null;
+  let entree: EdlLigne | undefined;
   if (d.entreeId) {
-    const r = await supabase.from('edl').select('date_edl, bail_type, bail_date_entree, depot_garantie_cents').eq('id', d.entreeId).single();
-    echec(r.error);
-    entree = r.data;
+    await local.tirerEdl(d.entreeId);
+    entree = await local.lire<EdlLigne>('edl', d.entreeId);
+    if (!entree) throw new Error('entree_indisponible');
   }
+  const logement = await local.lire<Logement>('logements', logementId);
 
-  echec(
-    (
-      await supabase.from('edl').insert({
-        id: edlId,
-        organisation_id: d.organisationId,
-        logement_id: logementId,
-        type: d.type,
-        entree_id: d.entreeId ?? null,
-        date_edl_entree: entree ? entree.date_edl.slice(0, 10) : null,
-        bail_type: entree?.bail_type ?? (d.nouveauLogement?.meuble ? 'meuble' : 'vide'),
-        bail_date_entree: entree?.bail_date_entree ?? null,
-        depot_garantie_cents: entree?.depot_garantie_cents ?? null,
-        realise_par: d.realisePar.id,
-        realise_par_nom: d.realisePar.nom,
-      })
-    ).error,
+  await local.inserer(
+    'edl',
+    {
+      id: edlId,
+      organisation_id: d.organisationId,
+      logement_id: logementId,
+      type: d.type,
+      entree_id: d.entreeId ?? null,
+      date_edl_entree: entree ? entree.date_edl.slice(0, 10) : null,
+      bail_type: entree?.bail_type ?? (logement?.meuble ? 'meuble' : 'vide'),
+      bail_date_entree: entree?.bail_date_entree ?? null,
+      depot_garantie_cents: entree?.depot_garantie_cents ?? null,
+      realise_par: d.realisePar.id,
+      realise_par_nom: d.realisePar.nom,
+      date_edl: new Date().toISOString(),
+    },
+    'Nouvel état des lieux',
+    // Remplis par le serveur ; présents localement pour l'affichage immédiat.
+    { statut: 'brouillon', credit_consomme: false, remarques_generales: null },
   );
 
-  try {
-    if (d.entreeId) {
-      await copierDepuisEntree(edlId, d.entreeId);
-    } else {
-      const { pieces, elements } = lignesDepuisModele(edlId, modeleId);
-      echec((await supabase.from('edl_pieces').insert(pieces)).error);
-      echec((await supabase.from('edl_elements').insert(elements)).error);
-      echec(
-        (
-          await supabase.from('edl_parties').insert({ id: uuid(), edl_id: edlId, role: 'bailleur', nom: d.bailleur.nom, adresse: d.bailleur.adresse, ordre: 0 })
-        ).error,
-      );
-    }
-  } catch (err) {
-    await supabase.from('edl').delete().eq('id', edlId);
-    throw err;
+  if (d.entreeId) {
+    await copierDepuisEntree(edlId, d.entreeId);
+  } else {
+    const { pieces, elements } = lignesDepuisModele(edlId, modeleId);
+    await local.inserer('edl_pieces', pieces, 'Pièces');
+    await local.inserer('edl_elements', elements, 'Éléments');
+    await local.inserer('edl_parties', { id: uuid(), edl_id: edlId, role: 'bailleur', prenom: '', nom: d.bailleur.nom, adresse: d.bailleur.adresse, doit_signer: true, ordre: 0 }, 'Bailleur');
   }
   return edlId;
 }
@@ -169,25 +187,23 @@ export async function creerEdl(d: DemandeCreation): Promise<string> {
 /** Sortie ou relevé : mêmes pièces, mêmes éléments, mêmes parties ; les états restent à constater. */
 async function copierDepuisEntree(edlId: string, entreeId: string) {
   const [pieces, elements, parties] = await Promise.all([
-    supabase.from('edl_pieces').select('*').eq('edl_id', entreeId),
-    supabase.from('edl_elements').select('*').eq('edl_id', entreeId),
-    supabase.from('edl_parties').select('*').eq('edl_id', entreeId),
+    local.lister<Piece>('edl_pieces', 'edl_id', entreeId),
+    local.lister<Element>('edl_elements', 'edl_id', entreeId),
+    local.lister<Partie>('edl_parties', 'edl_id', entreeId),
   ]);
-  echec(pieces.error ?? elements.error ?? parties.error);
-
   const nouvellePiece = new Map<string, string>();
-  const lignesPieces = (pieces.data as Piece[]).map((p) => {
+  const lignesPieces = pieces.map((p) => {
     const id = uuid();
     nouvellePiece.set(p.id, id);
     return { id, edl_id: edlId, zone: p.zone, nom: p.nom, type_piece: p.type_piece, ordre: p.ordre, origine_id: p.id };
   });
-  const lignesElements = (elements.data as Element[]).map((el) => ({
+  const lignesElements = elements.map((el) => ({
     id: uuid(), edl_id: edlId, piece_id: nouvellePiece.get(el.piece_id)!, categorie: el.categorie,
     libelle: el.libelle, nature: el.nature, ordre: el.ordre, origine_id: el.id,
   }));
   const nouvellePartie = new Map<string, string>();
-  (parties.data as Partie[]).forEach((p) => nouvellePartie.set(p.id, uuid()));
-  const lignesParties = (parties.data as Partie[])
+  parties.forEach((p) => nouvellePartie.set(p.id, uuid()));
+  const lignesParties = [...parties]
     // Les représentés avant leurs mandataires : la clé étrangère l'exige.
     .sort((a, b) => Number(!!a.represente_id) - Number(!!b.represente_id))
     .map((p) => ({
@@ -196,10 +212,9 @@ async function copierDepuisEntree(edlId: string, entreeId: string) {
       civilite: p.civilite, prenom: p.prenom, nom: p.nom, email: p.email, telephone: p.telephone,
       adresse: p.adresse, doit_signer: p.doit_signer, ordre: p.ordre,
     }));
-
-  if (lignesPieces.length) echec((await supabase.from('edl_pieces').insert(lignesPieces)).error);
-  if (lignesElements.length) echec((await supabase.from('edl_elements').insert(lignesElements)).error);
-  if (lignesParties.length) echec((await supabase.from('edl_parties').insert(lignesParties)).error);
+  if (lignesPieces.length) await local.inserer('edl_pieces', lignesPieces, 'Pièces');
+  if (lignesElements.length) await local.inserer('edl_elements', lignesElements, 'Éléments');
+  if (lignesParties.length) await local.inserer('edl_parties', lignesParties, 'Parties');
 }
 
 export interface Avancement {
@@ -218,30 +233,23 @@ export function avancement(elements: Pick<Element, 'etat'>[]): Avancement {
 // ── Contrôles ───────────────────────────────────────────────────────────────
 import { controler, type Alerte, type DonneesControle } from './controles';
 
-/** Lit tout ce que les contrôles examinent, et rend le verdict. */
+/** Lit dans la copie locale tout ce que les contrôles examinent, et rend le verdict. */
 export async function controlerEdl(edlId: string): Promise<{ alertes: Alerte[]; donnees: DonneesControle } | null> {
-  const [e, parties, pieces, elements, compteurs, cles, inventaire] = await Promise.all([
-    supabase.from('edl').select('type, bail_type, entree_id, date_edl_entree, logements(meuble, type_bien)').eq('id', edlId).maybeSingle(),
-    supabase.from('edl_parties').select('role, nom, nouvelle_adresse, represente_id').eq('edl_id', edlId),
-    supabase.from('edl_pieces').select('id, nom').eq('edl_id', edlId).order('ordre').order('created_at'),
-    supabase.from('edl_elements').select('piece_id, libelle, etat, observations').eq('edl_id', edlId).order('ordre'),
-    supabase.from('edl_compteurs').select('type, absent, index_1, index_2, double_tarif, numero').eq('edl_id', edlId),
-    supabase.from('edl_cles').select('nombre, destination').eq('edl_id', edlId),
-    supabase.from('edl_inventaire').select('code_decret').eq('edl_id', edlId),
-  ]);
-  if (!e.data) return null;
-  const logement = e.data.logements as unknown as { meuble: boolean; type_bien: string };
+  const edl = await local.lire<EdlLigne>('edl', edlId);
+  const logement = edl && (await local.lire<Logement>('logements', edl.logement_id));
+  if (!edl || !logement) return null;
+  const lister = <T,>(t: Parameters<typeof local.lister>[0]) => local.lister<T>(t, 'edl_id', edlId);
   const donnees: DonneesControle = {
-    type: e.data.type,
-    meuble: estMeuble(logement.meuble, e.data.bail_type),
+    type: edl.type,
+    meuble: estMeuble(logement.meuble, edl.bail_type),
     sansCompteurs: logement.type_bien === 'garage',
-    entreeConnue: !!e.data.entree_id || !!e.data.date_edl_entree,
-    parties: parties.data ?? [],
-    pieces: pieces.data ?? [],
-    elements: elements.data ?? [],
-    compteurs: compteurs.data ?? [],
-    cles: cles.data ?? [],
-    inventaire: inventaire.data ?? [],
+    entreeConnue: !!edl.entree_id || !!edl.date_edl_entree,
+    parties: await lister('edl_parties'),
+    pieces: await lister('edl_pieces'),
+    elements: await lister('edl_elements'),
+    compteurs: await lister('edl_compteurs'),
+    cles: await lister('edl_cles'),
+    inventaire: await lister('edl_inventaire'),
   };
   return { alertes: controler(donnees), donnees };
 }

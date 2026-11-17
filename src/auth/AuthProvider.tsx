@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { local } from '../lib/local';
 import { supabase } from '../lib/supabase';
+
+// Le compte est gardé sur l'appareil : l'application s'ouvre aussi sans réseau.
+const CLE_COMPTE = 'constatio.compte';
 
 export type TypeCompte = 'particulier' | 'sci' | 'pro';
 export type Role = 'proprietaire' | 'admin' | 'agent';
@@ -57,6 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCompte(null);
       return;
     }
+    // Un autre compte s'est servi de cet appareil : ses données locales ne doivent pas apparaître ici.
+    const garde = JSON.parse(localStorage.getItem(CLE_COMPTE) ?? 'null') as { userId: string; compte: NonNullable<typeof compte> } | null;
+    if (garde && garde.userId !== userId) {
+      await local.effacerTout();
+      localStorage.removeItem(CLE_COMPTE);
+    } else if (garde) setCompte(garde.compte);
     const [{ data: profil }, { data: membre }] = await Promise.all([
       supabase.from('profils').select('id, prenom, nom, telephone').eq('id', userId).single(),
       supabase
@@ -68,7 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single(),
     ]);
     const organisation = membre?.organisations as unknown as Organisation | undefined;
-    setCompte(profil && membre && organisation ? { profil, organisation, role: membre.role as Role } : null);
+    if (profil && membre && organisation) {
+      const suivant = { profil, organisation, role: membre.role as Role };
+      localStorage.setItem(CLE_COMPTE, JSON.stringify({ userId, compte: suivant }));
+      setCompte(suivant);
+    }
+    // Sinon (pas de réseau) : on garde le compte lu sur l'appareil.
   }, [userId]);
 
   useEffect(() => {
@@ -84,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: compte?.role ?? null,
       recharger,
       deconnecter: async () => {
+        await local.effacerTout();
+        localStorage.removeItem(CLE_COMPTE);
         await supabase.auth.signOut();
         setCompte(null);
       },

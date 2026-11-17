@@ -2,18 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider';
 import { Alerte, Bouton, Carte, Champ, Liste } from '../../components/ui';
-import { TYPES_EDL, creerEdl, type Logement, type TypeEdl } from '../../lib/edl';
-import { supabase } from '../../lib/supabase';
+import { TYPES_EDL, creerEdl, type EdlLigne, type Logement, type TypeEdl } from '../../lib/edl';
+import { local } from '../../lib/local';
 import { MODELES_LOGEMENT } from '../../lib/trame';
 import { codePostalValide } from '../../lib/validation';
 
-interface EntreeDispo {
-  id: string;
-  date_edl: string;
-  statut: string;
-  logement_id: string;
-  logements: { libelle: string } | null;
-}
+type EntreeDispo = EdlLigne & { logements: { libelle: string } | null };
 type Depart = 'nouveau' | 'existant' | 'entree';
 
 const DESCRIPTIONS: Record<TypeEdl, string> = {
@@ -44,11 +38,16 @@ export function NouvelEdl() {
 
   useEffect(() => {
     if (!organisation) return;
-    supabase.from('logements').select('*').eq('organisation_id', organisation.id).order('libelle')
-      .then(({ data }) => setLogements((data as Logement[]) ?? []));
-    supabase.from('edl').select('id, date_edl, statut, logement_id, logements(libelle)')
-      .eq('organisation_id', organisation.id).eq('type', 'entrant').order('date_edl', { ascending: false })
-      .then(({ data }) => setEntrees((data as unknown as EntreeDispo[]) ?? []));
+    void (async () => {
+      await local.tirerListe(organisation.id);
+      const lesLogements = (await local.lister<Logement>('logements', 'organisation_id', organisation.id)).sort((a, b) => a.libelle.localeCompare(b.libelle));
+      const lesEdl = await local.lister<EdlLigne>('edl', 'organisation_id', organisation.id);
+      setLogements(lesLogements);
+      setEntrees(
+        lesEdl.filter((x) => x.type === 'entrant').sort((a, b) => b.date_edl.localeCompare(a.date_edl))
+          .map((x) => ({ ...x, logements: lesLogements.find((l) => l.id === x.logement_id) ?? null })),
+      );
+    })();
   }, [organisation]);
 
   // Une sortie part naturellement de l'entrée quand il y en a une.
@@ -84,7 +83,7 @@ export function NouvelEdl() {
         ...(depart === 'entree'
           ? { logementId: entree!.logement_id, entreeId }
           : depart === 'existant'
-            ? { logementId }
+            ? { logementId, modeleId }
             : {
                 nouveauLogement: {
                   modeleId,
@@ -104,7 +103,7 @@ export function NouvelEdl() {
       aller(`/app/edl/${id}`, { replace: true });
     } catch {
       setOccupe(false);
-      setErreur('L’état des lieux n’a pas pu être créé. Vérifiez votre connexion puis réessayez.');
+      setErreur('L’état des lieux d’entrée n’est pas disponible sur cet appareil. Retrouvez du réseau, ouvrez-le une fois, puis recommencez.');
     }
   }
 

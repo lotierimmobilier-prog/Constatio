@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Alerte, Bouton, Carte, Champ, Liste } from '../../components/ui';
-import type { Partie, RolePartie, TypeEdl } from '../../lib/edl';
-import { supabase } from '../../lib/supabase';
+import { chargerEdl, type Partie, type RolePartie, type TypeEdl } from '../../lib/edl';
+import { local } from '../../lib/local';
 import { emailValide } from '../../lib/validation';
 
 const ROLES: Record<RolePartie, string> = {
@@ -22,14 +22,11 @@ export function EdlParties() {
   const [charge, setCharge] = useState(false);
 
   const charger = useCallback(async () => {
-    const [a, b] = await Promise.all([
-      supabase.from('edl_parties').select('*').eq('edl_id', id!).order('ordre').order('created_at'),
-      supabase.from('edl').select('type, statut').eq('id', id!).maybeSingle(),
-    ]);
-    setParties((a.data as Partie[]) ?? []);
-    if (b.data) {
-      setType(b.data.type);
-      setVerrouille(b.data.statut === 'signe');
+    const fiche = await chargerEdl(id!);
+    setParties(await local.lister<Partie>('edl_parties', 'edl_id', id!));
+    if (fiche) {
+      setType(fiche.edl.type);
+      setVerrouille(fiche.edl.statut === 'signe');
     }
     setCharge(true);
   }, [id]);
@@ -37,10 +34,10 @@ export function EdlParties() {
 
   async function ajouter(role: RolePartie) {
     const represente = role === 'mandataire_bailleur' ? parties.find((p) => p.role === 'bailleur') : role === 'mandataire_locataire' ? parties.find((p) => p.role === 'locataire') : undefined;
-    await supabase.from('edl_parties').insert({
-      id: crypto.randomUUID(), edl_id: id!, role, nom: '', represente_id: represente?.id ?? null,
+    await local.inserer('edl_parties', {
+      id: crypto.randomUUID(), edl_id: id!, role, prenom: '', nom: '', represente_id: represente?.id ?? null, doit_signer: true,
       ordre: parties.length ? Math.max(...parties.map((p) => p.ordre)) + 1 : 0,
-    });
+    }, ROLES[role]);
     await charger();
   }
 
@@ -91,13 +88,12 @@ function FichePartie({ partie: p, parties, sortie, verrouille, recharger }: { pa
     if (!nom.trim()) return setRetour({ ton: 'erreur', texte: 'Indiquez le nom, ou la dénomination de la société.' });
     if (email.trim() && !emailValide(email)) return setRetour({ ton: 'erreur', texte: 'Cette adresse e-mail n’est pas valide.' });
     setOccupe(true);
-    const { error } = await supabase.from('edl_parties').update({
+    await local.modifier('edl_parties', p.id, {
       prenom: prenom.trim(), nom: nom.trim(), email: email.trim() || null, telephone: telephone.trim() || null,
       adresse: adresse.trim() || null, nouvelle_adresse: nouvelleAdresse.trim() || null,
       doit_signer: present, ...(mandataire ? { represente_id: represente } : {}),
-    }).eq('id', p.id);
+    }, ROLES[p.role]);
     setOccupe(false);
-    if (error) return setRetour({ ton: 'erreur', texte: 'Enregistrement impossible. Vérifiez votre connexion puis réessayez.' });
     setRetour({ ton: 'succes', texte: 'Enregistré.' });
     await recharger();
   }
@@ -129,7 +125,7 @@ function FichePartie({ partie: p, parties, sortie, verrouille, recharger }: { pa
           {retour && <Alerte ton={retour.ton}>{retour.texte}</Alerte>}
           {!verrouille && (
             <div className="grid grid-cols-2 gap-3">
-              <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => { await supabase.from('edl_parties').delete().eq('id', p.id); await recharger(); }}>Retirer</Bouton>
+              <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => { await local.supprimer('edl_parties', p.id, ROLES[p.role]); await recharger(); }}>Retirer</Bouton>
               <Bouton type="submit" occupe={occupe}>Enregistrer</Bouton>
             </div>
           )}
