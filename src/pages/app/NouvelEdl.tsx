@@ -193,7 +193,7 @@ export function NouvelEdl() {
               <Champ id="surface" libelle="Surface habitable (m²)" inputMode="decimal" value={surface} onChange={(e) => setSurface(e.target.value)} />
               <Champ id="libelle" libelle="Nom du logement" value={libelle} onChange={(e) => setLibelle(e.target.value)} aide="Facultatif. Pour le retrouver dans votre liste." />
               <label className="flex items-start gap-3">
-                <input type="checkbox" checked={meuble} onChange={(e) => setMeuble(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[rgb(var(--marque))]" />
+                <input type="checkbox" checked={meuble} onChange={(e) => setMeuble(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--marque))]" />
                 <span><span className="block font-semibold">Logement meublé</span><span className="block text-sm text-discret">L’inventaire du mobilier sera exigé (décret n° 2015-981).</span></span>
               </label>
             </>

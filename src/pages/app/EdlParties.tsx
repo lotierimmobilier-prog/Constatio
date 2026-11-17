@@ -123,7 +123,7 @@ function FichePartie({ partie: p, parties, sortie, verrouille, recharger }: { pa
             <Champ id={`nouvelle-${k}`} libelle="Nouvelle adresse du locataire" value={nouvelleAdresse} onChange={(e) => setNouvelleAdresse(e.target.value)} aide="Mention obligatoire de l’état des lieux de sortie." />
           )}
           <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[rgb(var(--marque))]" />
+            <input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--marque))]" />
             <span>Présent le jour de l’état des lieux : sa signature sera demandée.</span>
           </label>
           {retour && <Alerte ton={retour.ton}>{retour.texte}</Alerte>}

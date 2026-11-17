@@ -104,7 +104,7 @@ export function Inscription() {
           erreur={tente ? err.motDePasse : ''}
         />
         <label className="flex items-start gap-3 text-sm">
-          <input id="accepte" type="checkbox" checked={accepte} onChange={(e) => setAccepte(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[rgb(var(--marque))]" />
+          <input id="accepte" type="checkbox" checked={accepte} onChange={(e) => setAccepte(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--marque))]" />
           <span>J’accepte les conditions générales de vente et la politique de confidentialité de Constatio.</span>
         </label>
         {tente && err.accepte && <p className="text-sm text-hs">{err.accepte}</p>}

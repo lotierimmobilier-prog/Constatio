@@ -191,6 +191,8 @@ create table public.edl_compteurs (
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
   unique (id, edl_id),
+  -- Un compteur par énergie, comme dans Collab ; un second compteur se note en observation.
+  unique (edl_id, type),
   check (not absent or (index_1 is null and index_2 is null)),
   check (index_2 is null or double_tarif)
 );

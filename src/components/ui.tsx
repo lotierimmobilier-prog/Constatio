@@ -34,6 +34,7 @@ export function Champ({
   aide,
   erreur,
   id,
+  className = '',
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { libelle: string; id: string; aide?: string; erreur?: string }) {
   return (
@@ -41,7 +42,7 @@ export function Champ({
       <label htmlFor={id} className="text-sm font-semibold">
         {libelle}
       </label>
-      <input id={id} {...props} aria-invalid={!!erreur} aria-describedby={erreur || aide ? `${id}-aide` : undefined} className={CHAMP} />
+      <input id={id} {...props} aria-invalid={!!erreur} aria-describedby={erreur || aide ? `${id}-aide` : undefined} className={`${CHAMP} ${className}`} />
       {(erreur || aide) && (
         <p id={`${id}-aide`} className={`text-sm ${erreur ? 'text-hs' : 'text-discret'}`}>
           {erreur ?? aide}

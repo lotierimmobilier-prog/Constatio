@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alerte, Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
-import { STATUTS_EDL, TYPES_EDL, avancement, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
+import { STATUTS_EDL, TYPES_EDL, avancement, controlerEdl, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
 import { supabase } from '../../lib/supabase';
 import { PIECES_TYPES, pieceType } from '../../lib/trame';
 
@@ -12,6 +12,7 @@ interface Fiche {
   date_edl: string;
   entree_id: string | null;
   credit_consomme: boolean;
+  remarques_generales: string | null;
   logements: Logement;
 }
 
@@ -28,10 +29,11 @@ export function Edl() {
   const [typeAjout, setTypeAjout] = useState('chambre');
   const [nomAjout, setNomAjout] = useState('');
   const [aSupprimer, setASupprimer] = useState(false);
+  const [controle, setControle] = useState<Awaited<ReturnType<typeof controlerEdl>>>(null);
 
   const charger = useCallback(async () => {
     const [a, b, c, d] = await Promise.all([
-      supabase.from('edl').select('id, type, statut, date_edl, entree_id, credit_consomme, logements(*)').eq('id', id!).maybeSingle(),
+      supabase.from('edl').select('id, type, statut, date_edl, entree_id, credit_consomme, remarques_generales, logements(*)').eq('id', id!).maybeSingle(),
       supabase.from('edl_pieces').select('*').eq('edl_id', id!).order('ordre').order('created_at'),
       supabase.from('edl_elements').select('piece_id, etat').eq('edl_id', id!),
       supabase.from('edl_parties').select('role, nom, prenom').eq('edl_id', id!).order('ordre'),
@@ -41,15 +43,19 @@ export function Edl() {
     setPieces((b.data as Piece[]) ?? []);
     setElements(c.data ?? []);
     setParties(d.data ?? []);
+    setControle(await controlerEdl(id!));
   }, [id]);
   useEffect(() => { void charger(); }, [charger]);
 
   if (introuvable) return <Alerte>Cet état des lieux n’existe pas ou ne vous est pas accessible. <Link to="/app" className="font-semibold underline">Revenir à la liste</Link></Alerte>;
-  if (!edl) return <p className="text-center text-discret">Chargement…</p>;
+  if (!edl || !controle) return <p className="text-center text-discret">Chargement…</p>;
 
   const verrouille = edl.statut === 'signe';
   const global = avancement(elements);
   const locataires = parties.filter((p) => p.role === 'locataire');
+  const d = controle.donnees;
+  const sans = d.sansCompteurs;
+  const bloquants = controle.alertes.filter((x) => x.niveau === 'bloquant').length;
 
   async function ajouterPiece() {
     const type = pieceType(typeAjout);
@@ -134,10 +140,24 @@ export function Edl() {
           <Bouton variante="contour" onClick={() => setAjout(true)}>Ajouter une pièce ou un extérieur</Bouton>
         ))}
 
-      <Carte className="!gap-2">
-        <h2 className="text-lg font-bold">À venir</h2>
-        <p className="text-sm text-discret">Photos, compteurs, clés, inventaire du mobilier, contrôles, aperçu et signature arrivent aux prochaines étapes du développement.</p>
-      </Carte>
+      <h2 className="mt-2 text-lg font-bold">Compteurs, clés et contrôles</h2>
+      <Etape vers="compteurs" titre="Compteurs" detail={sans ? 'Non concerné (garage)' : `${d.compteurs.filter((c) => c.absent || c.index_1 !== null).length} sur 4 relevés ou déclarés`} fait={sans || d.compteurs.filter((c) => c.absent || c.index_1 !== null).length === 4} />
+      <Etape vers="cles" titre="Clés et accès" detail={d.cles.length ? `${d.cles.reduce((s, c) => s + c.nombre, 0)} remis` : 'Aucune clé décrite'} fait={d.cles.length > 0} />
+      {d.meuble && !sans && (
+        <Etape vers="inventaire" titre="Inventaire du mobilier" detail={`${new Set(d.inventaire.map((i) => i.code_decret).filter(Boolean)).size} équipements obligatoires sur 11`} fait={new Set(d.inventaire.map((i) => i.code_decret).filter(Boolean)).size === 11} />
+      )}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="remarques" className="font-semibold">Remarques générales</label>
+        <textarea id="remarques" rows={3} disabled={verrouille} defaultValue={edl.remarques_generales ?? ''} placeholder="Logement propre, repeint avant l’entrée…"
+          className="w-full rounded-xl border border-trait bg-surface px-3 py-2 text-base placeholder:text-discret"
+          onBlur={async (e) => {
+            const v = e.target.value.trim() || null;
+            if (v !== edl.remarques_generales) { await supabase.from('edl').update({ remarques_generales: v }).eq('id', edl.id); await charger(); }
+          }} />
+      </div>
+      <Link to="controles" className={`${classesBouton(bloquants ? 'contour' : 'repere')}`} data-testid="lien-controles">
+        {bloquants ? `Contrôles : ${bloquants} point${bloquants > 1 ? 's' : ''} à corriger` : 'Contrôles : tout est complet'}
+      </Link>
 
       {edl.statut === 'brouillon' && !edl.credit_consomme &&
         (aSupprimer ? (
@@ -160,5 +180,17 @@ export function Edl() {
           <button className="text-sm font-semibold text-hs underline-offset-4 hover:underline" onClick={() => setASupprimer(true)}>Supprimer ce brouillon</button>
         ))}
     </>
+  );
+}
+
+function Etape({ vers, titre, detail, fait }: { vers: string; titre: string; detail: string; fait: boolean }) {
+  return (
+    <Link to={vers} className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-trait bg-surface px-4 py-2">
+      <span className="min-w-0">
+        <span className="block font-semibold">{titre}</span>
+        <span className="block truncate text-sm text-discret">{detail}</span>
+      </span>
+      <span className={`whitespace-nowrap text-sm font-semibold ${fait ? 'text-neuf' : 'text-mauvais'}`}>{fait ? 'Fait' : 'À faire'}</span>
+    </Link>
   );
 }

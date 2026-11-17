@@ -214,3 +214,44 @@ export function avancement(elements: Pick<Element, 'etat'>[]): Avancement {
     aSignaler: elements.filter((x) => x.etat === 'mauvais' || x.etat === 'hors_service').length,
   };
 }
+
+// ── Contrôles ───────────────────────────────────────────────────────────────
+import { controler, type Alerte, type DonneesControle } from './controles';
+
+/** Lit tout ce que les contrôles examinent, et rend le verdict. */
+export async function controlerEdl(edlId: string): Promise<{ alertes: Alerte[]; donnees: DonneesControle } | null> {
+  const [e, parties, pieces, elements, compteurs, cles, inventaire] = await Promise.all([
+    supabase.from('edl').select('type, bail_type, entree_id, date_edl_entree, logements(meuble, type_bien)').eq('id', edlId).maybeSingle(),
+    supabase.from('edl_parties').select('role, nom, nouvelle_adresse, represente_id').eq('edl_id', edlId),
+    supabase.from('edl_pieces').select('id, nom').eq('edl_id', edlId).order('ordre').order('created_at'),
+    supabase.from('edl_elements').select('piece_id, libelle, etat, observations').eq('edl_id', edlId).order('ordre'),
+    supabase.from('edl_compteurs').select('type, absent, index_1, index_2, double_tarif, numero').eq('edl_id', edlId),
+    supabase.from('edl_cles').select('nombre, destination').eq('edl_id', edlId),
+    supabase.from('edl_inventaire').select('code_decret').eq('edl_id', edlId),
+  ]);
+  if (!e.data) return null;
+  const logement = e.data.logements as unknown as { meuble: boolean; type_bien: string };
+  const donnees: DonneesControle = {
+    type: e.data.type,
+    meuble: estMeuble(logement.meuble, e.data.bail_type),
+    sansCompteurs: logement.type_bien === 'garage',
+    entreeConnue: !!e.data.entree_id || !!e.data.date_edl_entree,
+    parties: parties.data ?? [],
+    pieces: pieces.data ?? [],
+    elements: elements.data ?? [],
+    compteurs: compteurs.data ?? [],
+    cles: cles.data ?? [],
+    inventaire: inventaire.data ?? [],
+  };
+  return { alertes: controler(donnees), donnees };
+}
+
+export const estMeuble = (logementMeuble: boolean, bailType: string) =>
+  logementMeuble || ['meuble', 'mobilite', 'etudiant'].includes(bailType);
+
+/** « 18 432,5 » ou « 18432.5 » → nombre ; vide → null ; illisible → NaN. */
+export function lireIndex(saisie: string): number | null {
+  const v = saisie.replace(/[\s  ]/g, '').replace(',', '.');
+  if (!v) return null;
+  return /^\d+(\.\d{1,3})?$/.test(v) ? Number(v) : NaN;
+}
