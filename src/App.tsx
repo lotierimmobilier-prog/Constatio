@@ -7,6 +7,10 @@ import { MotDePasseOublie } from './pages/MotDePasseOublie';
 import { NouveauMotDePasse } from './pages/NouveauMotDePasse';
 import { TableauDeBord } from './pages/app/TableauDeBord';
 import { Compte } from './pages/app/Compte';
+import { NouvelEdl } from './pages/app/NouvelEdl';
+import { Edl } from './pages/app/Edl';
+import { EdlParties } from './pages/app/EdlParties';
+import { EdlPiece } from './pages/app/EdlPiece';
 
 export function App() {
   return (
@@ -19,6 +23,10 @@ export function App() {
       <Route path="/app" element={<CoquilleApp />}>
         <Route index element={<TableauDeBord />} />
         <Route path="compte" element={<Compte />} />
+        <Route path="edl/nouveau" element={<NouvelEdl />} />
+        <Route path="edl/:id" element={<Edl />} />
+        <Route path="edl/:id/parties" element={<EdlParties />} />
+        <Route path="edl/:id/pieces/:pieceId" element={<EdlPiece />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

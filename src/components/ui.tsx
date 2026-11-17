@@ -20,7 +20,7 @@ export function Bouton({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variante?: keyof typeof VARIANTES; occupe?: boolean }) {
   return (
-    <button {...props} disabled={props.disabled || occupe} className={`${classesBouton(variante)} ${props.className ?? ''}`}>
+    <button type="button" {...props} disabled={props.disabled || occupe} className={`${classesBouton(variante)} ${props.className ?? ''}`}>
       {occupe ? 'Un instant…' : children}
     </button>
   );

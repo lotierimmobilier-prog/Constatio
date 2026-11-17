@@ -22,7 +22,8 @@ create type public.edl_type    as enum ('entrant', 'sortant', 'releve');
 create type public.edl_statut  as enum ('brouillon', 'termine', 'signe');
 create type public.bail_type   as enum ('vide', 'meuble', 'mobilite', 'etudiant', 'colocation', 'garage', 'autre');
 create type public.partie_role as enum ('bailleur', 'locataire', 'mandataire_bailleur', 'mandataire_locataire');
-create type public.etat_element as enum ('neuf', 'bon', 'usage', 'mauvais', 'hors_service');
+-- « sans_objet » = l'élément existe dans la trame mais ne s'applique pas ici (« N/A » de Collab).
+create type public.etat_element as enum ('neuf', 'bon', 'usage', 'mauvais', 'hors_service', 'sans_objet');
 create type public.compteur_type as enum ('electricite', 'gaz', 'eau_froide', 'eau_chaude');
 create type public.cle_nature  as enum ('cle', 'badge', 'bip', 'telecommande', 'carte', 'autre');
 
@@ -134,7 +135,7 @@ create table public.edl_pieces (
   edl_id       uuid not null references public.edl (id) on delete cascade,
   zone         text not null default 'interieur' check (zone in ('interieur', 'exterieur')),
   nom          text not null,                    -- « Séjour », « Chambre 2 », « Jardin »
-  type_piece   text,                             -- code du modèle (sejour, cuisine, sdb, wc…)
+  type_piece   text,                             -- type de la trame, comme dans Collab (sejour, cuisine, sdb…)
   observations text,
   ordre        smallint not null default 0,
   -- Pièce correspondante dans l'EDL d'entrée (comparaison de sortie).
@@ -150,13 +151,16 @@ create table public.edl_elements (
   id           uuid primary key default gen_random_uuid(),
   edl_id       uuid not null,
   piece_id     uuid not null,
-  categorie    text not null,                    -- code de ref_elements ou « autre »
+  -- Identifiant de l'élément dans la trame de pièces (« sol », « robinet_evier »…),
+  -- le même que dans Collab ; « autre » pour un élément ajouté à la main.
+  categorie    text not null,
   libelle      text not null,                    -- « Sol », « Fenêtre côté rue »
   nature       text,                             -- « parquet stratifié », « PVC double vitrage »
   etat         public.etat_element,              -- null = pas encore renseigné
   fonctionne   boolean,                          -- équipements : testé, fonctionne ?
   quantite     smallint,
   observations text,
+  detail       text,                             -- précision demandée par la trame (« Tondue le… »)
   -- Texte de la dictée vocale avant relecture, et passages douteux signalés.
   dictee_brute text,
   dictee_doutes jsonb,
@@ -332,39 +336,6 @@ create table public.edl_journal (
   created_at timestamptz not null default now()
 );
 create index edl_journal_edl_idx on public.edl_journal (edl_id, created_at);
-
--- Référentiel des éléments proposés par défaut (codes stables pour l'export) -------
-create table public.ref_elements (
-  code    text primary key,
-  zone    text not null check (zone in ('interieur', 'exterieur')),
-  libelle text not null,
-  ordre   smallint not null
-);
-insert into public.ref_elements (code, zone, libelle, ordre) values
-  ('sol', 'interieur', 'Sol', 1),
-  ('murs', 'interieur', 'Murs', 2),
-  ('plafond', 'interieur', 'Plafond', 3),
-  ('menuiseries', 'interieur', 'Portes, fenêtres et volets', 4),
-  ('electricite', 'interieur', 'Prises, interrupteurs et éclairage', 5),
-  ('plomberie', 'interieur', 'Plomberie et sanitaires', 6),
-  ('chauffage', 'interieur', 'Chauffage', 7),
-  ('equipements', 'interieur', 'Équipements', 8),
-  ('rangements', 'interieur', 'Placards et rangements', 9),
-  ('pelouse', 'exterieur', 'Pelouse', 20),
-  ('arbres', 'exterieur', 'Arbres', 21),
-  ('haies', 'exterieur', 'Haies et arbustes', 22),
-  ('massifs', 'exterieur', 'Massifs', 23),
-  ('potager', 'exterieur', 'Potager', 24),
-  ('invasives', 'exterieur', 'Palmiers, bambous et plantes invasives', 25),
-  ('arrosage', 'exterieur', 'Arrosage automatique', 26),
-  ('clotures', 'exterieur', 'Clôtures, murs et portails', 27),
-  ('terrasses', 'exterieur', 'Terrasses, dallages et allées', 28),
-  ('abris', 'exterieur', 'Abris et dépendances', 29),
-  ('piscine', 'exterieur', 'Piscine et spa', 30),
-  ('eclairage_ext', 'exterieur', 'Éclairage extérieur', 31),
-  ('eau_compost', 'exterieur', 'Récupération d''eau et compost', 32),
-  ('proprete', 'exterieur', 'Propreté générale', 33),
-  ('observations_ext', 'exterieur', 'Observations libres', 34);
 
 -- updated_at ---------------------------------------------------------------------
 do $$

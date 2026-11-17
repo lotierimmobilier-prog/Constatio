@@ -146,10 +146,9 @@ create policy edl_complements_reponse on public.edl_complements for update to au
   using (private.edl_de_mon_organisation(edl_id)) with check (private.edl_de_mon_organisation(edl_id));
 
 -- Référentiels et tarifs : lecture pour tous, y compris le site vitrine.
-grant select on public.ref_mobilier_decret, public.ref_elements to anon, authenticated;
+grant select on public.ref_mobilier_decret to anon, authenticated;
 grant select (code, libelle, montant_cents, periodicite, credits, validite_mois, actif) on public.tarifs to anon, authenticated;
 create policy ref_mobilier_lecture on public.ref_mobilier_decret for select to anon, authenticated using (true);
-create policy ref_elements_lecture on public.ref_elements for select to anon, authenticated using (true);
 create policy tarifs_lecture on public.tarifs for select to anon, authenticated using (actif);
 grant select on public.parametres to anon, authenticated;
 create policy parametres_lecture on public.parametres for select to anon, authenticated

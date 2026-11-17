@@ -182,11 +182,20 @@ begin
 
   -- Export Collab ---------------------------------------------------------------
   perform t.connecter(a);
-  perform t.egal('export : statut Collab', public.export_collab_edl2(e1) #>> '{edl2,statut}', 'signe');
+  perform t.egal('export : type Collab', public.export_collab_edl2(e1) #>> '{edl2,type}', 'entree');
+  perform t.egal('export : signé → cloture', public.export_collab_edl2(e1) #>> '{edl2,statut}', 'cloture');
   perform t.egal('export : brouillon → en_cours', public.export_collab_edl2(e2) #>> '{edl2,statut}', 'en_cours');
   perform t.egal('export : locataire', public.export_collab_edl2(e1) #>> '{edl2,locataireNom}', 'ZZREC Marty');
+  perform t.egal('export : partie locataire', public.export_collab_edl2(e1) #>> '{edl2,contenu,parties,locataire,nom}', 'ZZREC Marty');
+  perform t.egal('export : libellé de la pièce', public.export_collab_edl2(e1) #>> '{edl2,contenu,pieces,0,label}', 'Séjour');
   perform t.egal('export : état du sol', public.export_collab_edl2(e1) #>> '{edl2,contenu,pieces,0,elements,0,etat}', 'bon');
-  perform t.egal('export : compteur ancien module', public.export_collab_edl2(e1) #>> '{etats_des_lieux,compteurElec}', '18432.000 / 9877.000');
+  perform t.egal('export : index électricité', public.export_collab_edl2(e1) #>> '{edl2,contenu,compteurs,elec,valeur}', '18432.000');
+  perform t.egal('export : heures creuses', public.export_collab_edl2(e1) #>> '{edl2,contenu,compteurs,elec,hc}', '9877.000');
+  perform t.egal('export : compteur de gaz non saisi', public.export_collab_edl2(e1) #>> '{edl2,contenu,compteurs,gaz,type}', '');
+  perform t.egal('export : clés', public.export_collab_edl2(e1) #>> '{edl2,contenu,cles,0,type}', 'Clé — porte palière');
+  perform t.egal('export : signature du locataire', (public.export_collab_edl2(e1) #>> '{edl2,contenu,signatures,locataire,nom}'), 'ZZREC Marty');
+  perform t.egal('export : hors service → mauvais', private.collab_etat('hors_service'), 'mauvais');
+  perform t.egal('export : sans objet → na', private.collab_etat('sans_objet'), 'na');
 
   -- Prestation sur place : plafond légal de la part locataire ------------------------
   perform t.role('service_role');

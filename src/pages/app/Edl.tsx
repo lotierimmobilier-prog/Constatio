@@ -1,0 +1,164 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Alerte, Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
+import { STATUTS_EDL, TYPES_EDL, avancement, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
+import { supabase } from '../../lib/supabase';
+import { PIECES_TYPES, pieceType } from '../../lib/trame';
+
+interface Fiche {
+  id: string;
+  type: TypeEdl;
+  statut: StatutEdl;
+  date_edl: string;
+  entree_id: string | null;
+  credit_consomme: boolean;
+  logements: Logement;
+}
+
+/** Vue d'ensemble d'un EDL : ce qui est fait, ce qui reste, et l'accès à chaque pièce. */
+export function Edl() {
+  const { id } = useParams();
+  const aller = useNavigate();
+  const [edl, setEdl] = useState<Fiche | null>(null);
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [elements, setElements] = useState<Pick<Element, 'piece_id' | 'etat'>[]>([]);
+  const [parties, setParties] = useState<Pick<Partie, 'role' | 'nom' | 'prenom'>[]>([]);
+  const [introuvable, setIntrouvable] = useState(false);
+  const [ajout, setAjout] = useState(false);
+  const [typeAjout, setTypeAjout] = useState('chambre');
+  const [nomAjout, setNomAjout] = useState('');
+  const [aSupprimer, setASupprimer] = useState(false);
+
+  const charger = useCallback(async () => {
+    const [a, b, c, d] = await Promise.all([
+      supabase.from('edl').select('id, type, statut, date_edl, entree_id, credit_consomme, logements(*)').eq('id', id!).maybeSingle(),
+      supabase.from('edl_pieces').select('*').eq('edl_id', id!).order('ordre').order('created_at'),
+      supabase.from('edl_elements').select('piece_id, etat').eq('edl_id', id!),
+      supabase.from('edl_parties').select('role, nom, prenom').eq('edl_id', id!).order('ordre'),
+    ]);
+    if (!a.data) return setIntrouvable(true);
+    setEdl(a.data as unknown as Fiche);
+    setPieces((b.data as Piece[]) ?? []);
+    setElements(c.data ?? []);
+    setParties(d.data ?? []);
+  }, [id]);
+  useEffect(() => { void charger(); }, [charger]);
+
+  if (introuvable) return <Alerte>Cet état des lieux n’existe pas ou ne vous est pas accessible. <Link to="/app" className="font-semibold underline">Revenir à la liste</Link></Alerte>;
+  if (!edl) return <p className="text-center text-discret">Chargement…</p>;
+
+  const verrouille = edl.statut === 'signe';
+  const global = avancement(elements);
+  const locataires = parties.filter((p) => p.role === 'locataire');
+
+  async function ajouterPiece() {
+    const type = pieceType(typeAjout);
+    const pieceId = crypto.randomUUID();
+    const ordre = pieces.length ? Math.max(...pieces.map((p) => p.ordre)) + 1 : 0;
+    const { error } = await supabase.from('edl_pieces').insert({ id: pieceId, edl_id: edl!.id, zone: type.zone, nom: nomAjout.trim() || type.label, type_piece: type.id, ordre });
+    if (!error) await supabase.from('edl_elements').insert(elementsDePiece(edl!.id, pieceId, type.id));
+    setAjout(false);
+    setNomAjout('');
+    await charger();
+  }
+
+  return (
+    <>
+      <Link to="/app" className="text-sm font-semibold text-marque">← Mes états des lieux</Link>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">{edl.logements.libelle}</h1>
+          <p className="text-sm text-discret">
+            {TYPES_EDL[edl.type]} · {edl.logements.adresse}, {edl.logements.code_postal} {edl.logements.ville}
+          </p>
+        </div>
+        <span className={`whitespace-nowrap rounded-full border border-current px-2 text-xs font-semibold ${STATUTS_EDL[edl.statut].couleur}`}>{STATUTS_EDL[edl.statut].libelle}</span>
+      </div>
+
+      <div aria-label="Avancement de la visite">
+        <div className="h-2 overflow-hidden rounded-full bg-creux">
+          <div className="h-full bg-repere" style={{ width: `${global.total ? (100 * global.faits) / global.total : 0}%` }} />
+        </div>
+        <p className="mt-1 text-sm text-discret" data-testid="avancement">
+          {global.faits} élément{global.faits > 1 ? 's' : ''} sur {global.total} constaté{global.faits > 1 ? 's' : ''}
+          {global.aSignaler > 0 && ` · ${global.aSignaler} à signaler`}
+        </p>
+      </div>
+
+      {edl.type === 'sortant' && !edl.entree_id && (
+        <Alerte ton="info">Sans état des lieux d’entrée, aucune dégradation n’est opposable au locataire à la sortie.</Alerte>
+      )}
+
+      <Link to="parties" className="flex items-center justify-between gap-3 rounded-2xl border border-trait bg-surface p-4">
+        <span className="min-w-0">
+          <span className="block font-semibold">Parties</span>
+          <span className="block truncate text-sm text-discret">
+            {locataires.length ? `Locataire : ${locataires.map((p) => [p.prenom, p.nom].filter(Boolean).join(' ')).join(', ')}` : 'Locataire à renseigner'}
+          </span>
+        </span>
+        <span className={`whitespace-nowrap text-sm font-semibold ${locataires.length ? 'text-neuf' : 'text-mauvais'}`}>{locataires.length ? 'Complet' : 'À faire'}</span>
+      </Link>
+
+      <h2 className="mt-2 text-lg font-bold">Pièces</h2>
+      <ul className="flex flex-col gap-2">
+        {pieces.map((p) => {
+          const av = avancement(elements.filter((x) => x.piece_id === p.id));
+          const finie = av.total > 0 && av.faits === av.total;
+          return (
+            <li key={p.id}>
+              <Link to={`pieces/${p.id}`} className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-trait bg-surface px-4 py-2">
+                <span className="min-w-0 truncate font-semibold">{p.nom}</span>
+                <span className={`whitespace-nowrap text-sm font-semibold tabular-nums ${finie ? 'text-neuf' : 'text-discret'}`}>
+                  {av.aSignaler > 0 && <span className="mr-2 text-hs">{av.aSignaler} à signaler</span>}
+                  {finie ? 'Fait' : `${av.faits} / ${av.total}`}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {!verrouille &&
+        (ajout ? (
+          <Carte>
+            <Liste id="type-piece" libelle="Type de pièce" value={typeAjout} onChange={(e) => setTypeAjout(e.target.value)}>
+              {PIECES_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </Liste>
+            <Champ id="nom-piece" libelle="Nom" value={nomAjout} onChange={(e) => setNomAjout(e.target.value)} placeholder={pieceType(typeAjout).label} aide="Facultatif : « Chambre parentale », « Cellier »…" />
+            <div className="grid grid-cols-2 gap-3">
+              <Bouton variante="contour" onClick={() => setAjout(false)}>Annuler</Bouton>
+              <Bouton onClick={ajouterPiece}>Ajouter</Bouton>
+            </div>
+          </Carte>
+        ) : (
+          <Bouton variante="contour" onClick={() => setAjout(true)}>Ajouter une pièce ou un extérieur</Bouton>
+        ))}
+
+      <Carte className="!gap-2">
+        <h2 className="text-lg font-bold">À venir</h2>
+        <p className="text-sm text-discret">Photos, compteurs, clés, inventaire du mobilier, contrôles, aperçu et signature arrivent aux prochaines étapes du développement.</p>
+      </Carte>
+
+      {edl.statut === 'brouillon' && !edl.credit_consomme &&
+        (aSupprimer ? (
+          <Carte>
+            <p className="font-semibold">Supprimer ce brouillon et tout ce qu’il contient ?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Bouton variante="contour" onClick={() => setASupprimer(false)}>Garder</Bouton>
+              <button
+                className={`${classesBouton('plein')} !bg-hs !text-surface`}
+                onClick={async () => {
+                  await supabase.from('edl').delete().eq('id', edl.id);
+                  aller('/app', { replace: true });
+                }}
+              >
+                Supprimer
+              </button>
+            </div>
+          </Carte>
+        ) : (
+          <button className="text-sm font-semibold text-hs underline-offset-4 hover:underline" onClick={() => setASupprimer(true)}>Supprimer ce brouillon</button>
+        ))}
+    </>
+  );
+}

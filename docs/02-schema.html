@@ -48,9 +48,9 @@ pre.mermaid{margin:0;padding:12px;min-width:640px}
   <h1>Schéma de données de Constatio</h1>
   <p>Le schéma est écrit en cinq fichiers SQL commentés dans le dépôt (<code>supabase/migrations</code>). Il n'est appliqué sur aucun projet Supabase : il a été monté et testé sur une base locale jetable.</p>
   <div class="result">
-    <span><b>31</b>tables</span>
+    <span><b>30</b>tables</span>
     <span><b>5</b>migrations appliquées sans erreur</span>
-    <span><b>59</b>tests d'accès et de cycle de vie réussis</span>
+    <span><b>68</b>tests d'accès et de cycle de vie réussis</span>
   </div>
 </header>
 
@@ -92,7 +92,7 @@ erDiagram
     <tr><td>Preuve</td><td><code>edl_signatures</code> <code>edl_jetons</code> <code>edl_journal</code> <code>edl_complements</code></td><td>Empreinte du PDF sur chaque signature, journal en ajout seul, complément refusé par la base passé le délai légal.</td></tr>
     <tr><td>Sortie</td><td><code>grilles_vetuste</code> <code>grille_vetuste_lignes</code> <code>retenues</code> <code>decomptes</code></td><td>Une grille par défaut et des grilles personnalisées. Le délai de restitution (1 ou 2 mois) est calculé par la base.</td></tr>
     <tr><td>Facturation</td><td><code>tarifs</code> <code>credit_lots</code> <code>credit_consommations</code> <code>abonnements</code> <code>reservations</code></td><td>Vos tarifs validés sont en table, modifiables sans redéploiement. Crédits valables 24 mois.</td></tr>
-    <tr><td>Technique</td><td><code>api_cles</code> <code>webhook_evenements</code> <code>parametres</code> <code>ref_elements</code> <code>ref_mobilier_decret</code></td><td>Le « mode test » est un paramètre, actif par défaut. Les 11 équipements du décret meublé sont en référentiel.</td></tr>
+    <tr><td>Technique</td><td><code>api_cles</code> <code>webhook_evenements</code> <code>parametres</code> <code>ref_mobilier_decret</code></td><td>Le « mode test » est un paramètre, actif par défaut. Les 11 équipements du décret meublé sont en référentiel.</td></tr>
   </table></div>
 </section>
 
@@ -124,17 +124,18 @@ erDiagram
   <p>La fonction <code>export_collab_edl2</code> produit, pour un EDL, une ligne au format de la table <code>edl2</code> de Collab, la liste de ses photos au format <code>edl2_photos</code> et un résumé au format de l'ancien module <code>etats_des_lieux</code>.</p>
   <div class="scroll"><table>
     <tr><th>Collab <code>edl2</code></th><th>Constatio</th></tr>
-    <tr><td><code>type</code></td><td><code>edl.type</code> : entrant, sortant, releve</td></tr>
-    <tr><td><code>statut</code></td><td>brouillon devient <code>en_cours</code> (valeur par défaut constatée dans Collab), puis termine, signe</td></tr>
+    <tr><td><code>type</code></td><td>entrant devient <code>entree</code>, sortant devient <code>sortie</code></td></tr>
+    <tr><td><code>statut</code></td><td>brouillon devient <code>en_cours</code> ; terminé et signé deviennent <code>cloture</code></td></tr>
     <tr><td><code>lotId</code>, <code>lotLabel</code>, <code>adresse</code></td><td><code>logements.collab_lot_id</code>, libellé, adresse complète</td></tr>
-    <tr><td><code>tenantId</code>, <code>locataireNom</code></td><td>première partie « locataire », noms de tous les locataires</td></tr>
-    <tr><td><code>entreeId</code></td><td><code>edl.entree_id</code></td></tr>
-    <tr><td><code>agentNom</code></td><td><code>edl.realise_par_nom</code></td></tr>
-    <tr><td><code>closedAt</code></td><td>date de signature, sinon de génération</td></tr>
-    <tr><td><code>contenu</code> (JSON)</td><td>parties, bail, pièces et éléments, compteurs, clés, inventaire, remarques, signatures</td></tr>
+    <tr><td><code>tenantId</code>, <code>locataireNom</code></td><td>premier locataire, noms de tous les locataires</td></tr>
+    <tr><td><code>entreeId</code>, <code>agentNom</code>, <code>closedAt</code></td><td>EDL d'entrée, personne qui réalise, date de signature ou de génération</td></tr>
+    <tr><td><code>contenu.pieces</code></td><td>pièces et éléments, avec les mêmes identifiants de trame que Collab</td></tr>
+    <tr><td><code>contenu.compteurs</code></td><td>électricité (dont heures creuses), gaz, eau froide</td></tr>
+    <tr><td><code>contenu.cles</code>, <code>parties</code>, <code>signatures</code>, <code>retenues</code></td><td>clés, deux premiers locataires et mandataire, signatures, retenues</td></tr>
+    <tr><td><code>contenu.equipements</code></td><td>inventaire du mobilier</td></tr>
     <tr><td><code>edl2_photos.data</code></td><td>fichier du stockage, converti en base64 par l'API au moment de l'export</td></tr>
   </table></div>
-  <p class="note"><b>Limite à lever avec vous.</b> Les tables EDL de Collab sont vides aujourd'hui. J'ai donc pu lire leurs colonnes, mais pas la forme réelle du champ <code>contenu</code> ni les valeurs exactes de <code>type</code> et de <code>statut</code> au-delà de <code>en_cours</code>. La structure exportée est ma proposition, versionnée pour être ajustée. Un EDL réel créé dans Collab, ou le code du module, me permettrait de l'aligner exactement.</p>
+  <p class="note"><b>Format vérifié dans le code de Collab.</b> L'export suit maintenant le format réel du module EDL de Collab (<code>src/lib/edl2.ts</code>), et la trame des pièces de Constatio reprend ses identifiants. Quatre écarts subsistent, traités par l'export : « hors service » devient « mauvais » avec la mention en observation ; le relevé d'état n'existe pas dans ce module de Collab ; l'index d'eau chaude et les locataires au-delà du deuxième sont reportés dans les remarques. Tout ce que Collab ne sait pas ranger est conservé dans un bloc <code>constatio</code>. L'import réel dans Collab reste à tester.</p>
 </section>
 
 <section>

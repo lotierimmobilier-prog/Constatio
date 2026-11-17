@@ -14,7 +14,7 @@ create table public.grilles_vetuste (
 create table public.grille_vetuste_lignes (
   id              uuid primary key default gen_random_uuid(),
   grille_id       uuid not null references public.grilles_vetuste (id) on delete cascade,
-  categorie       text not null,                 -- code de ref_elements, ou libre
+  categorie       text not null,                 -- famille d'ouvrage (sol, murs, plomberie…)
   libelle         text not null,
   duree_vie_ans   smallint not null check (duree_vie_ans > 0),
   franchise_ans   smallint not null default 0 check (franchise_ans >= 0),

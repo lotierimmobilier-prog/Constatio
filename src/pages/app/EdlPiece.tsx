@@ -1,0 +1,195 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Alerte, Bouton, Carte, Champ } from '../../components/ui';
+import { avancement, type Element, type Piece } from '../../lib/edl';
+import { supabase } from '../../lib/supabase';
+import { ETATS, detailAttendu, libelleEtat, type Etat } from '../../lib/trame';
+
+type Origine = Pick<Element, 'id' | 'etat' | 'observations'>;
+const ZONE = 'min-h-[48px] w-full rounded-xl border border-trait bg-surface px-3 py-2 text-base text-encre placeholder:text-discret';
+
+/** La visite d'une pièce : un appui par élément, le détail à la demande. */
+export function EdlPiece() {
+  const { id, pieceId } = useParams();
+  const aller = useNavigate();
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [elements, setElements] = useState<Element[]>([]);
+  const [origines, setOrigines] = useState<Map<string, Origine>>(new Map());
+  const [verrouille, setVerrouille] = useState(false);
+  const [charge, setCharge] = useState(false);
+  const [ouvert, setOuvert] = useState<string | null>(null);
+  const [erreur, setErreur] = useState(false);
+  const [nouveau, setNouveau] = useState('');
+  const [gestion, setGestion] = useState(false);
+  const [nomPiece, setNomPiece] = useState('');
+
+  const charger = useCallback(async () => {
+    setCharge(false);
+    const [a, b, c] = await Promise.all([
+      supabase.from('edl_pieces').select('*').eq('edl_id', id!).order('ordre').order('created_at'),
+      supabase.from('edl_elements').select('*').eq('piece_id', pieceId!).order('ordre').order('created_at'),
+      supabase.from('edl').select('statut').eq('id', id!).maybeSingle(),
+    ]);
+    const els = (b.data as Element[]) ?? [];
+    setPieces((a.data as Piece[]) ?? []);
+    setElements(els);
+    setVerrouille(c.data?.statut === 'signe');
+    setNomPiece(((a.data as Piece[]) ?? []).find((p) => p.id === pieceId)?.nom ?? '');
+    // Sortie : l'état constaté à l'entrée, affiché en regard.
+    const ids = els.map((x) => x.origine_id).filter(Boolean) as string[];
+    if (ids.length) {
+      const { data } = await supabase.from('edl_elements').select('id, etat, observations').in('id', ids);
+      setOrigines(new Map(((data as Origine[]) ?? []).map((o) => [o.id, o])));
+    } else setOrigines(new Map());
+    setOuvert(null);
+    setGestion(false);
+    setCharge(true);
+  }, [id, pieceId]);
+  useEffect(() => { void charger(); }, [charger]);
+
+  const piece = pieces.find((p) => p.id === pieceId);
+  if (!charge) return <p className="text-center text-discret">Chargement…</p>;
+  if (!piece) return <Alerte>Cette pièce n’existe plus. <Link to={`/app/edl/${id}`} className="font-semibold underline">Revenir à l’état des lieux</Link></Alerte>;
+
+  const rang = pieces.findIndex((p) => p.id === pieceId);
+  const suivante = pieces[rang + 1];
+  const av = avancement(elements);
+
+  /** Mise à jour immédiate à l'écran, puis enregistrement ; en cas d'échec on le dit et on recharge. */
+  async function modifier(elId: string, champs: Partial<Element>) {
+    setErreur(false);
+    setElements((liste) => liste.map((x) => (x.id === elId ? { ...x, ...champs } : x)));
+    const { data, error } = await supabase.from('edl_elements').update(champs).eq('id', elId).select('id');
+    if (error || !data?.length) {
+      setErreur(true);
+      await charger();
+    }
+  }
+
+  async function ajouterElement() {
+    const libelle = nouveau.trim();
+    if (!libelle) return;
+    const ligne = { id: crypto.randomUUID(), edl_id: id!, piece_id: pieceId!, categorie: 'autre', libelle, ordre: elements.length ? Math.max(...elements.map((x) => x.ordre)) + 1 : 0 };
+    const { error } = await supabase.from('edl_elements').insert(ligne);
+    if (error) return setErreur(true);
+    setNouveau('');
+    setElements((liste) => [...liste, { ...ligne, nature: null, etat: null, observations: null, detail: null, origine_id: null }]);
+  }
+
+  return (
+    <>
+      <Link to={`/app/edl/${id}`} className="text-sm font-semibold text-marque">← Toutes les pièces</Link>
+      <div className="flex items-end justify-between gap-3">
+        <h1 className="min-w-0 text-2xl font-bold">{piece.nom}</h1>
+        <p className="whitespace-nowrap text-sm text-discret tabular-nums">pièce {rang + 1} / {pieces.length} · {av.faits} / {av.total}</p>
+      </div>
+      {verrouille && <Alerte ton="info">État des lieux signé : il ne peut plus être modifié.</Alerte>}
+      {erreur && <Alerte>La dernière modification n’a pas été enregistrée. Vérifiez votre connexion et recommencez.</Alerte>}
+
+      <ul className="flex flex-col gap-3">
+        {elements.map((el) => {
+          const origine = el.origine_id ? origines.get(el.origine_id) : undefined;
+          const precision = detailAttendu(piece.type_piece, el.categorie);
+          const estOuvert = ouvert === el.id;
+          const ecart = origine?.etat && el.etat && el.etat !== 'sans_objet' && origine.etat !== el.etat;
+          return (
+            <li key={el.id} className="flex flex-col gap-2 rounded-2xl border border-trait bg-surface p-3" data-testid={`element-${el.categorie}`}>
+              <button type="button" className="flex items-center justify-between gap-3 text-left" aria-expanded={estOuvert} onClick={() => setOuvert(estOuvert ? null : el.id)}>
+                <span className="min-w-0">
+                  <span className="block font-semibold">{el.libelle}{el.nature ? ` · ${el.nature}` : ''}</span>
+                  {origine && <span className={`block text-sm ${ecart ? 'font-semibold text-mauvais' : 'text-discret'}`}>À l’entrée : {libelleEtat(origine.etat)}</span>}
+                  {el.etat === 'sans_objet' && <span className="block text-sm text-discret">Sans objet</span>}
+                </span>
+                <span className="whitespace-nowrap text-sm font-semibold text-marque">{estOuvert ? 'Fermer' : el.observations ? 'Note ✓' : 'Détail'}</span>
+              </button>
+              <div role="group" aria-label={`État : ${el.libelle}`} className="grid grid-cols-5 gap-1.5">
+                {ETATS.map((x) => {
+                  const actif = el.etat === x.id;
+                  return (
+                    <button key={x.id} type="button" disabled={verrouille} aria-pressed={actif} title={x.label} aria-label={x.label}
+                      onClick={() => modifier(el.id, { etat: actif ? null : x.id })}
+                      className={`min-h-[48px] rounded-xl border-2 text-sm font-bold ${actif ? `${x.classe} border-transparent text-surface` : 'border-trait text-discret'}`}>
+                      {x.court}
+                    </button>
+                  );
+                })}
+              </div>
+              {estOuvert && (
+                <fieldset disabled={verrouille} className="flex flex-col gap-3 border-t border-trait pt-3">
+                  <Champ id={`nature-${el.id}`} libelle="Nature, matériau" defaultValue={el.nature ?? ''} placeholder="Parquet stratifié, PVC double vitrage…"
+                    onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== el.nature) void modifier(el.id, { nature: v }); }} />
+                  {precision && (
+                    <Champ id={`detail-${el.id}`} libelle={precision} defaultValue={el.detail ?? ''}
+                      onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== el.detail) void modifier(el.id, { detail: v }); }} />
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor={`obs-${el.id}`} className="text-sm font-semibold">Observations</label>
+                    <textarea id={`obs-${el.id}`} rows={3} className={ZONE} defaultValue={el.observations ?? ''} placeholder="Rayure de 10 cm près de la fenêtre…"
+                      onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== el.observations) void modifier(el.id, { observations: v }); }} />
+                    {origine?.observations && <p className="text-sm text-discret">À l’entrée : {origine.observations}</p>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Bouton variante="contour" onClick={() => modifier(el.id, { etat: el.etat === 'sans_objet' ? null : ('sans_objet' as Etat) })}>
+                      {el.etat === 'sans_objet' ? 'Remettre à constater' : 'Sans objet'}
+                    </Bouton>
+                    <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => {
+                      const { error } = await supabase.from('edl_elements').delete().eq('id', el.id);
+                      if (error) setErreur(true); else setElements((liste) => liste.filter((x) => x.id !== el.id));
+                    }}>Retirer</Bouton>
+                  </div>
+                </fieldset>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {!verrouille && (
+        <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); void ajouterElement(); }}>
+          <div className="flex-1"><Champ id="nouvel-element" libelle="Ajouter un élément" value={nouveau} onChange={(e) => setNouveau(e.target.value)} placeholder="Cheminée, verrière…" /></div>
+          <Bouton type="submit" variante="contour" className="!w-auto" disabled={!nouveau.trim()}>Ajouter</Bouton>
+        </form>
+      )}
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="obs-piece" className="text-sm font-semibold">Observations sur la pièce</label>
+        <textarea id="obs-piece" rows={2} disabled={verrouille} className={ZONE} defaultValue={piece.observations ?? ''}
+          onBlur={async (e) => {
+            const v = e.target.value.trim() || null;
+            if (v === piece.observations) return;
+            const { error } = await supabase.from('edl_pieces').update({ observations: v }).eq('id', piece.id);
+            if (error) setErreur(true); else setPieces((l) => l.map((p) => (p.id === piece.id ? { ...p, observations: v } : p)));
+          }} />
+      </div>
+
+      {suivante ? (
+        <Link to={`/app/edl/${id}/pieces/${suivante.id}`} className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-marque px-4 text-base font-semibold text-sur-marque">
+          Pièce suivante : {suivante.nom}
+        </Link>
+      ) : (
+        <Link to={`/app/edl/${id}`} className="inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-marque px-4 text-base font-semibold text-sur-marque">
+          Dernière pièce : revenir à la vue d’ensemble
+        </Link>
+      )}
+
+      {!verrouille &&
+        (gestion ? (
+          <Carte>
+            <Champ id="renommer" libelle="Nom de la pièce" value={nomPiece} onChange={(e) => setNomPiece(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => {
+                const { error } = await supabase.from('edl_pieces').delete().eq('id', piece.id);
+                if (error) setErreur(true); else aller(`/app/edl/${id}`, { replace: true });
+              }}>Supprimer la pièce</Bouton>
+              <Bouton disabled={!nomPiece.trim()} onClick={async () => {
+                const { error } = await supabase.from('edl_pieces').update({ nom: nomPiece.trim() }).eq('id', piece.id);
+                if (error) setErreur(true); else { setPieces((l) => l.map((p) => (p.id === piece.id ? { ...p, nom: nomPiece.trim() } : p))); setGestion(false); }
+              }}>Renommer</Bouton>
+            </div>
+          </Carte>
+        ) : (
+          <button className="text-sm font-semibold text-marque underline-offset-4 hover:underline" onClick={() => setGestion(true)}>Renommer ou supprimer cette pièce</button>
+        ))}
+    </>
+  );
+}

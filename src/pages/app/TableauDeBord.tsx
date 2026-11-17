@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
-import { Alerte, Bouton, Carte } from '../../components/ui';
+import { Link } from 'react-router-dom';
+import { Alerte, Carte, classesBouton } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
 
 interface LigneEdl {
@@ -54,14 +55,9 @@ export function TableauDeBord() {
         </p>
       </div>
       {erreur && <Alerte>Impossible de charger vos états des lieux. Vérifiez votre connexion puis rechargez la page.</Alerte>}
-      <div className="flex flex-col gap-1">
-        <Bouton disabled aria-describedby="nouvel-edl-note">
-          Nouvel état des lieux
-        </Bouton>
-        <p id="nouvel-edl-note" className="text-center text-sm text-discret">
-          La création d’un état des lieux arrive à la prochaine étape du développement.
-        </p>
-      </div>
+      <Link to="/app/edl/nouveau" className={classesBouton('plein')}>
+        Nouvel état des lieux
+      </Link>
       {edl && edl.length === 0 && (
         <Carte>
           <h2 className="text-lg font-bold">Aucun état des lieux pour l’instant</h2>
@@ -72,17 +68,17 @@ export function TableauDeBord() {
         </Carte>
       )}
       {edl?.map((e) => (
-        <Carte key={e.id} className="!gap-1">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="min-w-0 truncate font-sans font-semibold">{e.logements?.libelle ?? 'Logement'}</h2>
+        <Link key={e.id} to={`/app/edl/${e.id}`} className="flex flex-col gap-1 rounded-2xl border border-trait bg-surface p-4">
+          <span className="flex items-center justify-between gap-3">
+            <span className="min-w-0 truncate font-semibold">{e.logements?.libelle ?? 'Logement'}</span>
             <span className={`whitespace-nowrap rounded-full border border-current px-2 text-xs font-semibold ${STATUTS[e.statut].couleur}`}>
               {STATUTS[e.statut].libelle}
             </span>
-          </div>
-          <p className="text-sm text-discret">
+          </span>
+          <span className="text-sm text-discret">
             {TYPES[e.type]} · {e.logements?.ville} · {new Date(e.date_edl).toLocaleDateString('fr-FR')}
-          </p>
-        </Carte>
+          </span>
+        </Link>
       ))}
     </>
   );
