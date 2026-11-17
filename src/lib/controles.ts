@@ -66,7 +66,7 @@ export function controler(d: DonneesControle): Alerte[] {
     if (nommes('locataire').some((p) => !p.nouvelle_adresse?.trim()))
       bloquant('Sortie : la nouvelle adresse du locataire est obligatoire.', 'parties', 'Compléter les parties');
     if (!d.entreeConnue)
-      conseil('Sans état des lieux d’entrée, aucune dégradation n’est opposable au locataire.', '', 'Voir l’état des lieux');
+      conseil('Sans état des lieux d’entrée précis, une retenue sur le dépôt de garantie est très difficile à justifier.', '', 'Voir l’état des lieux');
   }
 
   // Pièces

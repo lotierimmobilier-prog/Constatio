@@ -148,7 +148,7 @@ export function NouvelEdl() {
       </fieldset>
 
       {type === 'sortant' && depart !== 'entree' && (
-        <Alerte ton="info">Sans état des lieux d’entrée, aucune dégradation n’est opposable au locataire à la sortie.</Alerte>
+        <Alerte ton="info">Sans état des lieux d’entrée précis, une retenue sur le dépôt de garantie est très difficile à justifier.</Alerte>
       )}
 
       {depart === 'entree' && (

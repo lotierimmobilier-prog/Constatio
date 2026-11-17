@@ -89,7 +89,7 @@ export function Edl() {
       </div>
 
       {edl.type === 'sortant' && !edl.entree_id && (
-        <Alerte ton="info">Sans état des lieux d’entrée, aucune dégradation n’est opposable au locataire à la sortie.</Alerte>
+        <Alerte ton="info">Sans état des lieux d’entrée précis, une retenue sur le dépôt de garantie est très difficile à justifier.</Alerte>
       )}
 
       <Link to="parties" className="flex items-center justify-between gap-3 rounded-2xl border border-trait bg-surface p-4">

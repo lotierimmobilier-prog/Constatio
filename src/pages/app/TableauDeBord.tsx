@@ -67,7 +67,7 @@ export function TableauDeBord() {
           <p className="text-discret">
             Vos états des lieux apparaîtront ici, avec leur statut : brouillon, terminé, puis signé. Le brouillon est gratuit.
           </p>
-          <Alerte ton="info">Sans état des lieux d’entrée, aucune dégradation n’est opposable au locataire à la sortie.</Alerte>
+          <Alerte ton="info">Sans état des lieux d’entrée précis, une retenue sur le dépôt de garantie est très difficile à justifier.</Alerte>
         </Carte>
       )}
       {edl?.map((e) => (
