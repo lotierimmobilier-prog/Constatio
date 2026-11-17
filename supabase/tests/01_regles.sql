@@ -1,0 +1,224 @@
+-- Tests des règles d'accès et du cycle de vie. Tout se déroule dans une seule
+-- transaction, annulée à la fin : la base reste propre.
+\set ON_ERROR_STOP on
+begin;
+
+create schema t;
+grant usage on schema t to anon, authenticated, service_role;
+
+create function t.connecter(p_user uuid) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', p_user::text, true);
+  perform set_config('role', 'authenticated', true);
+end $$;
+create function t.role(p_role text) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('role', p_role, true);
+end $$;
+-- La requête doit lever une erreur.
+create function t.refuse(p_nom text, p_sql text) returns void language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    raise notice 'ok   refusé  : % (%)', p_nom, sqlerrm;
+    return;
+  end;
+  raise exception 'ÉCHEC : « % » aurait dû être refusé', p_nom;
+end $$;
+-- La requête doit toucher exactement p_attendu lignes.
+create function t.lignes(p_nom text, p_sql text, p_attendu bigint) returns void language plpgsql as $$
+declare n bigint;
+begin
+  execute p_sql;
+  get diagnostics n = row_count;
+  if n <> p_attendu then
+    raise exception 'ÉCHEC : « % » a touché % ligne(s), attendu %', p_nom, n, p_attendu;
+  end if;
+  raise notice 'ok   % ligne(s) : %', n, p_nom;
+end $$;
+create function t.egal(p_nom text, p_obtenu text, p_attendu text) returns void language plpgsql as $$
+begin
+  if p_obtenu is distinct from p_attendu then
+    raise exception 'ÉCHEC : « % » vaut %, attendu %', p_nom, p_obtenu, p_attendu;
+  end if;
+  raise notice 'ok   % = %', p_nom, p_obtenu;
+end $$;
+
+do $$
+declare
+  a uuid := '00000000-0000-4000-a000-00000000000a';  -- bailleresse
+  b uuid := '00000000-0000-4000-a000-00000000000b';  -- autre client, sans lien
+  c uuid := '00000000-0000-4000-a000-00000000000c';  -- locataire
+  org_a uuid; org_b uuid;
+  log uuid := gen_random_uuid();
+  e1 uuid := gen_random_uuid();   -- EDL d'entrée, ira jusqu'à la signature
+  e2 uuid := gen_random_uuid();   -- brouillon
+  p_bail uuid := gen_random_uuid(); p_loc uuid := gen_random_uuid();
+  piece uuid := gen_random_uuid(); elem uuid := gen_random_uuid();
+  lot_reserve uuid := gen_random_uuid(); lot_libre uuid := gen_random_uuid();
+begin
+  -- Inscription : profil + organisation + rôle propriétaire créés automatiquement.
+  insert into auth.users (id, email, raw_user_meta_data) values
+    (a, 'zzrec-a@example.test', '{"nom":"ZZREC Vidal"}'),
+    (b, 'zzrec-b@example.test', '{"nom":"ZZREC Autre"}'),
+    (c, 'zzrec-c@example.test', '{"nom":"ZZREC Marty"}');
+  select organisation_id into org_a from public.organisation_membres where user_id = a;
+  select organisation_id into org_b from public.organisation_membres where user_id = b;
+  perform t.egal('organisation créée à l''inscription', (org_a is not null)::text, 'true');
+
+  -- A crée son logement et son EDL --------------------------------------------
+  perform t.connecter(a);
+  insert into public.logements (id, organisation_id, libelle, adresse, code_postal, ville, surface_m2, meuble)
+  values (log, org_a, 'ZZREC T2 Balances', '12 rue des Balances', '34500', 'Béziers', 28, true);
+  insert into public.edl (id, organisation_id, logement_id, type) values (e1, org_a, log, 'entrant'), (e2, org_a, log, 'entrant');
+  insert into public.edl_parties (id, edl_id, role, nom, user_id) values
+    (p_bail, e1, 'bailleur', 'ZZREC Vidal', a), (p_loc, e1, 'locataire', 'ZZREC Marty', c);
+  insert into public.edl_pieces (id, edl_id, nom) values (piece, e1, 'Séjour');
+  insert into public.edl_elements (id, edl_id, piece_id, categorie, libelle, etat) values (elem, e1, piece, 'sol', 'Sol', 'bon');
+  insert into public.edl_compteurs (edl_id, type, numero, double_tarif, index_1, index_2)
+  values (e1, 'electricite', '09451302118760', true, 18432, 9877);
+  insert into public.edl_cles (edl_id, nature, nombre, destination) values (e1, 'cle', 3, 'porte palière');
+  perform t.refuse('élément rattaché à la pièce d''un autre EDL',
+    format('insert into public.edl_elements (edl_id, piece_id, categorie, libelle) values (%L, %L, ''sol'', ''Sol'')', e2, piece));
+  perform t.refuse('A crée un EDL dans l''organisation de B',
+    format('insert into public.edl (organisation_id, logement_id, type) values (%L, %L, ''entrant'')', org_b, log));
+  perform t.refuse('A écrit le statut directement',
+    format('update public.edl set statut = ''signe'' where id = %L', e1));
+  perform t.refuse('A s''attribue des crédits',
+    format('insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le) values (%L, ''achat'', 9, 9, now() + interval ''1 year'')', org_a));
+  perform t.refuse('finaliser sans crédit', format('select public.edl_finaliser(%L)', e1));
+
+  -- B, client sans lien, ne voit ni ne touche rien -------------------------------
+  perform t.connecter(b);
+  perform t.lignes('B lit les EDL de A', 'select 1 from public.edl', 0);
+  perform t.lignes('B lit les éléments de A', 'select 1 from public.edl_elements', 0);
+  perform t.lignes('B modifie un élément de A', format('update public.edl_elements set etat = ''neuf'' where id = %L', elem), 0);
+  perform t.refuse('B ajoute une pièce à l''EDL de A', format('insert into public.edl_pieces (edl_id, nom) values (%L, ''Cave'')', e1));
+  perform t.refuse('B s''ajoute à l''organisation de A',
+    format('insert into public.organisation_membres (organisation_id, user_id, role) values (%L, %L, ''admin'')', org_a, b));
+  perform t.refuse('B finalise l''EDL de A', format('select public.edl_finaliser(%L)', e1));
+  perform t.egal('B exporte l''EDL de A', public.export_collab_edl2(e1)::text, null);
+
+  -- Le locataire ne voit pas un EDL non signé -----------------------------------
+  perform t.connecter(c);
+  perform t.lignes('locataire lit l''EDL avant signature', 'select 1 from public.edl', 0);
+
+  -- Crédits : versés par le serveur, consommés à la génération -------------------
+  perform t.role('service_role');
+  insert into public.credit_lots (id, organisation_id, origine, quantite, restant, type_reserve, expire_le, reference) values
+    (lot_reserve, org_a, 'signabail', 1, 1, 'entrant', now() + interval '24 months', 'signabail:bail:ZZREC-1'),
+    (lot_libre,   org_a, 'achat',     5, 5, null,      now() + interval '24 months', 'stripe:pi_ZZREC');
+  perform t.refuse('même bail Signabail crédité deux fois',
+    format('insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le, reference) values (%L, ''signabail'', 1, 1, now() + interval ''1 year'', ''signabail:bail:ZZREC-1'')', org_a));
+
+  perform t.connecter(a);
+  perform public.edl_finaliser(e1);
+  perform t.egal('statut après génération', (select statut::text from public.edl where id = e1), 'termine');
+  perform t.egal('crédit offert Signabail utilisé en premier', (select restant::text from public.credit_lots where id = lot_reserve), '0');
+  perform public.edl_rouvrir(e1);
+  perform public.edl_finaliser(e1);
+  perform t.egal('rouvrir puis régénérer ne coûte rien', (select restant::text from public.credit_lots where id = lot_libre), '5');
+  perform t.refuse('changer le type d''un EDL déjà généré', format('update public.edl set type = ''sortant'' where id = %L', e1));
+  perform t.refuse('A marque lui-même l''EDL signé', format('select public.edl_marquer_signe(%L)', e1));
+  perform t.refuse('A dépose lui-même une signature',
+    format('insert into public.edl_signatures (edl_id, partie_id, mode, pdf_sha256) values (%L, %L, ''sur_place'', ''abc'')', e1, p_loc));
+
+  -- Signature : par le serveur, et seulement quand tout le monde a signé ---------
+  perform t.role('service_role');
+  update public.edl set pdf_path = 'x.pdf', pdf_sha256 = 'abc' where id = e1;
+  insert into public.edl_signatures (edl_id, partie_id, mode, pdf_sha256) values (e1, p_bail, 'sur_place', 'abc');
+  perform t.refuse('signé alors que le locataire n''a pas signé', format('select public.edl_marquer_signe(%L)', e1));
+  insert into public.edl_signatures (edl_id, partie_id, mode, pdf_sha256) values (e1, p_loc, 'sur_place', 'abc');
+  perform public.edl_marquer_signe(e1);
+  perform t.egal('statut après signatures', (select statut::text from public.edl where id = e1), 'signe');
+
+  -- Verrou après signature : vaut pour tout le monde, serveur compris -------------
+  perform t.refuse('serveur modifie un élément signé', format('update public.edl_elements set etat = ''neuf'' where id = %L', elem));
+  perform t.refuse('serveur modifie l''EDL signé', format('update public.edl set remarques_generales = ''x'' where id = %L', e1));
+  perform t.refuse('serveur supprime l''EDL signé hors purge', format('delete from public.edl where id = %L', e1));
+  perform t.refuse('serveur retire une signature', format('delete from public.edl_signatures where edl_id = %L', e1));
+  perform t.refuse('serveur réécrit le journal', format('update public.edl_journal set evenement = ''x'' where edl_id = %L', e1));
+  perform t.connecter(a);
+  perform t.refuse('A ajoute une photo après signature',
+    format('insert into public.edl_photos (edl_id, storage_path, taille, sha256, pris_le) values (%L, ''p'', 1, ''h'', now())', e1));
+  perform t.lignes('A fixe le début de la période de chauffe (autorisé)',
+    format('update public.edl set debut_periode_chauffe = current_date where id = %L', e1), 1);
+
+  -- Fichiers ---------------------------------------------------------------------
+  perform t.refuse('A dépose une photo sur l''EDL signé',
+    format('insert into storage.objects (bucket_id, name) values (''edl'', %L)', org_a || '/' || e1 || '/photos/a.jpg'));
+  perform t.lignes('A dépose une photo sur son brouillon',
+    format('insert into storage.objects (bucket_id, name) values (''edl'', %L)', org_a || '/' || e2 || '/photos/a.jpg'), 1);
+  perform t.refuse('A dépose un faux PDF',
+    format('insert into storage.objects (bucket_id, name) values (''edl'', %L)', org_a || '/' || e2 || '/pdf/edl.pdf'));
+  perform t.connecter(b);
+  perform t.refuse('B dépose une photo sur le brouillon de A',
+    format('insert into storage.objects (bucket_id, name) values (''edl'', %L)', org_b || '/' || e2 || '/photos/b.jpg'));
+  perform t.lignes('B lit les fichiers de A', 'select 1 from storage.objects', 0);
+
+  -- Locataire : lit son EDL signé, peut demander un complément dans les 10 jours ---
+  perform t.connecter(c);
+  perform t.lignes('locataire lit son EDL signé', 'select 1 from public.edl', 1);
+  perform t.lignes('locataire lit les éléments', 'select 1 from public.edl_elements', 1);
+  perform t.lignes('locataire lit le journal interne', 'select 1 from public.edl_journal', 0);
+  perform t.lignes('locataire demande un complément',
+    format('insert into public.edl_complements (edl_id, type, partie_id, texte) values (%L, ''general'', %L, ''Fissure non relevée'')', e1, p_loc), 1);
+  perform t.lignes('locataire demande un complément chauffage',
+    format('insert into public.edl_complements (edl_id, type, partie_id, texte) values (%L, ''chauffage'', %L, ''Radiateur froid'')', e1, p_loc), 1);
+  perform t.connecter(b);
+  perform t.refuse('B demande un complément sur l''EDL de A',
+    format('insert into public.edl_complements (edl_id, type, partie_id, texte) values (%L, ''general'', %L, ''x'')', e1, p_loc));
+
+  -- Délai de 10 jours dépassé (on recule la date de signature, verrou levé pour le test)
+  perform t.role('none');
+  alter table public.edl disable trigger edl_verrou;
+  update public.edl set signe_le = now() - interval '11 days' where id = e1;
+  alter table public.edl enable trigger edl_verrou;
+  perform t.connecter(c);
+  perform t.refuse('complément après 10 jours',
+    format('insert into public.edl_complements (edl_id, type, partie_id, texte) values (%L, ''general'', %L, ''trop tard'')', e1, p_loc));
+
+  -- Export Collab ---------------------------------------------------------------
+  perform t.connecter(a);
+  perform t.egal('export : statut Collab', public.export_collab_edl2(e1) #>> '{edl2,statut}', 'signe');
+  perform t.egal('export : brouillon → en_cours', public.export_collab_edl2(e2) #>> '{edl2,statut}', 'en_cours');
+  perform t.egal('export : locataire', public.export_collab_edl2(e1) #>> '{edl2,locataireNom}', 'ZZREC Marty');
+  perform t.egal('export : état du sol', public.export_collab_edl2(e1) #>> '{edl2,contenu,pieces,0,elements,0,etat}', 'bon');
+  perform t.egal('export : compteur ancien module', public.export_collab_edl2(e1) #>> '{etats_des_lieux,compteurElec}', '18432.000 / 9877.000');
+
+  -- Prestation sur place : plafond légal de la part locataire ------------------------
+  perform t.role('service_role');
+  perform t.lignes('réservation 28 m², part locataire 84 €',
+    format('insert into public.reservations (organisation_id, type, secteur, adresse, code_postal, ville, surface_m2, creneau, contact_nom, contact_telephone, montant_cents, part_locataire_cents) values (%L, ''entrant'', ''beziers'', ''x'', ''34500'', ''Béziers'', 28, now(), ''ZZREC'', ''0600000000'', 18000, 8400)', org_a), 1);
+  perform t.refuse('part locataire au-dessus de 3 €/m²',
+    format('insert into public.reservations (organisation_id, type, secteur, adresse, code_postal, ville, surface_m2, creneau, contact_nom, contact_telephone, montant_cents, part_locataire_cents) values (%L, ''entrant'', ''beziers'', ''x'', ''34500'', ''Béziers'', 28, now(), ''ZZREC'', ''0600000000'', 18000, 8500)', org_a));
+  perform t.refuse('part locataire supérieure à celle du bailleur',
+    format('insert into public.reservations (organisation_id, type, secteur, adresse, code_postal, ville, surface_m2, creneau, contact_nom, contact_telephone, montant_cents, part_locataire_cents) values (%L, ''entrant'', ''beziers'', ''x'', ''34500'', ''Béziers'', 80, now(), ''ZZREC'', ''0600000000'', 18000, 9100)', org_a));
+  perform t.refuse('EDL de sortie facturé au locataire',
+    format('insert into public.reservations (organisation_id, type, secteur, adresse, code_postal, ville, surface_m2, creneau, contact_nom, contact_telephone, montant_cents, part_locataire_cents) values (%L, ''sortant'', ''beziers'', ''x'', ''34500'', ''Béziers'', 28, now(), ''ZZREC'', ''0600000000'', 18000, 100)', org_a));
+
+  -- Décompte : délai de restitution -------------------------------------------------
+  insert into public.decomptes (edl_id, depot_cents, total_retenues_cents, conforme, date_remise_cles)
+  values (e2, 65000, 20571, false, date '2026-11-17');
+  perform t.egal('décompte : à restituer', (select a_restituer_cents::text from public.decomptes where edl_id = e2), '44429');
+  perform t.egal('décompte : 2 mois si non conforme', (select date_limite::text from public.decomptes where edl_id = e2), '2027-01-17');
+
+  -- Visiteur non connecté -------------------------------------------------------------
+  perform t.role('anon');
+  perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 8);
+  perform t.refuse('visiteur lit les EDL', 'select 1 from public.edl');
+  perform t.refuse('visiteur lit les identifiants Stripe des tarifs', 'select stripe_price_id from public.tarifs');
+
+  -- Purge RGPD ---------------------------------------------------------------------
+  perform t.role('service_role');
+  perform set_config('app.purge', 'on', true);
+  perform t.lignes('purge d''un EDL signé', format('delete from public.edl where id = %L', e1), 1);
+  perform t.role('none');
+  perform t.egal('purge : plus aucun élément', (select count(*)::text from public.edl_elements where edl_id = e1), '0');
+  perform t.egal('purge : journal emporté', (select count(*)::text from public.edl_journal where edl_id = e1), '0');
+end $$;
+
+rollback;
+\echo TOUS LES TESTS PASSENT

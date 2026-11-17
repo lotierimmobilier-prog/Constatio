@@ -1,0 +1,150 @@
+<title>Constatio — schéma de données</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout : document de travail en une colonne ; tableaux et schéma défilent dans leur propre cadre. */
+:root{
+  --bg:#f3f6f5; --surface:#ffffff; --sunk:#e7edeb; --ink:#0f2f2e; --muted:#566b69; --line:#cfdad7;
+  --brand:#0f4c4a; --mark:#f2b61b; --ok:#16795a; --warn:#c2571c;
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1716; --surface:#13231f; --sunk:#0f1d1b; --ink:#e6efed; --muted:#96aba8; --line:#27403c;
+  --brand:#7fd1c6; --mark:#f2b61b; --ok:#4cc79b; --warn:#f08a4f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1716; --surface:#13231f; --sunk:#0f1d1b; --ink:#e6efed; --muted:#96aba8; --line:#27403c;
+  --brand:#7fd1c6; --mark:#f2b61b; --ok:#4cc79b; --warn:#f08a4f; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:980px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,5vw,40px);font-weight:700}
+h2{font-size:24px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0;max-width:68ch}
+ul{margin:0;padding-left:20px;max-width:68ch;display:flex;flex-direction:column;gap:6px}
+section,.head{display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.head p{color:var(--muted)}
+code{font-family:var(--mono);font-size:12.5px;color:var(--brand)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{white-space:nowrap}
+.note{border-left:4px solid var(--mark);background:var(--surface);padding:12px 16px;border-radius:0 6px 6px 0}
+.result{display:flex;flex-wrap:wrap;gap:8px 28px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.result b{font-family:var(--display);font-size:22px;color:var(--ok);font-variant-numeric:tabular-nums}
+.result span{display:flex;flex-direction:column;font-size:13px;color:var(--muted)}
+.yes{color:var(--ok);font-weight:600}.no{color:var(--warn);font-weight:600}
+pre.mermaid{margin:0;padding:12px;min-width:640px}
+</style>
+
+<div class="wrap">
+<header class="head">
+  <span class="eyebrow">Livrable 2 sur 6 · à valider avant la spécification Signabail ↔ Constatio</span>
+  <h1>Schéma de données de Constatio</h1>
+  <p>Le schéma est écrit en cinq fichiers SQL commentés dans le dépôt (<code>supabase/migrations</code>). Il n'est appliqué sur aucun projet Supabase : il a été monté et testé sur une base locale jetable.</p>
+  <div class="result">
+    <span><b>28</b>tables</span>
+    <span><b>5</b>migrations appliquées sans erreur</span>
+    <span><b>55</b>tests d'accès et de cycle de vie réussis</span>
+  </div>
+</header>
+
+<section>
+  <h2>Comment les données s'organisent</h2>
+  <p>Tout appartient à une <b>organisation</b> : le compte d'un particulier, d'une SCI ou d'une agence. À l'inscription, chacun reçoit la sienne automatiquement. Un état des lieux est rattaché à un logement et se décompose en lignes : une par pièce, par élément, par compteur, par clé. C'est ce découpage qui permet de comparer l'entrée et la sortie élément par élément.</p>
+  <div class="scroll"><pre class="mermaid">
+erDiagram
+  organisations ||--o{ organisation_membres : "a pour membres"
+  organisations ||--o{ logements : possede
+  organisations ||--o{ credit_lots : detient
+  organisations ||--o{ abonnements : souscrit
+  organisations ||--o{ reservations : commande
+  logements ||--o{ edl : "fait l'objet de"
+  edl ||--o| edl : "entree de reference"
+  edl ||--o{ edl_parties : "bailleur, locataires, mandataires"
+  edl ||--o{ edl_pieces : "pieces et exterieurs"
+  edl_pieces ||--o{ edl_elements : contient
+  edl ||--o{ edl_compteurs : releve
+  edl ||--o{ edl_cles : remet
+  edl ||--o{ edl_inventaire : "mobilier (meuble)"
+  edl ||--o{ edl_photos : illustre
+  edl_parties ||--o| edl_signatures : signe
+  edl ||--o{ edl_complements : "complement 10 jours"
+  edl ||--o{ edl_journal : "journal de preuve"
+  edl ||--o{ retenues : "sortie"
+  edl ||--o| decomptes : "restitution du depot"
+  credit_lots ||--o{ credit_consommations : "1 credit par EDL genere"
+  </pre></div>
+</section>
+
+<section>
+  <h2>Les tables, par domaine</h2>
+  <div class="scroll"><table>
+    <tr><th>Domaine</th><th>Tables</th><th>À retenir</th></tr>
+    <tr><td>Comptes</td><td><code>profils</code> <code>organisations</code> <code>organisation_membres</code> <code>organisation_facturation</code></td><td>Rôles propriétaire, admin, agent. La marque blanche (logo, en-tête, pied de page) est sur l'organisation.</td></tr>
+    <tr><td>Logement</td><td><code>logements</code></td><td>Équivalent du « lot » de Collab, avec son identifiant Collab pour l'import et l'export.</td></tr>
+    <tr><td>État des lieux</td><td><code>edl</code> <code>edl_parties</code> <code>edl_pieces</code> <code>edl_elements</code> <code>edl_compteurs</code> <code>edl_cles</code> <code>edl_inventaire</code> <code>edl_photos</code></td><td>Trois types (entrant, sortant, relevé), trois statuts (brouillon, terminé, signé). Chaque mention obligatoire du décret de 2016 a sa colonne. Le jardin et les extérieurs sont des pièces de zone « extérieur ».</td></tr>
+    <tr><td>Preuve</td><td><code>edl_signatures</code> <code>edl_jetons</code> <code>edl_journal</code> <code>edl_complements</code></td><td>Empreinte du PDF sur chaque signature, journal en ajout seul, complément refusé par la base passé le délai légal.</td></tr>
+    <tr><td>Sortie</td><td><code>grilles_vetuste</code> <code>grille_vetuste_lignes</code> <code>retenues</code> <code>decomptes</code></td><td>Une grille par défaut et des grilles personnalisées. Le délai de restitution (1 ou 2 mois) est calculé par la base.</td></tr>
+    <tr><td>Facturation</td><td><code>tarifs</code> <code>credit_lots</code> <code>credit_consommations</code> <code>abonnements</code> <code>reservations</code></td><td>Vos tarifs validés sont en table, modifiables sans redéploiement. Crédits valables 24 mois.</td></tr>
+    <tr><td>Technique</td><td><code>api_cles</code> <code>webhook_evenements</code> <code>parametres</code> <code>ref_elements</code> <code>ref_mobilier_decret</code></td><td>Le « mode test » est un paramètre, actif par défaut. Les 11 équipements du décret meublé sont en référentiel.</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Qui peut faire quoi</h2>
+  <p>Tout est fermé par défaut. Ces règles sont dans la base elle-même, pas seulement dans l'interface, et chacune est couverte par un test.</p>
+  <div class="scroll"><table>
+    <tr><th>Action</th><th>Membre du compte</th><th>Locataire lié</th><th>Autre client</th><th>Visiteur</th></tr>
+    <tr><td>Lire un EDL en brouillon</td><td class="yes">oui</td><td class="no">non</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>Lire un EDL signé</td><td class="yes">oui</td><td class="yes">oui, le sien</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>Modifier un EDL non signé</td><td class="yes">oui</td><td class="no">non</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>Modifier un EDL signé</td><td class="no">non</td><td class="no">non</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>Demander un complément</td><td class="no">non</td><td class="yes">oui, dans le délai</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>Lire retenues et décompte</td><td class="yes">oui</td><td class="no">non</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>S'attribuer des crédits, changer le statut</td><td class="no">non</td><td class="no">non</td><td class="no">non</td><td class="no">non</td></tr>
+    <tr><td>Lire les tarifs</td><td class="yes">oui</td><td class="yes">oui</td><td class="yes">oui</td><td class="yes">oui</td></tr>
+  </table></div>
+  <ul>
+    <li><b>Un EDL signé est figé pour tout le monde</b>, y compris pour le serveur : pièces, éléments, photos, compteurs, clés et signatures. Seule la purge RGPD peut le supprimer.</li>
+    <li><b>Le crédit est consommé à la génération définitive</b>, jamais avant. Rouvrir un EDL pour le corriger avant signature ne coûte pas un second crédit.</li>
+    <li><b>Le crédit offert par Signabail</b> ne vaut que pour un EDL d'entrée, il est utilisé avant les crédits achetés et un même bail ne peut pas créditer deux fois.</li>
+    <li><b>La prestation sur place</b> refuse en base une part locataire supérieure à 3 €/m² ou à la part du bailleur, et toute facturation d'une sortie au locataire.</li>
+    <li><b>Les fichiers</b> (photos, PDF, justificatifs) sont dans un espace privé, rangés par compte et par EDL. Seul le serveur écrit les PDF et les signatures.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Correspondance avec Collab</h2>
+  <p>La fonction <code>export_collab_edl2</code> produit, pour un EDL, une ligne au format de la table <code>edl2</code> de Collab, la liste de ses photos au format <code>edl2_photos</code> et un résumé au format de l'ancien module <code>etats_des_lieux</code>.</p>
+  <div class="scroll"><table>
+    <tr><th>Collab <code>edl2</code></th><th>Constatio</th></tr>
+    <tr><td><code>type</code></td><td><code>edl.type</code> : entrant, sortant, releve</td></tr>
+    <tr><td><code>statut</code></td><td>brouillon devient <code>en_cours</code> (valeur par défaut constatée dans Collab), puis termine, signe</td></tr>
+    <tr><td><code>lotId</code>, <code>lotLabel</code>, <code>adresse</code></td><td><code>logements.collab_lot_id</code>, libellé, adresse complète</td></tr>
+    <tr><td><code>tenantId</code>, <code>locataireNom</code></td><td>première partie « locataire », noms de tous les locataires</td></tr>
+    <tr><td><code>entreeId</code></td><td><code>edl.entree_id</code></td></tr>
+    <tr><td><code>agentNom</code></td><td><code>edl.realise_par_nom</code></td></tr>
+    <tr><td><code>closedAt</code></td><td>date de signature, sinon de génération</td></tr>
+    <tr><td><code>contenu</code> (JSON)</td><td>parties, bail, pièces et éléments, compteurs, clés, inventaire, remarques, signatures</td></tr>
+    <tr><td><code>edl2_photos.data</code></td><td>fichier du stockage, converti en base64 par l'API au moment de l'export</td></tr>
+  </table></div>
+  <p class="note"><b>Limite à lever avec vous.</b> Les tables EDL de Collab sont vides aujourd'hui. J'ai donc pu lire leurs colonnes, mais pas la forme réelle du champ <code>contenu</code> ni les valeurs exactes de <code>type</code> et de <code>statut</code> au-delà de <code>en_cours</code>. La structure exportée est ma proposition, versionnée pour être ajustée. Un EDL réel créé dans Collab, ou le code du module, me permettrait de l'aligner exactement.</p>
+</section>
+
+<section>
+  <h2>Points provisoires</h2>
+  <ul>
+    <li><b>Grille de vétusté par défaut</b> : douze lignes aux durées usuelles (peinture 7 ans, parquet 15 ans, carrelage 25 ans…). Ce sont des valeurs de départ, à faire valider avant la mise en ligne.</li>
+    <li><b>Premium Pro</b> : j'ai mis 40 EDL par an, par analogie avec Signabail. Le cahier des charges ne fixe pas ce quota.</li>
+    <li><b>Relevé d'état</b> : gratuit et illimité sous Premium, 1 crédit sinon.</li>
+    <li><b>Équipe</b> : tous les membres d'un compte voient tous ses EDL. Si une agence doit cloisonner par agent, dites-le maintenant.</li>
+    <li><b>Test sur Supabase réel</b> : les tests tournent sur un Postgres local qui imite Supabase (authentification et stockage). Ils seront à rejouer une fois le projet Supabase créé.</li>
+  </ul>
+</section>
+</div>
