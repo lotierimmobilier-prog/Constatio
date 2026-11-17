@@ -50,7 +50,7 @@ export default defineConfig(({ mode }) => {
     server: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
     preview: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
     test: {
-      include: ['src/**/*.test.ts'],
+      include: ['src/**/*.test.ts', 'supabase/functions/**/*.test.ts'],
       // Les tests de fonctions n'appellent jamais Supabase ; ces valeurs évitent seulement l'erreur de configuration.
       env: { VITE_SUPABASE_URL: 'http://localhost', VITE_SUPABASE_ANON_KEY: 'test' },
     },

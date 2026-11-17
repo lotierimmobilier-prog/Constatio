@@ -90,6 +90,19 @@ export const PIECES_TYPES: PieceTrame[] = [
 export const pieceType = (id: string | null | undefined): PieceTrame =>
   PIECES_TYPES.find((p) => p.id === id) ?? PIECES_TYPES.find((p) => p.id === 'autre')!;
 
+/** Devine le type de trame d'une pièce d'après son nom (pièces reçues d'un bail Signabail, saisies librement). */
+export function typeDepuisNom(nom: string): string {
+  const n = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const regles: [RegExp, string][] = [
+    [/salle d.?eau|douche/, 'salle_eau'], [/salle de bain|sdb/, 'sdb'], [/\bwc\b|toilette/, 'wc'],
+    [/cuisine|kitchenette/, 'cuisine'], [/chambre/, 'chambre'], [/sejour|salon|piece principale|piece de vie|salle a manger/, 'sejour'],
+    [/entree|hall|vestibule/, 'entree'], [/couloir|degagement|palier/, 'couloir'], [/bureau/, 'bureau'],
+    [/buanderie|cellier|arriere-cuisine/, 'buanderie'], [/cave/, 'cave'], [/garage|box/, 'garage'], [/parking|stationnement/, 'parking'],
+    [/balcon|terrasse|loggia/, 'balcon'], [/jardin|cour\b|exterieur/, 'jardin'], [/piscine|spa/, 'piscine'], [/facade|toiture/, 'facade'],
+  ];
+  return regles.find(([motif]) => motif.test(n))?.[1] ?? 'autre';
+}
+
 /** Intitulé de la précision attendue pour un élément de la trame, s'il y en a une. */
 export const detailAttendu = (typePiece: string | null, categorie: string): string | undefined =>
   pieceType(typePiece).elements.find((x) => x.id === categorie)?.detail;

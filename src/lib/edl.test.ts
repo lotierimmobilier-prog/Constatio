@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { avancement, lignesDepuisModele } from './edl';
-import { MODELES_LOGEMENT, PIECES_TYPES, detailAttendu, pieceType } from './trame';
+import { MODELES_LOGEMENT, PIECES_TYPES, detailAttendu, pieceType, typeDepuisNom } from './trame';
 
 describe('trame', () => {
   it('chaque modèle ne cite que des pièces connues', () => {
@@ -22,6 +22,15 @@ describe('trame', () => {
     for (const attendu of ['pelouse', 'arbres', 'plantations', 'massifs', 'potager', 'invasives', 'arrosage', 'cloture', 'terrasse', 'abri', 'eclairage', 'eau_compost', 'proprete'])
       expect(ids).toContain(attendu);
     expect(PIECES_TYPES.some((t) => t.id === 'piscine')).toBe(true);
+  });
+  it('reconnaît le type d’une pièce d’après son nom', () => {
+    const cas: [string, string][] = [
+      ['Entrée', 'entree'], ['Séjour', 'sejour'], ['Salon / salle à manger', 'sejour'], ['Pièce principale', 'sejour'],
+      ['Cuisine', 'cuisine'], ['Chambre 2', 'chambre'], ['Salle de bain', 'sdb'], ['Salle d’eau', 'salle_eau'], ['Salle d\'eau', 'salle_eau'],
+      ['WC', 'wc'], ['Toilettes', 'wc'], ['Dégagement', 'couloir'], ['Cellier', 'buanderie'], ['Terrasse', 'balcon'],
+      ['Jardin', 'jardin'], ['Box n° 12', 'garage'], ['Mezzanine', 'autre'],
+    ];
+    for (const [nom, attendu] of cas) expect(typeDepuisNom(nom), nom).toBe(attendu);
   });
   it('retrouve la précision attendue', () => {
     expect(detailAttendu('jardin', 'pelouse')).toBe('Tondue le…');

@@ -46,6 +46,17 @@ begin
   raise notice 'ok   % = %', p_nom, p_obtenu;
 end $$;
 
+-- Un message « bail signé » tel que Signabail l'enverra.
+create function t.bail(p_evt text, p_bail text, p_type text) returns jsonb language sql as $$
+  select jsonb_build_object('id', p_evt, 'type', 'bail.signe', 'cree_le', '2026-11-03T16:20:00Z', 'test', false,
+    'compte', jsonb_build_object('id', 'sb-42', 'email', 'zzrec-b@example.test'),
+    'bail', jsonb_build_object('id', p_bail, 'type', p_type, 'signe_le', '2026-11-03T16:20:00Z', 'date_entree', '2026-11-15', 'depot_garantie', 650.00,
+      'logement', jsonb_build_object('adresse', '12 rue des Balances', 'complement', '2e étage', 'code_postal', '34500', 'ville', 'Béziers',
+        'type_bien', 'appartement', 'surface_m2', 28.4, 'meuble', p_type = 'meuble', 'pieces', jsonb_build_array('Entrée', 'Séjour', 'Chambre')),
+      'bailleur', jsonb_build_object('civilite', 'Mme', 'prenom', 'Claire', 'nom', 'ZZREC Vidal', 'email', 'zzrec-b@example.test'),
+      'locataires', jsonb_build_array(jsonb_build_object('prenom', 'Hugo', 'nom', 'ZZREC Marty'), jsonb_build_object('prenom', 'Léa', 'nom', 'ZZREC Roux'))))
+$$;
+
 do $$
 declare
   a uuid := '00000000-0000-4000-a000-00000000000a';  -- bailleresse
@@ -213,6 +224,51 @@ begin
   values (e2, 65000, 20571, false, date '2026-11-17');
   perform t.egal('décompte : à restituer', (select a_restituer_cents::text from public.decomptes where edl_id = e2), '44429');
   perform t.egal('décompte : 2 mois si non conforme', (select date_limite::text from public.decomptes where edl_id = e2), '2027-01-17');
+
+  -- Signabail : crédit offert et brouillon pré-rempli --------------------------------
+  perform t.role('service_role');
+  perform t.egal('bail signé, client pas encore inscrit', public.signabail_recevoir(t.bail('evt-1', 'bail-A', 'meuble')), 'en_attente');
+  perform t.egal('en attente : aucun crédit versé', (select count(*)::text from public.credit_lots where organisation_id = org_b), '0');
+  perform t.egal('rattachement : le message en attente est traité', public.signabail_rattacher(org_b, 'sb-42')::text, '1');
+  perform t.egal('1 crédit offert, réservé à l''entrée',
+    (select quantite || ' ' || type_reserve || ' ' || origine from public.credit_lots where reference = 'signabail:bail:bail-A'), '1 entrant signabail');
+  perform t.egal('crédit valable 24 mois après la signature du bail',
+    (select expire_le::date::text from public.credit_lots where reference = 'signabail:bail:bail-A'), '2028-11-03');
+  perform t.egal('brouillon d''entrée créé depuis le bail',
+    (select type || ' ' || statut || ' ' || bail_type || ' ' || depot_garantie_cents from public.edl where signabail_bail_id = 'bail-A'), 'entrant brouillon meuble 65000');
+  perform t.egal('parties reprises', (select string_agg(role || ':' || nom, ', ' order by ordre) from public.edl_parties p
+    join public.edl e on e.id = p.edl_id where e.signabail_bail_id = 'bail-A'), 'bailleur:ZZREC Vidal, locataire:ZZREC Marty, locataire:ZZREC Roux');
+  perform t.egal('pièces reprises dans l''ordre', (select string_agg(nom, ', ' order by ordre) from public.edl_pieces p
+    join public.edl e on e.id = p.edl_id where e.signabail_bail_id = 'bail-A'), 'Entrée, Séjour, Chambre');
+  perform t.egal('même message reçu deux fois', public.signabail_recevoir(t.bail('evt-1', 'bail-A', 'meuble')), 'deja_recu');
+  perform t.egal('même bail dans un autre message', public.signabail_recevoir(t.bail('evt-2', 'bail-A', 'meuble')), 'traite');
+  perform t.egal('toujours un seul crédit et un seul brouillon',
+    (select count(*) from public.credit_lots where organisation_id = org_b)::text || ' ' || (select count(*) from public.edl where signabail_bail_id = 'bail-A')::text, '1 1');
+  perform t.egal('second bail à la même adresse : logement réutilisé', public.signabail_recevoir(t.bail('evt-3', 'bail-B', 'vide')), 'traite');
+  perform t.egal('un seul logement pour les deux baux', (select count(*)::text from public.logements where organisation_id = org_b), '1');
+  perform t.egal('bail de garage : pas d''EDL offert', public.signabail_recevoir(t.bail('evt-4', 'bail-C', 'garage')), 'sans_offre');
+  perform t.egal('garage : ni crédit ni brouillon',
+    (select count(*) from public.credit_lots where reference = 'signabail:bail:bail-C')::text || ' ' || (select count(*) from public.edl where signabail_bail_id = 'bail-C')::text, '0 0');
+  perform t.egal('bail annulé', public.signabail_recevoir(jsonb_build_object('id', 'evt-5', 'type', 'bail.annule', 'compte', jsonb_build_object('id', 'sb-42'), 'bail', jsonb_build_object('id', 'bail-B'))), 'traite');
+  perform t.egal('annulation : crédit inutilisé retiré, brouillon gardé',
+    (select count(*) from public.credit_lots where reference = 'signabail:bail:bail-B')::text || ' ' || (select count(*) from public.edl where signabail_bail_id = 'bail-B')::text, '0 1');
+  perform t.egal('offre groupée', public.signabail_recevoir(jsonb_build_object('id', 'evt-6', 'type', 'offre_groupee.achetee', 'compte', jsonb_build_object('id', 'sb-42'), 'offre', jsonb_build_object('id', 'og-1'))), 'traite');
+  perform t.egal('offre groupée : un crédit d''entrée et un de sortie',
+    (select string_agg(type_reserve::text, ', ' order by type_reserve) from public.credit_lots where reference like 'signabail:groupe:og-1:%'), 'entrant, sortant');
+  perform t.egal('bail d''une offre groupée : pas de crédit offert en plus',
+    public.signabail_recevoir(t.bail('evt-7', 'bail-D', 'vide') || '{"offre_groupee": true}'), 'traite');
+  perform t.egal('offre groupée : brouillon oui, crédit non',
+    (select count(*) from public.credit_lots where reference = 'signabail:bail:bail-D')::text || ' ' || (select count(*) from public.edl where signabail_bail_id = 'bail-D')::text, '0 1');
+  perform t.egal('message de test sur un compte réel : ignoré', public.signabail_recevoir(t.bail('evt-8', 'bail-E', 'vide') || '{"test": true}'), 'ignore_test');
+  perform t.egal('test ignoré : rien créé', (select count(*)::text from public.edl where signabail_bail_id = 'bail-E'), '0');
+  perform t.refuse('message incomplet', 'select public.signabail_recevoir(''{"type": "bail.signe"}'')');
+  perform t.connecter(b);
+  perform t.refuse('un client fabrique lui-même un message Signabail', format('select public.signabail_recevoir(%L)', t.bail('evt-9', 'bail-F', 'vide')));
+  perform t.refuse('un client se rattache lui-même à un compte Signabail', format('select public.signabail_rattacher(%L, ''sb-99'')', org_b));
+  perform t.lignes('le client voit ses brouillons reçus de Signabail', 'select 1 from public.edl where source = ''signabail''', 3);
+  perform t.refuse('le client lit les messages reçus de Signabail', 'select 1 from public.webhook_evenements');
+  perform t.connecter(a);
+  perform t.lignes('un autre client ne voit rien de tout cela', 'select 1 from public.edl where source = ''signabail''', 0);
 
   -- Visiteur non connecté -------------------------------------------------------------
   perform t.role('anon');

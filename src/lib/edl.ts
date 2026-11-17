@@ -1,5 +1,5 @@
 import { local } from './local';
-import { MODELES_LOGEMENT, pieceType, type Etat } from './trame';
+import { MODELES_LOGEMENT, pieceType, typeDepuisNom, type Etat } from './trame';
 
 export type TypeEdl = 'entrant' | 'sortant' | 'releve';
 export type StatutEdl = 'brouillon' | 'termine' | 'signe';
@@ -115,6 +115,8 @@ export interface EdlLigne {
   depot_garantie_cents: number | null;
   credit_consomme: boolean;
   remarques_generales: string | null;
+  source?: string;
+  signabail_bail_id?: string | null;
   updated_at?: string;
   _cree?: string;
 }
@@ -125,6 +127,30 @@ export async function chargerEdl(id: string): Promise<{ edl: EdlLigne; logement:
   const edl = await local.lire<EdlLigne>('edl', id);
   const logement = edl && (await local.lire<Logement>('logements', edl.logement_id));
   return edl && logement ? { edl, logement } : null;
+}
+
+/**
+ * Un brouillon créé par le serveur à la signature d'un bail Signabail arrive avec
+ * ses pièces mais sans leurs éléments : la trame vit dans l'application. On la
+ * pose ici, une seule fois, à la première ouverture.
+ */
+export async function completerBrouillonRecu(edl: EdlLigne): Promise<boolean> {
+  if (edl.source !== 'signabail' || edl.statut !== 'brouillon') return false;
+  if ((await local.lister('edl_elements', 'edl_id', edl.id)).length) return false;
+  const pieces = await local.lister<Piece>('edl_pieces', 'edl_id', edl.id);
+  for (const p of pieces) {
+    const type = pieceType(p.type_piece ?? typeDepuisNom(p.nom));
+    await local.modifier('edl_pieces', p.id, { type_piece: type.id, zone: type.zone }, p.nom);
+    await local.inserer('edl_elements', elementsDePiece(edl.id, p.id, type.id).map((el) => ({ ...el, nature: null, etat: null, observations: null, detail: null, origine_id: null })), p.nom);
+  }
+  // Détecteur de fumée, tableau électrique, chaudière… : hors pièces, donc absents d'un bail.
+  if (!pieces.some((p) => (p.type_piece ?? typeDepuisNom(p.nom)) === 'equipements')) {
+    const id = uuid();
+    const type = pieceType('equipements');
+    await local.inserer('edl_pieces', { id, edl_id: edl.id, zone: type.zone, nom: type.label, type_piece: type.id, observations: null, origine_id: null, ordre: pieces.length }, type.label);
+    await local.inserer('edl_elements', elementsDePiece(edl.id, id, type.id).map((el) => ({ ...el, nature: null, etat: null, observations: null, detail: null, origine_id: null })), type.label);
+  }
+  return true;
 }
 
 /**

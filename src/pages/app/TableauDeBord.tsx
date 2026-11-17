@@ -10,6 +10,7 @@ interface LigneEdl {
   id: string;
   type: 'entrant' | 'sortant' | 'releve';
   statut: 'brouillon' | 'termine' | 'signe';
+  source?: string;
   date_edl: string;
   logements: { libelle: string; ville: string } | null;
 }
@@ -80,6 +81,7 @@ export function TableauDeBord() {
           </span>
           <span className="text-sm text-discret">
             {TYPES[e.type]} · {e.logements?.ville} · {new Date(e.date_edl).toLocaleDateString('fr-FR')}
+            {e.source === 'signabail' && e.statut === 'brouillon' && <span className="font-semibold text-marque"> · offert avec votre bail Signabail</span>}
           </span>
         </Link>
       ))}

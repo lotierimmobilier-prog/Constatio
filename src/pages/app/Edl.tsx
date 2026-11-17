@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alerte, Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
-import { STATUTS_EDL, TYPES_EDL, avancement, chargerEdl, controlerEdl, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
+import { STATUTS_EDL, TYPES_EDL, avancement, chargerEdl, completerBrouillonRecu, controlerEdl, elementsDePiece, type Element, type Logement, type Partie, type Piece, type StatutEdl, type TypeEdl } from '../../lib/edl';
 import { local } from '../../lib/local';
 import { PIECES_TYPES, pieceType } from '../../lib/trame';
 
@@ -13,6 +13,7 @@ interface Fiche {
   entree_id: string | null;
   credit_consomme: boolean;
   remarques_generales: string | null;
+  source?: string;
   logements: Logement;
 }
 
@@ -34,6 +35,7 @@ export function Edl() {
   const charger = useCallback(async () => {
     const fiche = await chargerEdl(id!);
     if (!fiche) return setIntrouvable(true);
+    await completerBrouillonRecu(fiche.edl);
     // L'entrée de référence est gardée sur l'appareil : la sortie l'affichera même sans réseau.
     if (fiche.edl.entree_id) void local.tirerEdl(fiche.edl.entree_id);
     setEdl({ ...fiche.edl, logements: fiche.logement });
@@ -88,6 +90,9 @@ export function Edl() {
         </p>
       </div>
 
+      {edl.source === 'signabail' && edl.statut === 'brouillon' && (
+        <Alerte ton="succes">Pré-rempli depuis votre bail Signabail : parties, adresse et pièces sont déjà reportées. Vérifiez-les avant de commencer la visite.</Alerte>
+      )}
       {edl.type === 'sortant' && !edl.entree_id && (
         <Alerte ton="info">Sans état des lieux d’entrée précis, une retenue sur le dépôt de garantie est très difficile à justifier.</Alerte>
       )}
