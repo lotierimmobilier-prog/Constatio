@@ -1,0 +1,270 @@
+<title>Constatio — échanges avec Signabail</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout : spécification en une colonne ; schémas, tableaux et exemples défilent dans leur propre cadre. */
+:root{
+  --bg:#f3f6f5; --surface:#ffffff; --sunk:#e7edeb; --ink:#0f2f2e; --muted:#566b69; --line:#cfdad7;
+  --brand:#0f4c4a; --mark:#f2b61b; --ok:#16795a; --warn:#c2571c;
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1716; --surface:#13231f; --sunk:#0f1d1b; --ink:#e6efed; --muted:#96aba8; --line:#27403c;
+  --brand:#7fd1c6; --mark:#f2b61b; --ok:#4cc79b; --warn:#f08a4f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1716; --surface:#13231f; --sunk:#0f1d1b; --ink:#e6efed; --muted:#96aba8; --line:#27403c;
+  --brand:#7fd1c6; --mark:#f2b61b; --ok:#4cc79b; --warn:#f08a4f; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:980px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,5vw,40px);font-weight:700}
+h2{font-size:24px;font-weight:700}
+h3{font-size:17px;font-weight:700;margin-top:6px}
+p{margin:0;max-width:68ch}
+ul,ol{margin:0;padding-left:20px;max-width:68ch;display:flex;flex-direction:column;gap:6px}
+section,.head{display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.head p{color:var(--muted)}
+code{font-family:var(--mono);font-size:12.5px;color:var(--brand)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td:first-child{white-space:nowrap}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.note{border-left:4px solid var(--mark);background:var(--surface);padding:12px 16px;border-radius:0 6px 6px 0}
+pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--ink);white-space:pre}
+pre.mermaid{min-width:620px;padding:12px}
+.flux{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.flux div{padding:14px 16px;border-bottom:1px solid var(--line);min-width:0;display:flex;flex-direction:column;gap:4px}
+.flux b{font-family:var(--display);font-size:16px}
+.flux span{font-size:13px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+<header class="head">
+  <span class="eyebrow">Livrable 3 sur 6 · à valider avant le développement</span>
+  <h1>Échanges entre Signabail et Constatio</h1>
+  <p>Ce document décrit ce que les deux sites se disent, dans quel sens, et ce que chacun doit construire. Les deux services restent indépendants : bases séparées, paiements séparés, et Constatio fonctionne sans Signabail.</p>
+  <p class="note"><b>Limite de cette spécification.</b> Je n'ai accès ni au code ni à la base de Signabail (seul le projet Collab est visible depuis cette session). Tout ce qui concerne « côté Signabail » est donc une proposition à implémenter là-bas, que je n'ai pas pu confronter à l'existant.</p>
+</header>
+
+<section>
+  <h2>Les six liaisons</h2>
+  <div class="flux">
+    <div><b>1. Connexion commune</b><span>Signabail → Constatio</span>Le bouton « Se connecter avec Signabail » ouvre un compte Constatio sans mot de passe supplémentaire.</div>
+    <div><b>2. Import d'un bail</b><span>Constatio lit Signabail</span>Bailleur, locataires, adresse, surface, dépôt de garantie et pièces pré-remplissent l'EDL d'entrée.</div>
+    <div><b>3. Bail signé</b><span>Signabail → Constatio</span>Un crédit d'EDL d'entrée est versé et un brouillon pré-rempli est créé.</div>
+    <div><b>4. EDL signé</b><span>Constatio → Signabail</span>Le PDF signé est rattaché au bail dans l'espace Signabail.</div>
+    <div><b>5. Offre groupée</b><span>dans les deux sens</span>Bail + EDL d'entrée + EDL de sortie à 34,90 €, vendable depuis l'un ou l'autre site.</div>
+    <div><b>6. Abonnements</b><span>dans les deux sens</span>Chaque site sait si le client est Premium chez l'autre et applique la remise.</div>
+  </div>
+</section>
+
+<section>
+  <h2>1. Se connecter avec Signabail</h2>
+  <p>Signabail joue le rôle de fournisseur d'identité, selon le protocole standard OAuth 2 (code d'autorisation avec PKCE). Constatio ne voit jamais le mot de passe Signabail.</p>
+  <div class="scroll"><pre class="mermaid">
+sequenceDiagram
+  participant U as Utilisateur
+  participant C as Constatio
+  participant S as Signabail
+  U->>C: clique « Se connecter avec Signabail »
+  C->>S: redirection vers /oauth/authorize
+  S->>U: connexion Signabail, puis écran d'accord
+  U->>S: accepte le partage (identité, baux, abonnement)
+  S->>C: retour avec un code à usage unique
+  C->>S: échange le code contre un jeton (serveur à serveur)
+  C->>S: lit l'identité (/oauth/userinfo)
+  C->>U: session Constatio ouverte
+  </pre></div>
+  <h3>Ce que l'utilisateur autorise</h3>
+  <div class="scroll"><table>
+    <tr><th>Autorisation</th><th>Contenu</th><th>Usage</th></tr>
+    <tr><td><code>profil</code></td><td>identifiant Signabail, e-mail vérifié, prénom, nom</td><td>créer ou retrouver le compte Constatio</td></tr>
+    <tr><td><code>baux:lecture</code></td><td>liste et détail des baux du compte</td><td>import d'un bail en un clic</td></tr>
+    <tr><td><code>abonnement:lecture</code></td><td>formule Premium en cours</td><td>remise sur l'abonnement Constatio</td></tr>
+  </table></div>
+  <h3>Rattachement des comptes</h3>
+  <ol>
+    <li>L'identifiant Signabail est déjà lié à un compte Constatio : connexion directe.</li>
+    <li>Sinon, un compte Constatio existe avec le même e-mail : on demande à l'utilisateur de s'y connecter une fois pour confirmer le lien. Sans cette étape, quiconque contrôle un compte Signabail avec cet e-mail prendrait la main sur le compte Constatio.</li>
+    <li>Sinon : création du compte, de son organisation, et lien immédiat.</li>
+  </ol>
+  <p>Le lien se retire depuis « Mon compte ». Les EDL déjà faits restent sur Constatio.</p>
+  <p class="note"><b>À vérifier au développement.</b> Supabase propose désormais un serveur OAuth intégré. S'il est disponible sur le projet Signabail, il fournit les pages <code>/oauth/authorize</code> et <code>/oauth/token</code> sans les coder. Sinon, ce sont trois fonctions serveur à écrire côté Signabail. Le parcours ci-dessus reste identique dans les deux cas.</p>
+</section>
+
+<section>
+  <h2>2. Importer un bail Signabail</h2>
+  <p>Avec le jeton obtenu à la connexion, Constatio appelle deux adresses de Signabail : <code>GET /api/partenaires/v1/baux</code> (la liste) et <code>GET /api/partenaires/v1/baux/{id}</code> (le détail). L'utilisateur choisit son bail, l'EDL d'entrée est pré-rempli.</p>
+  <div class="scroll"><pre>{
+  "id": "bail_8f3a…",
+  "type": "meuble",              // vide | meuble | mobilite | etudiant | colocation | garage
+  "statut": "signe",
+  "signe_le": "2026-11-03T16:20:00Z",
+  "date_entree": "2026-11-15",
+  "depot_garantie": 650.00,
+  "logement": {
+    "adresse": "12 rue des Balances", "complement": "2e étage, porte B",
+    "code_postal": "34500", "ville": "Béziers",
+    "type_bien": "appartement", "surface_m2": 28.4, "meuble": true,
+    "pieces": ["Entrée", "Séjour", "Cuisine", "Chambre", "Salle d'eau"]
+  },
+  "bailleur":   { "civilite": "Mme", "prenom": "Claire", "nom": "Vidal", "email": "…", "adresse": "…" },
+  "locataires": [ { "civilite": "M.", "prenom": "Hugo", "nom": "Marty", "email": "…", "telephone": "…" } ],
+  "mandataire": null
+}</pre></div>
+  <div class="scroll"><table>
+    <tr><th>Bail Signabail</th><th>Constatio</th></tr>
+    <tr><td><code>id</code>, <code>type</code>, <code>date_entree</code>, <code>depot_garantie</code></td><td><code>edl.signabail_bail_id</code>, <code>bail_type</code>, <code>bail_date_entree</code>, <code>depot_garantie_cents</code></td></tr>
+    <tr><td><code>logement</code></td><td>une ligne <code>logements</code> (réutilisée si l'adresse existe déjà dans le compte)</td></tr>
+    <tr><td><code>logement.pieces</code></td><td>une ligne <code>edl_pieces</code> par pièce, avec ses éléments par défaut</td></tr>
+    <tr><td><code>bailleur</code>, <code>locataires</code>, <code>mandataire</code></td><td>lignes <code>edl_parties</code></td></tr>
+    <tr><td><code>logement.meuble</code></td><td>ouvre l'étape inventaire avec les 11 équipements du décret</td></tr>
+  </table></div>
+  <p>Rien n'est renvoyé vers Signabail à ce stade : l'import est une copie. Si le bail est modifié ensuite, l'EDL ne change pas tout seul.</p>
+</section>
+
+<section>
+  <h2>3 et 4. Les messages automatiques (webhooks)</h2>
+  <div class="scroll"><table>
+    <tr><th>Événement</th><th>Sens</th><th>Effet chez le destinataire</th></tr>
+    <tr><td><code>bail.signe</code></td><td>Signabail → Constatio</td><td>Bail d'habitation uniquement : 1 crédit d'EDL d'entrée versé, brouillon pré-rempli créé, e-mail « Votre bail est signé ? Faites l'état des lieux ».</td></tr>
+    <tr><td><code>bail.annule</code></td><td>Signabail → Constatio</td><td>Le crédit offert est retiré s'il n'a pas servi ; le brouillon reste.</td></tr>
+    <tr><td><code>offre_groupee.achetee</code></td><td>dans les deux sens</td><td>Le site qui n'a pas encaissé verse sa part de l'offre (voir section 5).</td></tr>
+    <tr><td><code>abonnement.modifie</code></td><td>dans les deux sens</td><td>Mise à jour de la formule connue chez le partenaire, application ou retrait de la remise.</td></tr>
+    <tr><td><code>edl.signe</code></td><td>Constatio → Signabail</td><td>Le PDF signé est rattaché au bail et apparaît dans l'espace Signabail du bailleur.</td></tr>
+    <tr><td><code>compte.supprime</code></td><td>dans les deux sens</td><td>Le lien entre les comptes est effacé (droit à l'effacement).</td></tr>
+  </table></div>
+
+  <h3>Exemple : bail signé</h3>
+  <div class="scroll"><pre>POST https://constatio.fr/api/webhooks/signabail
+X-Partenaire-Signature: t=1794916800,v1=5f2b…        // HMAC-SHA256 de « t.corps »
+
+{
+  "id": "evt_01JD…",              // identifiant unique de l'événement
+  "type": "bail.signe",
+  "cree_le": "2026-11-17T15:00:00Z",
+  "test": false,                  // true = données de recette, aucun envoi réel
+  "compte": { "id": "sb_user_42…", "email": "claire.vidal@…" },
+  "bail": { … même contenu que l'import, section 2 … }
+}</pre></div>
+
+  <h3>Exemple : EDL signé</h3>
+  <div class="scroll"><pre>POST https://signabail.fr/api/webhooks/constatio
+
+{
+  "id": "evt_01JE…",
+  "type": "edl.signe",
+  "cree_le": "2026-11-17T15:42:00Z",
+  "test": false,
+  "edl": {
+    "id": "6b1c…", "type": "entrant", "date": "2026-11-15T10:00:00Z",
+    "signabail_bail_id": "bail_8f3a…",
+    "pdf_url": "https://…",       // lien temporaire, valable 7 jours
+    "pdf_sha256": "a3f9…c41e",
+    "signataires": [ { "role": "bailleur", "nom": "Vidal" }, { "role": "locataire", "nom": "Marty" } ]
+  }
+}</pre></div>
+
+  <h3>Règles communes aux deux sens</h3>
+  <ul>
+    <li><b>Authenticité.</b> Chaque message est signé avec un secret partagé, un par sens. Le destinataire refuse un message non signé ou vieux de plus de 5 minutes.</li>
+    <li><b>Une seule fois.</b> Le destinataire enregistre l'identifiant de l'événement et ignore un doublon. Côté Constatio, c'est la table <code>webhook_evenements</code> ; un même bail ne peut pas créditer deux fois (contrainte déjà testée au livrable 2).</li>
+    <li><b>Nouvelles tentatives.</b> Sans réponse positive, l'émetteur réessaie après 1 min, 5 min, 30 min, 2 h, 12 h, puis 24 h, et alerte l'administrateur après le dernier échec.</li>
+    <li><b>Mode test.</b> Un événement marqué <code>"test": true</code> ne crée que des données « ZZREC » et ne déclenche ni e-mail ni paiement.</li>
+    <li><b>Client pas encore inscrit sur Constatio.</b> L'événement <code>bail.signe</code> est conservé. Le crédit et le brouillon sont créés à la première connexion avec Signabail, dans la limite de 24 mois après la signature du bail.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Le crédit offert avec chaque bail d'habitation</h2>
+  <div class="scroll"><table>
+    <tr><th>Règle</th><th>Valeur</th></tr>
+    <tr><td>Déclencheur</td><td>signature d'un bail vide, meublé, mobilité, étudiant ou colocation sur Signabail</td></tr>
+    <tr><td>Exclus</td><td>garage, bail commercial ou professionnel, avenant</td></tr>
+    <tr><td>Contenu</td><td>1 EDL d'entrée complet sur Constatio</td></tr>
+    <tr><td>Validité</td><td>24 mois à compter de la signature du bail</td></tr>
+    <tr><td>Limites</td><td>utilisable pour une entrée seulement, non remboursable, non transférable à un autre compte</td></tr>
+    <tr><td>Ordre d'utilisation</td><td>avant les crédits achetés</td></tr>
+  </table></div>
+  <p><b>Texte à afficher sur Signabail</b>, à la place de « état des lieux offert » : « 1 état des lieux d'entrée offert sur Constatio avec chaque bail d'habitation ». L'EDL simple intégré à Signabail peut rester ; Constatio apporte la version complète (photos, signature, comparaison de sortie).</p>
+</section>
+
+<section>
+  <h2>5. Offre groupée à 34,90 €</h2>
+  <div class="scroll"><table>
+    <tr><th>Contenu</th><th>Prix séparé</th></tr>
+    <tr><td>1 bail d'habitation Signabail</td><td class="num">19,90 €</td></tr>
+    <tr><td>EDL d'entrée + EDL de sortie Constatio</td><td class="num">24,90 €</td></tr>
+    <tr><td><b>Total séparé</b></td><td class="num"><b>44,80 €</b></td></tr>
+    <tr><td><b>Offre groupée</b></td><td class="num"><b>34,90 €</b>, soit 9,90 € d'économie</td></tr>
+  </table></div>
+  <p>Chaque site garde son propre paiement Stripe. Celui qui vend encaisse les 34,90 €, puis demande à l'autre de verser sa part :</p>
+  <ul>
+    <li><b>Achat sur Signabail.</b> Signabail encaisse, donne 1 crédit de bail, et envoie <code>offre_groupee.achetee</code>. Constatio verse 2 crédits : un réservé à l'entrée, un réservé à la sortie.</li>
+    <li><b>Achat sur Constatio.</b> Constatio encaisse, verse les 2 crédits d'EDL, et envoie <code>offre_groupee.achetee</code>. Signabail verse 1 crédit de bail.</li>
+  </ul>
+  <p>L'offre groupée remplace le crédit offert de la section précédente : le bail qu'elle contient ne donne pas un EDL d'entrée gratuit en plus. Les crédits de l'offre valent 24 mois, pour laisser le temps d'arriver à la sortie du locataire ; au-delà, l'EDL de sortie se paie à l'unité.</p>
+  <p class="note"><b>Répartition du chiffre d'affaires.</b> Si Signabail et Constatio sont exploités par la même société, un simple suivi par origine de vente suffit. Si ce sont deux sociétés, il faut une règle de partage (par exemple 15,50 € pour le bail et 19,40 € pour les EDL, au prorata des prix séparés) et un relevé mensuel entre elles. C'est une de mes questions ci-dessous.</p>
+</section>
+
+<section>
+  <h2>6. Abonnements cumulés</h2>
+  <p>Chaque site informe l'autre quand un abonnement démarre, change ou s'arrête (<code>abonnement.modifie</code>). Le client abonné aux deux bénéficie d'une remise sur chacun, appliquée automatiquement par un code de réduction Stripe, et retirée à l'échéance suivante si l'un des deux abonnements s'arrête.</p>
+  <div class="scroll"><table>
+    <tr><th>Formule Constatio</th><th>Prix seul</th><th>Avec un Premium Signabail (proposition : −20 %)</th></tr>
+    <tr><td>Premium Investisseur</td><td class="num">9,90 €/mois</td><td class="num">7,90 €/mois</td></tr>
+    <tr><td>Premium Pro</td><td class="num">39,90 €/mois</td><td class="num">31,90 €/mois</td></tr>
+  </table></div>
+  <p>Le taux de 20 % est ma proposition, le cahier des charges ne le fixe pas. La remise réciproque côté Signabail se décide et se configure sur Signabail.</p>
+</section>
+
+<section>
+  <h2>Bannières et mentions croisées</h2>
+  <div class="scroll"><table>
+    <tr><th>Où</th><th>Texte</th><th>Lien</th></tr>
+    <tr><td>Signabail, après signature d'un bail</td><td>« Votre bail est signé ? Faites l'état des lieux »</td><td><code>constatio.fr/app/edl/nouveau?bail={id}</code></td></tr>
+    <tr><td>Constatio, EDL sans bail lié</td><td>« Pas encore de bail ? Rédigez-le sur Signabail »</td><td><code>signabail.fr/?src=constatio</code></td></tr>
+    <tr><td>Pied de page Constatio</td><td>« Service partenaire de Signabail — conçu par LOTIER »</td><td>page « Partenaire Signabail »</td></tr>
+    <tr><td>Documents sans Premium</td><td>« Réalisé avec Constatio — partenaire Signabail »</td><td></td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>Données personnelles</h2>
+  <ul>
+    <li>Rien ne circule sans action du client : la connexion commune passe par un écran d'accord, et l'envoi de <code>bail.signe</code> doit être annoncé dans les conditions de Signabail.</li>
+    <li>Seules les données utiles à l'EDL sont transmises : pas de loyer, pas de pièces justificatives, pas de données bancaires.</li>
+    <li>La suppression d'un compte chez l'un efface le lien chez l'autre, sans supprimer les EDL signés que le bailleur doit conserver.</li>
+    <li>Les deux politiques de confidentialité devront citer le partenaire comme destinataire (livrable 6).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Qui construit quoi</h2>
+  <div class="scroll"><table>
+    <tr><th>Côté Constatio (ce dépôt)</th><th>Côté Signabail (à faire là-bas)</th></tr>
+    <tr><td>Bouton et retour de connexion Signabail, rattachement des comptes</td><td>Pages d'autorisation OAuth, écran d'accord, lecture de l'identité</td></tr>
+    <tr><td>Écran « Importer un bail »</td><td>Deux adresses de lecture des baux pour les partenaires</td></tr>
+    <tr><td>Réception de <code>bail.signe</code>, crédit, brouillon, e-mail</td><td>Envoi de <code>bail.signe</code> et <code>bail.annule</code></td></tr>
+    <tr><td>Envoi de <code>edl.signe</code></td><td>Réception, rattachement du PDF au bail</td></tr>
+    <tr><td>Vente et réception de l'offre groupée</td><td>Vente et réception de l'offre groupée</td></tr>
+    <tr><td>Remise abonnement, bannière, mentions</td><td>Remise abonnement, bannière, nouveau texte « 1 EDL d'entrée offert sur Constatio »</td></tr>
+  </table></div>
+  <p>Tant que Signabail n'a pas livré sa partie, Constatio fonctionne seul. Je développerai la partie Constatio contre un faux Signabail de test, pour que les deux chantiers avancent sans s'attendre.</p>
+</section>
+
+<section>
+  <h2>Ce que j'ai besoin de savoir</h2>
+  <ol>
+    <li>Constatio est-il exploité par la même société que Signabail (SARL LOTIER) ? Cela décide du partage de l'offre groupée et des mentions légales.</li>
+    <li>La remise de 20 % pour les clients abonnés aux deux services vous convient-elle ?</li>
+    <li>Pouvez-vous me donner accès au dépôt et au projet Supabase de Signabail, ou la partie Signabail sera-t-elle développée séparément à partir de ce document ?</li>
+  </ol>
+</section>
+</div>
