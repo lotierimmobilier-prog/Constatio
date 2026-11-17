@@ -49,7 +49,7 @@ pre.mermaid{min-width:620px;padding:12px}
   <span class="eyebrow">Livrable 3 sur 6 · à valider avant le développement</span>
   <h1>Échanges entre Signabail et Constatio</h1>
   <p>Ce document décrit ce que les deux sites se disent, dans quel sens, et ce que chacun doit construire. Les deux services restent indépendants : bases séparées, paiements séparés, et Constatio fonctionne sans Signabail.</p>
-  <p class="note"><b>Limite de cette spécification.</b> Je n'ai accès ni au code ni à la base de Signabail (seul le projet Collab est visible depuis cette session). Tout ce qui concerne « côté Signabail » est donc une proposition à implémenter là-bas, que je n'ai pas pu confronter à l'existant.</p>
+  <p class="note"><b>État au 17/11/2026.</b> Côté Constatio, la réception des messages (bail signé, bail annulé, offre groupée) est développée et testée sur la base locale. Côté Signabail, rien n'est encore modifié : j'ai lu son code pour repérer où brancher l'envoi, sans y toucher.</p>
 </header>
 
 <section>
@@ -95,7 +95,7 @@ sequenceDiagram
     <li>Sinon : création du compte, de son organisation, et lien immédiat.</li>
   </ol>
   <p>Le lien se retire depuis « Mon compte ». Les EDL déjà faits restent sur Constatio.</p>
-  <p class="note"><b>À vérifier au développement.</b> Supabase propose désormais un serveur OAuth intégré. S'il est disponible sur le projet Signabail, il fournit les pages <code>/oauth/authorize</code> et <code>/oauth/token</code> sans les coder. Sinon, ce sont trois fonctions serveur à écrire côté Signabail. Le parcours ci-dessus reste identique dans les deux cas.</p>
+  <p class="note"><b>Mise à jour après lecture du code de Signabail.</b> Signabail n'utilise pas l'authentification Supabase : ses comptes sont gérés par NextAuth (mot de passe, lien par e-mail, Google), avec une base Prisma. Le serveur OAuth intégré de Supabase n'est donc pas disponible, et les pages d'autorisation décrites ci-dessus seraient à écrire entièrement. Une voie plus simple donne le même résultat pour le client : un <b>lien de passage signé</b>. Signabail fabrique un lien valable une minute, signé avec le secret partagé déjà prévu pour les messages ; Constatio le vérifie, ouvre la session et rattache le compte. À trancher avant de développer la connexion commune.</p>
 </section>
 
 <section>
