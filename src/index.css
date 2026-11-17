@@ -1,0 +1,25 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/bricolage-grotesque';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Charte Constatio : mêmes valeurs que les maquettes (docs/01-maquettes.html). */
+:root {
+  --fond: 243 246 245; --surface: 255 255 255; --creux: 231 237 235; --encre: 15 47 46;
+  --discret: 86 107 105; --trait: 207 218 215; --marque: 15 76 74; --sur-marque: 243 246 245;
+  --repere: 242 182 27; --sur-repere: 43 32 0;
+  --neuf: 22 121 90; --bon: 79 143 47; --usage: 168 122 0; --mauvais: 194 87 28; --hs: 168 38 30;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond: 11 23 22; --surface: 19 35 31; --creux: 15 29 27; --encre: 230 239 237;
+    --discret: 150 171 168; --trait: 39 64 60; --marque: 127 209 198; --sur-marque: 6 35 33;
+    --neuf: 76 199 155; --bon: 147 207 110; --usage: 227 181 60; --mauvais: 240 138 79; --hs: 240 118 109;
+    color-scheme: dark;
+  }
+}
+html, body, #root { height: 100%; }
+body { @apply bg-fond font-sans text-encre antialiased; }
+h1, h2, h3 { @apply font-titre; text-wrap: balance; }
+:focus-visible { outline: 3px solid rgb(var(--repere)); outline-offset: 2px; }
