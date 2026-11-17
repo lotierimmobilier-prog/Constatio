@@ -1,0 +1,306 @@
+<title>Constatio — arborescence et maquettes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout : document de travail en une colonne, puis planche de téléphones qui se replie en grille. */
+:root{
+  --bg:#f3f6f5; --surface:#ffffff; --sunk:#e7edeb; --ink:#0f2f2e; --muted:#566b69; --line:#cfdad7;
+  --brand:#0f4c4a; --on-brand:#f3f6f5; --mark:#f2b61b; --on-mark:#2b2000;
+  --neuf:#16795a; --bon:#4f8f2f; --usage:#a87a00; --mauvais:#c2571c; --hs:#a8261e;
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1716; --surface:#13231f; --sunk:#0f1d1b; --ink:#e6efed; --muted:#96aba8; --line:#27403c;
+  --brand:#7fd1c6; --on-brand:#062321; --mark:#f2b61b; --on-mark:#2b2000;
+  --neuf:#4cc79b; --bon:#93cf6e; --usage:#e3b53c; --mauvais:#f08a4f; --hs:#f0766d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1716; --surface:#13231f; --sunk:#0f1d1b; --ink:#e6efed; --muted:#96aba8; --line:#27403c;
+  --brand:#7fd1c6; --on-brand:#062321; --mark:#f2b61b; --on-mark:#2b2000;
+  --neuf:#4cc79b; --bon:#93cf6e; --usage:#e3b53c; --mauvais:#f08a4f; --hs:#f0766d; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,5vw,42px);font-weight:700}
+h2{font-size:24px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0;max-width:65ch}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.head{display:flex;flex-direction:column;gap:10px}
+.head p{color:var(--muted)}
+section{display:flex;flex-direction:column;gap:16px}
+.decisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:0;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.decisions div{padding:14px 16px;border-bottom:1px solid var(--line);min-width:0}
+.decisions dt{font-size:12px;color:var(--muted);font-weight:600}
+.decisions dd{margin:2px 0 0;font-weight:600}
+.decisions small{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.note{border-left:4px solid var(--mark);background:var(--surface);padding:12px 16px;border-radius:0 6px 6px 0}
+.tree{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px}
+.tree>div{min-width:0;display:flex;flex-direction:column;gap:8px}
+.tree ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.tree li{color:var(--ink)}
+.tree code{font-family:var(--mono);font-size:12.5px;color:var(--brand)}
+.tree li span{color:var(--muted)}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:36px 24px;align-items:start}
+figure{margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+figcaption{font-size:13.5px;color:var(--muted)}
+figcaption b{color:var(--ink);font-family:var(--display);font-size:15px;display:block}
+/* téléphone */
+.ph{width:100%;max-width:300px;border:2px solid var(--ink);border-radius:26px;background:var(--bg);overflow:hidden;font-size:13px;line-height:1.4;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:var(--brand);color:var(--on-brand);font-weight:600}
+.bar small{font-weight:500;opacity:.85}
+.scr{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:420px}
+.scr h4{font-family:var(--display);font-size:19px;line-height:1.15;margin:0}
+.scr p{color:var(--muted)}
+.btn{display:block;text-align:center;padding:12px;border-radius:10px;background:var(--brand);color:var(--on-brand);font-weight:600}
+.btn.alt{background:transparent;color:var(--brand);border:1.5px solid var(--brand)}
+.btn.mark{background:var(--mark);color:var(--on-mark)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.row>*{min-width:0}
+.tag{font-size:11px;font-weight:600;padding:2px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.t-draft{color:var(--usage)} .t-ok{color:var(--neuf)} .t-warn{color:var(--mauvais)} .t-bad{color:var(--hs)}
+.grade{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.grade span{text-align:center;padding:7px 0;border-radius:7px;border:1.5px solid var(--line);font-weight:600;font-size:11.5px;color:var(--muted)}
+.grade .on{color:var(--surface);border-color:transparent}
+.g-n.on{background:var(--neuf)} .g-b.on{background:var(--bon)} .g-u.on{background:var(--usage)} .g-m.on{background:var(--mauvais)} .g-h.on{background:var(--hs)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.photos span{aspect-ratio:1;border-radius:8px;background:var(--sunk);border:1px dashed var(--line);display:grid;place-items:center;color:var(--muted);font-size:11px;text-align:center}
+.meter{font-family:var(--mono);font-size:22px;letter-spacing:.12em;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-variant-numeric:tabular-nums}
+.alert{border-left:4px solid var(--mauvais);background:var(--surface);padding:8px 10px;border-radius:0 8px 8px 0}
+.alert.ok{border-color:var(--neuf)}
+.alert u{color:var(--brand);font-weight:600}
+.sign{height:86px;border:1.5px dashed var(--line);border-radius:10px;background:var(--surface);display:grid;place-items:center;color:var(--muted)}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cmp div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0}
+.cmp .diff{border-color:var(--mauvais);border-width:2px}
+.num{font-variant-numeric:tabular-nums;font-weight:600}
+.steps{display:flex;gap:4px}
+.steps i{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.steps i.d{background:var(--mark)}
+.mic{align-self:center;width:58px;height:58px;border-radius:50%;background:var(--mark);color:var(--on-mark);display:grid;place-items:center;font-weight:700;font-size:11px}
+.doubt{background:var(--mark);color:var(--on-mark);padding:0 3px;border-radius:3px}
+.tabs{display:flex;border-top:1px solid var(--line);background:var(--surface);margin-top:auto}
+.tabs span{flex:1;text-align:center;padding:9px 0;font-size:11px;color:var(--muted);font-weight:600}
+.tabs .on{color:var(--brand)}
+</style>
+
+<div class="wrap">
+<header class="head">
+  <span class="eyebrow">Livrable 1 sur 6 · à valider avant le schéma de base de données</span>
+  <h1>Constatio : arborescence du site et maquettes des écrans clés</h1>
+  <p>Ce document fixe les pages du service et l'allure des dix écrans qui portent le parcours, dessinés pour un téléphone tenu d'une main dans le logement. Rien n'est encore développé.</p>
+</header>
+
+<section>
+  <h2>Ce que vous avez validé</h2>
+  <dl class="decisions">
+    <div><dt>EDL à l'unité</dt><dd>14,90 €</dd></div>
+    <div><dt>Pack entrée + sortie</dt><dd>24,90 €</dd></div>
+    <div><dt>Bail Signabail + EDL entrée + sortie</dt><dd>34,90 €</dd></div>
+    <div><dt>Packs de crédits (24 mois)</dt><dd>5 crédits 59 € · 10 crédits 99 €<small>Montants des packs proposés par moi, à confirmer.</small></dd></div>
+    <div><dt>Premium Investisseur</dt><dd>9,90 €/mois<small>12 EDL par an, relevés d'état illimités.</small></dd></div>
+    <div><dt>Premium Pro</dt><dd>39,90 €/mois<small>Multi-utilisateurs, marque blanche, API et export Collab.</small></dd></div>
+    <div><dt>Prestation sur place</dt><dd>180 € TTC, forfait<small>Secteurs LOTIER uniquement. Par défaut, le client fait son EDL lui-même.</small></dd></div>
+    <div><dt>Base de données</dt><dd>Migrations SQL dans le dépôt<small>Projet Supabase UE créé plus tard, séparé de Collab.</small></dd></div>
+  </dl>
+  <p class="note"><b>Point juridique sur le forfait à 180 €.</b> Pour un EDL d'entrée fait par un professionnel, la part facturée au locataire ne peut dépasser ni 3 €/m² de surface habitable, ni la part payée par le bailleur. Pour un 28 m², le locataire paie donc au plus 84 € et le bailleur 96 €. L'EDL de sortie ne peut pas être facturé au locataire. Le tunnel de réservation calculera cette répartition automatiquement ; je revérifierai le plafond dans le décret n° 2014-890 au moment de le coder.</p>
+</section>
+
+<section>
+  <h2>Arborescence</h2>
+  <div class="tree">
+    <div>
+      <h3>Site vitrine (public)</h3>
+      <ul>
+        <li><code>/</code> <span>promesse, démonstration, tarifs, FAQ</span></li>
+        <li><code>/tarifs</code></li>
+        <li><code>/partenaire-signabail</code></li>
+        <li><code>/etat-des-lieux-par-un-agent</code> <span>forfait 180 €, secteurs, réservation</span></li>
+        <li><code>/guides</code> <span>5 articles SEO</span>
+          <ul>
+            <li><code>/obligations-etat-des-lieux</code></li>
+            <li><code>/etat-des-lieux-sortie-depot-de-garantie</code></li>
+            <li><code>/inventaire-mobilier-meuble</code></li>
+            <li><code>/grille-de-vetuste</code></li>
+            <li><code>/qui-peut-faire-un-etat-des-lieux</code></li>
+          </ul></li>
+        <li><code>/faq</code></li>
+        <li><code>/cgv</code> · <code>/mentions-legales</code> · <code>/confidentialite</code></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Application (compte requis)</h3>
+      <ul>
+        <li><code>/connexion</code> <span>e-mail ou « Se connecter avec Signabail »</span></li>
+        <li><code>/app</code> <span>tableau de bord, crédits, rappels</span></li>
+        <li><code>/app/logements</code> <span>historique par logement</span></li>
+        <li><code>/app/edl/nouveau</code> <span>profil, point de départ, logement</span></li>
+        <li><code>/app/edl/:id</code> <span>parcours, utilisable hors connexion</span>
+          <ul>
+            <li><code>/parties</code> <span>bailleur, locataires, mandataires, procuration</span></li>
+            <li><code>/pieces</code> et <code>/pieces/:pieceId</code></li>
+            <li><code>/exterieurs</code> <span>jardin, piscine, clôtures…</span></li>
+            <li><code>/inventaire</code> <span>meublés uniquement</span></li>
+            <li><code>/compteurs</code> · <code>/cles</code> · <code>/remarques</code></li>
+            <li><code>/controles</code> <span>alertes qui renvoient à l'étape</span></li>
+            <li><code>/apercu</code> <span>génération définitive, 1 crédit</span></li>
+            <li><code>/signature</code> <span>sur place ou à distance</span></li>
+            <li><code>/complement</code> <span>10 jours, chauffage 1er mois de chauffe</span></li>
+          </ul></li>
+        <li><code>/app/edl/:id/sortie</code>
+          <ul>
+            <li><code>/comparaison</code> <span>avant / après</span></li>
+            <li><code>/retenues</code> <span>devis, vétusté</span></li>
+            <li><code>/decompte</code> <span>restitution du dépôt, courrier</span></li>
+          </ul></li>
+        <li><code>/app/credits</code> · <code>/app/abonnement</code></li>
+        <li><code>/app/compte</code> <span>données personnelles, export, suppression</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Tiers, Pro et administration</h3>
+      <ul>
+        <li><code>/s/:jeton</code> <span>signature à distance du locataire, sans compte</span></li>
+        <li><code>/c/:jeton</code> <span>demande de complément par le locataire</span></li>
+        <li><code>/locataire</code> <span>espace locataire : ses EDL signés</span></li>
+        <li><code>/reserver</code> <span>prestation sur place : adresse, créneau, paiement</span></li>
+        <li><code>/app/pro</code>
+          <ul>
+            <li><code>/equipe</code> <span>utilisateurs et agents</span></li>
+            <li><code>/marque</code> <span>logo, en-tête, pied de page</span></li>
+            <li><code>/vetuste</code> <span>grille par défaut ou personnalisée</span></li>
+            <li><code>/api</code> <span>clé, export JSON au format Collab</span></li>
+          </ul></li>
+        <li><code>/admin</code> <span>LOTIER : réservations, agents, tarifs, mode test</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Maquettes mobiles</h2>
+  <p>L'échelle à cinq états est le geste central de la visite : un appui par élément, avec une lettre en plus de la couleur pour rester lisible en plein soleil ou pour un daltonien.</p>
+  <div class="legend">
+    <span><i style="background:var(--neuf)"></i>N · neuf</span>
+    <span><i style="background:var(--bon)"></i>B · bon état</span>
+    <span><i style="background:var(--usage)"></i>U · état d'usage</span>
+    <span><i style="background:var(--mauvais)"></i>M · mauvais état</span>
+    <span><i style="background:var(--hs)"></i>HS · hors service</span>
+  </div>
+
+  <div class="board">
+
+  <figure><div class="ph"><div class="bar"><span>Constatio</span><small>Connexion</small></div><div class="scr">
+    <h4>Un état des lieux incontestable en 20 minutes, depuis votre téléphone.</h4>
+    <p>Pièce par pièce, photos horodatées, signature sur place. Conforme au décret du 30 mars 2016.</p>
+    <span class="btn mark">Commencer gratuitement</span>
+    <span class="btn alt">Se connecter avec Signabail</span>
+    <div class="card"><div class="row"><b>EDL à l'unité</b><span class="num">14,90 €</span></div><div class="row"><span>Entrée + sortie</span><span class="num">24,90 €</span></div><p>Le brouillon est gratuit. Vous payez à la génération du document définitif.</p></div>
+    <p style="font-size:11px;margin-top:auto">Service partenaire de Signabail, conçu par LOTIER</p>
+  </div></div><figcaption><b>1. Accueil</b>La promesse, les deux prix qui comptent et l'entrée Signabail dès le premier écran.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Mes états des lieux</span><small>3 crédits</small></div><div class="scr">
+    <span class="btn">Nouvel état des lieux</span>
+    <div class="card"><div class="row"><b>12 rue des Balances, Béziers</b><span class="tag t-draft">Brouillon</span></div><p>Entrée · T2 meublé · 4 pièces sur 5 faites</p></div>
+    <div class="card"><div class="row"><b>8 av. Foch, Narbonne</b><span class="tag t-ok">Signé</span></div><p>Entrée du 03/11/2026 · complément possible jusqu'au 13/11</p></div>
+    <div class="card"><div class="row"><b>3 imp. des Lilas, Trèbes</b><span class="tag t-warn">Terminé</span></div><p>Sortie · en attente de la signature du locataire</p></div>
+    <div class="alert">Votre bail Signabail « Studio Paul-Riquet » est signé. <u>Faire l'état des lieux offert</u></div>
+    <div class="tabs"><span class="on">EDL</span><span>Logements</span><span>Crédits</span><span>Compte</span></div>
+  </div></div><figcaption><b>2. Tableau de bord</b>Les trois statuts (brouillon, terminé, signé), les échéances légales et le crédit offert par Signabail.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Nouvel EDL</span><small>2 / 3</small></div><div class="scr">
+    <div class="steps"><i class="d"></i><i class="d"></i><i></i></div>
+    <h4>D'où partez-vous ?</h4>
+    <div class="card"><b>Nouveau logement</b><p>Choisissez un modèle (studio, T1 à T6, maison, garage, local) puis ajustez les pièces.</p></div>
+    <div class="card"><b>Importer un bail Signabail</b><p>Bailleur, locataires, adresse, surface, dépôt de garantie et pièces sont repris.</p></div>
+    <div class="card"><b>Repartir d'un EDL précédent</b><p>L'état des lieux d'entrée devient la base de la sortie.</p></div>
+    <div class="alert">Sans état des lieux d'entrée, aucune dégradation n'est opposable au locataire à la sortie.</div>
+  </div></div><figcaption><b>3. Point de départ</b>Trois entrées. Le rappel juridique est dans le parcours, pas en annexe.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Séjour</span><small>pièce 2 / 5</small></div><div class="scr">
+    <div class="row"><b>Sol · parquet stratifié</b><span>2 photos</span></div>
+    <div class="grade"><span class="g-n">N</span><span class="g-b on">B</span><span class="g-u">U</span><span class="g-m">M</span><span class="g-h">HS</span></div>
+    <div class="row"><b>Murs · peinture blanche</b><span>1 photo</span></div>
+    <div class="grade"><span class="g-n">N</span><span class="g-b">B</span><span class="g-u on">U</span><span class="g-m">M</span><span class="g-h">HS</span></div>
+    <div class="row"><b>Plafond</b><span>ajouter</span></div>
+    <div class="grade"><span class="g-n on">N</span><span class="g-b">B</span><span class="g-u">U</span><span class="g-m">M</span><span class="g-h">HS</span></div>
+    <div class="row"><b>Fenêtre PVC, volet roulant</b><span>ajouter</span></div>
+    <div class="grade"><span class="g-n">N</span><span class="g-b">B</span><span class="g-u">U</span><span class="g-m">M</span><span class="g-h on">HS</span></div>
+    <div class="row"><b>Prises et interrupteurs</b><span class="tag t-warn">à faire</span></div>
+    <div class="grade"><span class="g-n">N</span><span class="g-b">B</span><span class="g-u">U</span><span class="g-m">M</span><span class="g-h">HS</span></div>
+    <span class="btn" style="margin-top:auto">Pièce suivante : cuisine</span>
+  </div></div><figcaption><b>4. Visite d'une pièce</b>Un appui par élément. Appuyer sur le nom de l'élément ouvre l'écran 5.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Séjour · fenêtre</span><small>hors ligne</small></div><div class="scr">
+    <div class="grade"><span class="g-n">N</span><span class="g-b">B</span><span class="g-u">U</span><span class="g-m">M</span><span class="g-h on">HS</span></div>
+    <div class="photos"><span>14:02<br>43.34 N</span><span>14:02<br>43.34 N</span><span>+ photo</span></div>
+    <div class="card"><b>Observation dictée</b><p style="color:var(--ink)">Volet roulant bloqué à mi-hauteur, sangle effilochée. Rayure sur le <span class="doubt">montant gauche ?</span> d'environ 10 cm.</p><p>Passage surligné : la dictée est incertaine, relisez-le.</p></div>
+    <span class="mic">Dicter</span>
+    <p style="text-align:center">Enregistré sur le téléphone. Envoi au retour du réseau.</p>
+    <span class="btn alt" style="margin-top:auto">Valider l'élément</span>
+  </div></div><figcaption><b>5. Élément : photos et dictée</b>Photos horodatées et géolocalisées, dictée structurée par l'IA, doutes signalés, tout fonctionne sans réseau.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Compteurs</span><small>étape 6</small></div><div class="scr">
+    <div class="card"><div class="row"><b>Électricité</b><span>n° 09 451 302 118 760</span></div><div class="row"><span>Heures pleines</span><span class="meter">018 432</span></div><div class="row"><span>Heures creuses</span><span class="meter">009 877</span></div><p>kWh · photo jointe</p></div>
+    <div class="card"><div class="row"><b>Eau froide</b><span class="meter">00 214</span></div><p>m³ · photo jointe</p></div>
+    <div class="card"><div class="row"><b>Eau chaude</b><span class="tag t-warn">non relevé</span></div><p>Indiquez l'index ou cochez « pas de compteur individuel ».</p></div>
+    <div class="card"><div class="row"><b>Gaz</b><span>pas de gaz dans le logement</span></div></div>
+    <span class="btn" style="margin-top:auto">Continuer : remise des clés</span>
+  </div></div><figcaption><b>6. Relevés de compteurs</b>Index, numéro et photo. Un compteur absent se déclare, il ne se laisse pas vide.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Contrôles</span><small>2 à corriger</small></div><div class="scr">
+    <h4>Avant de générer le document</h4>
+    <div class="alert">Eau chaude : compteur non relevé. <u>Aller aux compteurs</u></div>
+    <div class="alert">Meublé : il manque les plaques de cuisson dans l'inventaire (décret n° 2015-981). <u>Compléter l'inventaire</u></div>
+    <div class="alert ok">5 pièces décrites, 31 éléments, 24 photos</div>
+    <div class="alert ok">3 clés et 1 badge décrits et attribués</div>
+    <div class="alert ok">Parties et mandataire identifiés</div>
+    <span class="btn alt" style="margin-top:auto">Voir l'aperçu (gratuit)</span>
+    <span class="btn mark">Générer le document · 1 crédit</span>
+  </div></div><figcaption><b>7. Contrôles en direct</b>Chaque alerte ramène à l'étape concernée. Le crédit n'est consommé qu'à la génération.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Signature</span><small>sur place</small></div><div class="scr">
+    <p>Empreinte du PDF : <span style="font-family:var(--mono)">a3f9…c41e</span><br>17/11/2026 à 14:38</p>
+    <div class="card"><div class="row"><b>Mme Claire Vidal, bailleresse</b><span class="tag t-ok">signé</span></div></div>
+    <div class="card"><b>M. Hugo Marty, locataire</b><p>Lu et approuvé. Signez dans le cadre.</p><div class="sign">Signer ici avec le doigt</div></div>
+    <span class="btn alt">Envoyer un lien pour signer à distance</span>
+    <p>Une partie refuse de signer ? <u>Faire appel à un commissaire de justice</u></p>
+    <span class="btn" style="margin-top:auto">Valider et envoyer le PDF à chacun</span>
+  </div></div><figcaption><b>8. Signature</b>Sur l'écran ou à distance, avec dossier de preuve. Après signature, plus rien n'est modifiable.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>Sortie · chambre</span><small>3 écarts</small></div><div class="scr">
+    <div class="cmp"><div><b>Entrée</b><p>02/11/2022</p></div><div><b>Sortie</b><p>17/11/2026</p></div></div>
+    <b>Murs · peinture</b>
+    <div class="cmp"><div><span class="tag t-ok">B · bon état</span><div class="photos" style="grid-template-columns:1fr;margin-top:6px"><span style="aspect-ratio:2">photo avant</span></div></div><div class="diff"><span class="tag t-bad">M · mauvais état</span><div class="photos" style="grid-template-columns:1fr;margin-top:6px"><span style="aspect-ratio:2">photo après</span></div></div></div>
+    <div class="card"><div class="row"><span>Devis de remise en peinture</span><span class="num">480,00 €</span></div><div class="row"><span>Vétusté : 4 ans sur 7</span><span class="num">− 274,29 €</span></div><div class="row"><b>Retenue justifiée</b><b class="num">205,71 €</b></div></div>
+    <div class="card"><div class="row"><span>Dépôt de garantie</span><span class="num">650,00 €</span></div><div class="row"><b>À restituer</b><b class="num">444,29 €</b></div><p>Avant le 17/01/2027 : délai de 2 mois, la sortie n'est pas conforme à l'entrée.</p></div>
+    <span class="btn" style="margin-top:auto">Générer le décompte et le courrier</span>
+  </div></div><figcaption><b>9. Comparaison de sortie</b>Avant et après côte à côte, vétusté déduite, délai légal de restitution calculé.</figcaption></figure>
+
+  <figure><div class="ph"><div class="bar"><span>EDL par un agent</span><small>LOTIER</small></div><div class="scr">
+    <h4>Vous ne pouvez pas vous déplacer ?</h4>
+    <p>Un agent LOTIER réalise l'état des lieux sur place.</p>
+    <div class="card"><div class="row"><b>Forfait</b><b class="num">180 € TTC</b></div><p>Béziers, Montpellier, Nîmes, Avignon, Narbonne, Carcassonne, Capendu et Trèbes.</p></div>
+    <div class="card"><b>EDL d'entrée · 28 m²</b><div class="row"><span>Part locataire (3 €/m² au plus)</span><span class="num">84 €</span></div><div class="row"><span>Part bailleur</span><span class="num">96 €</span></div></div>
+    <div class="card"><b>Créneau</b><p style="color:var(--ink)">Jeudi 26 novembre, 10 h 00</p></div>
+    <span class="btn mark" style="margin-top:auto">Réserver et payer 180 €</span>
+    <span class="btn alt">Je préfère le faire moi-même · 14,90 €</span>
+  </div></div><figcaption><b>10. Prestation sur place</b>Forfait unique sur les secteurs LOTIER, répartition bailleur / locataire calculée selon le plafond légal.</figcaption></figure>
+
+  </div>
+</section>
+
+<section>
+  <h2>Ce qui reste à trancher</h2>
+  <p>Trois points n'empêchent pas d'avancer sur le schéma de données, mais j'ai besoin de votre réponse avant le paiement :</p>
+  <ul style="margin:0;padding-left:20px;max-width:65ch;display:flex;flex-direction:column;gap:6px">
+    <li>Les packs à 59 € (5 crédits) et 99 € (10 crédits) vous conviennent-ils ?</li>
+    <li>Le forfait de 180 € s'applique-t-il quelle que soit la surface, y compris une maison avec jardin ?</li>
+    <li>Pour la prestation sur place, qui paie en ligne à la réservation : le bailleur seul (qui refacture la part locataire), ou chacun sa part ?</li>
+  </ul>
+</section>
+</div>
