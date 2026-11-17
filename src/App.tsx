@@ -5,6 +5,7 @@ import { Connexion } from './pages/Connexion';
 import { Inscription } from './pages/Inscription';
 import { MotDePasseOublie } from './pages/MotDePasseOublie';
 import { NouveauMotDePasse } from './pages/NouveauMotDePasse';
+import { Passage } from './pages/Passage';
 import { TableauDeBord } from './pages/app/TableauDeBord';
 import { Compte } from './pages/app/Compte';
 import { NouvelEdl } from './pages/app/NouvelEdl';
@@ -24,6 +25,7 @@ export function App() {
       <Route path="/inscription" element={<Inscription />} />
       <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
       <Route path="/nouveau-mot-de-passe" element={<NouveauMotDePasse />} />
+      <Route path="/passage" element={<Passage />} />
       <Route path="/app" element={<CoquilleApp />}>
         <Route index element={<TableauDeBord />} />
         <Route path="compte" element={<Compte />} />

@@ -261,11 +261,32 @@ begin
     (select count(*) from public.credit_lots where reference = 'signabail:bail:bail-D')::text || ' ' || (select count(*) from public.edl where signabail_bail_id = 'bail-D')::text, '0 1');
   perform t.egal('message de test sur un compte réel : ignoré', public.signabail_recevoir(t.bail('evt-8', 'bail-E', 'vide') || '{"test": true}'), 'ignore_test');
   perform t.egal('test ignoré : rien créé', (select count(*)::text from public.edl where signabail_bail_id = 'bail-E'), '0');
+  -- Le message tel que Signabail l'envoie réellement : « bail.genere », nombre de pièces, mandataire.
+  perform t.egal('bail généré (format Signabail)', public.signabail_recevoir(jsonb_build_object('id', 'signabail-bail-G', 'type', 'bail.genere', 'test', false,
+    'compte', jsonb_build_object('id', 'sb-42'),
+    'bail', jsonb_build_object('id', 'G', 'type', 'vide', 'genere_le', '2026-11-10T09:00:00Z', 'signe_le', null, 'date_entree', '2026-12-01', 'depot_garantie', null,
+      'logement', jsonb_build_object('adresse', '5 rue Neuve', 'complement', null, 'code_postal', '11000', 'ville', 'Carcassonne', 'type_bien', 'maison', 'surface_m2', 92, 'nb_pieces', 4, 'meuble', false),
+      'bailleur', jsonb_build_object('prenom', '', 'nom', 'M. Paul ZZREC Roux'),
+      'co_bailleurs', jsonb_build_array(jsonb_build_object('prenom', 'Anne', 'nom', 'ZZREC Roux')),
+      'mandataire', jsonb_build_object('prenom', '', 'nom', 'ZZREC LOTIER', 'adresse', '40 rue Française, 34500 Béziers'),
+      'locataires', jsonb_build_array(jsonb_build_object('prenom', 'Léa', 'nom', 'ZZREC Petit'))))), 'traite');
+  perform t.egal('bail généré : crédit valable 24 mois après la génération',
+    (select expire_le::date::text from public.credit_lots where reference = 'signabail:bail:G'), '2028-11-10');
+  perform t.egal('bail généré : nombre de pièces gardé, aucune pièce créée par le serveur',
+    (select l.nb_pieces::text || ' ' || l.type_bien || ' ' || (select count(*) from public.edl_pieces p where p.edl_id = e.id)
+     from public.edl e join public.logements l on l.id = e.logement_id where e.signabail_bail_id = 'G'), '4 maison 0');
+  perform t.egal('bail généré : bailleurs, mandataire rattaché au premier bailleur, locataire',
+    (select string_agg(p.role || ':' || p.nom || coalesce('>' || r.nom, ''), ', ' order by p.ordre) from public.edl_parties p
+     left join public.edl_parties r on r.id = p.represente_id join public.edl e on e.id = p.edl_id where e.signabail_bail_id = 'G'),
+    'bailleur:M. Paul ZZREC Roux, bailleur:ZZREC Roux, mandataire_bailleur:ZZREC LOTIER>M. Paul ZZREC Roux, locataire:ZZREC Petit');
+  perform t.egal('recherche d''un compte par adresse, sans tenir compte de la casse', public.utilisateur_par_email(' ZZREC-B@example.test ')::text, b::text);
+  perform t.egal('adresse inconnue', public.utilisateur_par_email('personne@example.test')::text, null);
   perform t.refuse('message incomplet', 'select public.signabail_recevoir(''{"type": "bail.signe"}'')');
   perform t.connecter(b);
   perform t.refuse('un client fabrique lui-même un message Signabail', format('select public.signabail_recevoir(%L)', t.bail('evt-9', 'bail-F', 'vide')));
+  perform t.refuse('un client cherche si une adresse a un compte', 'select public.utilisateur_par_email(''zzrec-a@example.test'')');
   perform t.refuse('un client se rattache lui-même à un compte Signabail', format('select public.signabail_rattacher(%L, ''sb-99'')', org_b));
-  perform t.lignes('le client voit ses brouillons reçus de Signabail', 'select 1 from public.edl where source = ''signabail''', 3);
+  perform t.lignes('le client voit ses brouillons reçus de Signabail', 'select 1 from public.edl where source = ''signabail''', 4);
   perform t.refuse('le client lit les messages reçus de Signabail', 'select 1 from public.webhook_evenements');
   perform t.connecter(a);
   perform t.lignes('un autre client ne voit rien de tout cela', 'select 1 from public.edl where source = ''signabail''', 0);

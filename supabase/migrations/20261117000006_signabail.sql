@@ -6,7 +6,8 @@
 -- puis appelle signabail_recevoir. Tout le traitement est ici, dans la base :
 -- il est atomique (crédit et brouillon ensemble, ou rien) et testable sans réseau.
 --
---   bail.signe ............. 1 crédit d'EDL d'entrée + brouillon pré-rempli
+--   bail.genere, bail.signe  1 crédit d'EDL d'entrée + brouillon pré-rempli
+--                            (Signabail offre l'EDL dès que le bail est généré, signé en ligne ou sur papier)
 --   bail.annule ............ retrait du crédit s'il n'a pas servi
 --   offre_groupee.achetee .. 2 crédits : un pour l'entrée, un pour la sortie
 --   compte.supprime ........ le lien entre les deux comptes est effacé
@@ -45,10 +46,11 @@ begin
   if coalesce((p ->> 'test')::boolean, false) and not v_org.est_test then
     v_issue := 'ignore_test';
 
-  elsif v_evt.type = 'bail.signe' then
+  elsif v_evt.type in ('bail.genere', 'bail.signe') then
     bail    := p -> 'bail';
     v_bail  := bail ->> 'id';
-    v_signe := coalesce((bail ->> 'signe_le')::timestamptz, v_evt.created_at);
+    -- Les 24 mois courent de la génération du bail : c'est elle qui ouvre l'offre.
+    v_signe := coalesce((bail ->> 'genere_le')::timestamptz, (bail ->> 'signe_le')::timestamptz, v_evt.created_at);
     v_expire := v_signe + interval '24 months';
     if bail ->> 'type' not in ('vide', 'meuble', 'mobilite', 'etudiant', 'colocation') then
       v_issue := 'sans_offre';                      -- garage, bail commercial… : pas d'EDL offert
@@ -69,7 +71,7 @@ begin
           and coalesce(complement, '') = coalesce(bail #>> '{logement,complement}', '')
         limit 1;
         if v_log is null then
-          insert into public.logements (organisation_id, libelle, type_bien, adresse, complement, code_postal, ville, surface_m2, meuble)
+          insert into public.logements (organisation_id, libelle, type_bien, adresse, complement, code_postal, ville, surface_m2, nb_pieces, meuble)
           values (v_org.id,
                   concat_ws(', ', bail #>> '{logement,adresse}', bail #>> '{logement,ville}'),
                   case when bail #>> '{logement,type_bien}' in ('studio', 'appartement', 'maison', 'garage', 'local')
@@ -77,6 +79,7 @@ begin
                   bail #>> '{logement,adresse}', nullif(bail #>> '{logement,complement}', ''),
                   bail #>> '{logement,code_postal}', bail #>> '{logement,ville}',
                   nullif(bail #>> '{logement,surface_m2}', '')::numeric,
+                  nullif(bail #>> '{logement,nb_pieces}', '')::smallint,
                   coalesce((bail #>> '{logement,meuble}')::boolean, false))
           returning id into v_log;
         end if;
@@ -86,13 +89,26 @@ begin
         values (v_org.id, v_log, 'entrant',
                 coalesce((bail ->> 'date_entree')::timestamptz, now()),
                 (bail ->> 'type')::public.bail_type, (bail ->> 'date_entree')::date,
-                round((bail ->> 'depot_garantie')::numeric * 100)::integer, 'signabail', v_bail)
+                round(nullif(bail ->> 'depot_garantie', '')::numeric * 100)::integer, 'signabail', v_bail)
         returning id into v_edl;
 
         insert into public.edl_parties (edl_id, role, civilite, prenom, nom, email, telephone, adresse, ordre)
         values (v_edl, 'bailleur', bail #>> '{bailleur,civilite}', coalesce(bail #>> '{bailleur,prenom}', ''),
                 bail #>> '{bailleur,nom}', bail #>> '{bailleur,email}', bail #>> '{bailleur,telephone}',
                 bail #>> '{bailleur,adresse}', 0);
+        for v_ligne in select * from jsonb_array_elements(case when jsonb_typeof(bail -> 'co_bailleurs') = 'array' then bail -> 'co_bailleurs' else '[]' end) loop
+          v_ordre := v_ordre + 1;
+          insert into public.edl_parties (edl_id, role, civilite, prenom, nom, email, adresse, ordre)
+          values (v_edl, 'bailleur', v_ligne ->> 'civilite', coalesce(v_ligne ->> 'prenom', ''), v_ligne ->> 'nom', v_ligne ->> 'email', v_ligne ->> 'adresse', v_ordre);
+        end loop;
+        -- Mandataire du bailleur : l'agence qui gère, ou le gérant d'une société.
+        if jsonb_typeof(bail -> 'mandataire') = 'object' and nullif(bail #>> '{mandataire,nom}', '') is not null then
+          v_ordre := v_ordre + 1;
+          insert into public.edl_parties (edl_id, role, represente_id, prenom, nom, email, adresse, ordre)
+          select v_edl, 'mandataire_bailleur', p.id, coalesce(bail #>> '{mandataire,prenom}', ''), bail #>> '{mandataire,nom}',
+                 bail #>> '{mandataire,email}', bail #>> '{mandataire,adresse}', v_ordre
+          from public.edl_parties p where p.edl_id = v_edl and p.role = 'bailleur' and p.ordre = 0;
+        end if;
         for v_ligne in select * from jsonb_array_elements(coalesce(bail -> 'locataires', '[]')) loop
           v_ordre := v_ordre + 1;
           insert into public.edl_parties (edl_id, role, civilite, prenom, nom, email, telephone, ordre)
@@ -100,9 +116,10 @@ begin
                   v_ligne ->> 'email', v_ligne ->> 'telephone', v_ordre);
         end loop;
 
-        -- Les pièces du bail ; leurs éléments sont ajoutés par l'application, qui détient la trame.
+        -- Les pièces, si le bail les nomme. Signabail ne transmet que leur nombre : les pièces et
+        -- leurs éléments sont alors posés par l'application, qui détient la trame.
         v_ordre := 0;
-        for v_ligne in select * from jsonb_array_elements(coalesce(bail #> '{logement,pieces}', '[]')) loop
+        for v_ligne in select * from jsonb_array_elements(case when jsonb_typeof(bail #> '{logement,pieces}') = 'array' then bail #> '{logement,pieces}' else '[]' end) loop
           insert into public.edl_pieces (edl_id, nom, ordre) values (v_edl, v_ligne #>> '{}', v_ordre);
           v_ordre := v_ordre + 1;
         end loop;
@@ -175,3 +192,11 @@ end $$;
 revoke execute on function public.signabail_recevoir(jsonb), public.signabail_rattacher(uuid, text) from public, anon, authenticated;
 grant execute on function public.signabail_recevoir(jsonb), public.signabail_rattacher(uuid, text) to service_role;
 revoke execute on function private.signabail_traiter(uuid) from public, anon, authenticated;
+
+/** Pour le lien de passage : un compte Constatio existe-t-il avec cette adresse ? Serveur uniquement. */
+create function public.utilisateur_par_email(p_email text) returns uuid
+language sql stable security definer set search_path = '' as $$
+  select id from auth.users where lower(email) = lower(trim(p_email)) limit 1
+$$;
+revoke execute on function public.utilisateur_par_email(text) from public, anon, authenticated;
+grant execute on function public.utilisateur_par_email(text) to service_role;

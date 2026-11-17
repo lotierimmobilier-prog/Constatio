@@ -9,7 +9,7 @@ const marque = Date.now();
 const email = `zzrec-sb-${marque}@constatio.test`;
 const MDP = 'zzrec-motdepasse-1';
 
-test('bail signé sur Signabail : crédit offert et brouillon pré-rempli', async ({ page }) => {
+test('bail généré sur Signabail : crédit offert et brouillon pré-rempli', async ({ page }) => {
   await page.goto('/inscription');
   await page.getByLabel('Nom', { exact: true }).fill('ZZREC Vidal');
   await page.getByLabel('Adresse e-mail').fill(email);
@@ -20,12 +20,11 @@ test('bail signé sur Signabail : crédit offert et brouillon pré-rempli', asyn
 
   // Signabail envoie le message avant que le compte soit rattaché : il attend.
   const message = JSON.stringify({
-    id: `evt-${marque}`, type: 'bail.signe', test: false, compte: { id: `sb-${marque}` },
+    id: `signabail-bail-${marque}`, type: 'bail.genere', test: false, compte: { id: `sb-${marque}` },
     bail: {
-      id: `bail-${marque}`, type: 'meuble', signe_le: new Date().toISOString(), date_entree: '2026-12-01', depot_garantie: 650,
-      logement: { adresse: '7 allées Paul-Riquet', code_postal: '34500', ville: 'Béziers', type_bien: 'appartement', surface_m2: 31, meuble: true,
-        pieces: ['Entrée', 'Pièce de vie', 'Salle d’eau'] },
-      bailleur: { prenom: 'Claire', nom: 'ZZREC Vidal' },
+      id: `bail-${marque}`, type: 'meuble', genere_le: new Date().toISOString(), signe_le: null, date_entree: '2026-12-01', depot_garantie: 650,
+      logement: { adresse: '7 allées Paul-Riquet', code_postal: '34500', ville: 'Béziers', type_bien: 'appartement', surface_m2: 31, nb_pieces: 2, meuble: true },
+      bailleur: { prenom: 'Claire', nom: 'ZZREC Vidal' }, co_bailleurs: [], mandataire: null,
       locataires: [{ prenom: 'Hugo', nom: 'ZZREC Marty', email: 'zzrec-hugo@constatio.test' }],
     },
   }).replace(/'/g, "''");
@@ -41,17 +40,17 @@ test('bail signé sur Signabail : crédit offert et brouillon pré-rempli', asyn
 
   await expect(page.getByText('Pré-rempli depuis votre bail Signabail')).toBeVisible();
   await expect(page.getByText('Locataire : Hugo ZZREC Marty')).toBeVisible();
-  // Les trois pièces du bail, plus « Équipements et sécurité », chacune avec ses éléments.
-  await expect(page.getByRole('listitem')).toHaveCount(4);
-  await expect(page.getByTestId('avancement')).toContainText('0 élément sur 57');
+  // Signabail ne transmet que le nombre de pièces : le modèle T2 est posé, avec ses éléments.
+  await expect(page.getByRole('listitem')).toHaveCount(7);
+  await expect(page.getByTestId('avancement')).toContainText('0 élément sur 105');
   await expect(page.getByText('0 équipements obligatoires sur 11')).toBeVisible(); // meublé : inventaire exigé
-  await page.getByRole('link', { name: /Salle d’eau/ }).click();
+  await page.getByRole('link', { name: /Salle de bain/ }).click();
   await expect(page.getByText('Douche et receveur')).toBeVisible();
   await expect(page.getByTestId('envoi')).toHaveCount(0, { timeout: 15_000 });
 
   // Rouvrir ne double pas la trame, et le serveur a bien reçu les éléments.
   await page.goto('/app');
   await page.getByRole('link', { name: /7 allées Paul-Riquet/ }).click();
-  await expect(page.getByTestId('avancement')).toContainText('0 élément sur 57');
-  expect(sql(`select count(*) from public.edl_elements el join public.edl e on e.id = el.edl_id where e.signabail_bail_id = 'bail-${marque}'`)).toBe('57');
+  await expect(page.getByTestId('avancement')).toContainText('0 élément sur 105');
+  expect(sql(`select count(*) from public.edl_elements el join public.edl e on e.id = el.edl_id where e.signabail_bail_id = 'bail-${marque}'`)).toBe('105');
 });

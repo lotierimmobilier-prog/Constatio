@@ -137,7 +137,17 @@ export async function chargerEdl(id: string): Promise<{ edl: EdlLigne; logement:
 export async function completerBrouillonRecu(edl: EdlLigne): Promise<boolean> {
   if (edl.source !== 'signabail' || edl.statut !== 'brouillon') return false;
   if ((await local.lister('edl_elements', 'edl_id', edl.id)).length) return false;
-  const pieces = await local.lister<Piece>('edl_pieces', 'edl_id', edl.id);
+  let pieces = await local.lister<Piece>('edl_pieces', 'edl_id', edl.id);
+  if (!pieces.length) {
+    // Signabail ne connaît que le nombre de pièces : on part du modèle correspondant.
+    const logement = await local.lire<Logement & { nb_pieces?: number | null }>('logements', edl.logement_id);
+    const modele = logement?.type_bien === 'maison' ? 'maison' : logement?.type_bien === 'studio' ? 'studio' : `t${Math.min(Math.max(logement?.nb_pieces ?? 2, 1), 6)}`;
+    const lignes = lignesDepuisModele(edl.id, modele);
+    await local.inserer('edl_pieces', lignes.pieces.map((p) => ({ ...p, observations: null, origine_id: null })), 'Pièces');
+    await local.inserer('edl_elements', lignes.elements.map((el) => ({ ...el, nature: null, etat: null, observations: null, detail: null, origine_id: null })), 'Éléments');
+    return true;
+  }
+  pieces = pieces.filter(Boolean);
   for (const p of pieces) {
     const type = pieceType(p.type_piece ?? typeDepuisNom(p.nom));
     await local.modifier('edl_pieces', p.id, { type_piece: type.id, zone: type.zone }, p.nom);
