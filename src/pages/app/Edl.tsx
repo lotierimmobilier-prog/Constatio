@@ -107,6 +107,14 @@ export function Edl() {
         <span className={`whitespace-nowrap text-sm font-semibold ${locataires.length ? 'text-neuf' : 'text-mauvais'}`}>{locataires.length ? 'Complet' : 'À faire'}</span>
       </Link>
 
+      {!verrouille && (() => {
+        const aReprendre = pieces.find((p) => { const a = avancement(elements.filter((x) => x.piece_id === p.id)); return a.faits < a.total; });
+        return aReprendre ? (
+          <Link to={`pieces/${aReprendre.id}`} className={classesBouton('plein')} data-testid="reprendre">
+            {global.faits ? 'Reprendre la visite' : 'Commencer la visite'} : {aReprendre.nom}
+          </Link>
+        ) : null;
+      })()}
       <h2 className="mt-2 text-lg font-bold">Pièces</h2>
       <ul className="flex flex-col gap-2">
         {pieces.map((p) => {

@@ -43,6 +43,8 @@ export interface Element {
   etat: Etat | null;
   observations: string | null;
   detail: string | null;
+  /** Équipement essayé sur place : fonctionne, ne fonctionne pas, ou non testé (null). */
+  fonctionne?: boolean | null;
   ordre: number;
   origine_id: string | null;
 }

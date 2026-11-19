@@ -148,7 +148,7 @@ test('tout complété : plus aucun point bloquant, les conseils restent', async 
   for (let piece = 0; piece < 6; piece++) {
     await expect(page.getByText(`pièce ${piece + 1} / 6`)).toBeVisible();
     await page.waitForLoadState('networkidle');
-    const boutons = page.getByRole('button', { name: 'Bon état' });
+    const boutons = page.getByRole('button', { name: 'Bon état', exact: true });
     await boutons.first().waitFor();
     const n = await boutons.count();
     for (let i = 0; i < n; i++) await boutons.nth(i).click();

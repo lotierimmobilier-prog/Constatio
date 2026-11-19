@@ -15,6 +15,7 @@
 -- Écarts entre les deux modèles, et ce qu'en fait l'export :
 --   * état « hors service » (absent de Collab) → 'mauvais', observation préfixée ;
 --   * état « sans objet » → 'na' ; état non renseigné → '' ;
+--   * « ne fonctionne pas » (essai sur place) : reporté en tête d'observation ;
 --   * relevé d'état : edl2 ne connaît qu'entrée et sortie → exporté avec type 'releve',
 --     que l'import côté Collab devra accepter ou ignorer ;
 --   * terminé et signé → 'cloture' (Collab ne distingue pas) ;
@@ -99,6 +100,7 @@ language sql stable set search_path = '' as $$
                 'etat', private.collab_etat(el.etat),
                 'observation', concat_ws(' — ',
                     case when el.etat = 'hors_service' then 'Hors service' end,
+                    case when el.fonctionne is false then 'Ne fonctionne pas' end,
                     nullif(el.nature, ''), nullif(el.observations, '')),
                 'detail', coalesce(el.detail, ''),
                 'photos', coalesce((select jsonb_agg(ph.id order by ph.pris_le)

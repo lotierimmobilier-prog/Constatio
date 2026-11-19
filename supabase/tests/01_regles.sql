@@ -205,6 +205,13 @@ begin
   perform t.egal('export : compteur de gaz non saisi', public.export_collab_edl2(e1) #>> '{edl2,contenu,compteurs,gaz,type}', '');
   perform t.egal('export : clés', public.export_collab_edl2(e1) #>> '{edl2,contenu,cles,0,type}', 'Clé — porte palière');
   perform t.egal('export : signature du locataire', (public.export_collab_edl2(e1) #>> '{edl2,contenu,signatures,locataire,nom}'), 'ZZREC Marty');
+  perform t.role('none');
+  alter table public.edl_elements disable trigger edl_elements_verrou;
+  update public.edl_elements set fonctionne = false, observations = 'Sangle effilochée' where id = elem;
+  alter table public.edl_elements enable trigger edl_elements_verrou;
+  perform t.connecter(a);
+  perform t.egal('export : « ne fonctionne pas » en tête d''observation',
+    public.export_collab_edl2(e1) #>> '{edl2,contenu,pieces,0,elements,0,observation}', 'Ne fonctionne pas — Sangle effilochée');
   perform t.egal('export : hors service → mauvais', private.collab_etat('hors_service'), 'mauvais');
   perform t.egal('export : sans objet → na', private.collab_etat('sans_objet'), 'na');
 
