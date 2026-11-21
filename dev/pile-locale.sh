@@ -77,6 +77,8 @@ start() {
   attendre "fonctions" curl -sf --noproxy '*' http://127.0.0.1:54328/sante
   attendre "passerelle" curl -sf --noproxy '*' http://127.0.0.1:54321/functions/v1/sante
   printf 'VITE_SUPABASE_URL=http://127.0.0.1:5173\nVITE_SUPABASE_ANON_KEY=%s\nDEV_PROXY_AUTH=http://127.0.0.1:54325\nDEV_PROXY_REST=http://127.0.0.1:54326\nDEV_PROXY_STOCKAGE=http://127.0.0.1:54327\nDEV_PROXY_FONCTIONS=http://127.0.0.1:54328\n' "$ANON" > .env.local
+  # Le site construit (npm run build) lirait sinon .env.production, donc la vraie base : la pile locale passe devant.
+  cp .env.local .env.production.local
   echo "Pile locale démarrée. .env.local écrit. E-mails de test : http://127.0.0.1:54324"
 }
 
