@@ -44,14 +44,15 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
           navigateFallback: '/index.html',
           // Les appels au serveur ne passent jamais par le cache.
-          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//],
+          // Ni les appels au serveur ni les guides (pages statiques à part) ne passent par l'application.
+          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//, /^\/guides/, /^\/(sitemap\.xml|robots\.txt|llms(-full)?\.txt)$/],
         },
       }),
     ],
     server: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
     preview: { host: '127.0.0.1', port: 5173, strictPort: true, proxy },
     test: {
-      include: ['src/**/*.test.ts', 'supabase/functions/**/*.test.ts'],
+      include: ['src/**/*.test.ts', 'supabase/functions/**/*.test.ts', 'scripts/**/*.test.ts'],
       // Les tests de fonctions n'appellent jamais Supabase ; ces valeurs évitent seulement l'erreur de configuration.
       env: { VITE_SUPABASE_URL: 'http://localhost', VITE_SUPABASE_ANON_KEY: 'test' },
     },

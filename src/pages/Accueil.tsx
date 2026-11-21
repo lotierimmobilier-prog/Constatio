@@ -100,6 +100,7 @@ export function Accueil() {
             <a href="#tarifs" className={lien}>Tarifs</a>
             <a href="#agent" className={lien}>Par un agent</a>
             <a href="#faq" className={lien}>Questions</a>
+            <a href="/guides/" className={lien}>Guides</a>
           </nav>
           <div className="flex items-center gap-4">
             <Link to={session ? '/app' : '/connexion'} className={lien}>{session ? 'Mon espace' : 'Connexion'}</Link>
@@ -311,7 +312,7 @@ export function Accueil() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-discret sm:px-6 md:flex-row md:items-center md:justify-between">
           <p>Service partenaire de Signabail — conçu par LOTIER, 40 rue Française, 34500 Béziers.</p>
           <p className="flex flex-wrap gap-x-5 gap-y-1">
-            <span>Conditions générales de vente</span><span>Mentions légales</span><span>Confidentialité</span>
+<a href="/guides/" className="underline underline-offset-4">Guides</a><span>Conditions générales de vente</span><span>Mentions légales</span><span>Confidentialité</span>
           </p>
         </div>
       </footer>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import { BoutonGoogle } from '../components/BoutonGoogle';
 import { PageAuth } from '../components/PageAuth';
 import { Alerte, Bouton, Champ } from '../components/ui';
 import { traduireErreur } from '../lib/erreurs';
@@ -41,6 +42,7 @@ export function Connexion() {
         </Link>
       </form>
       <div className="flex flex-col gap-2 border-t border-trait pt-6">
+        <BoutonGoogle libelle="Se connecter avec Google" />
         <Bouton variante="contour" disabled aria-describedby="signabail-bientot">
           Se connecter avec Signabail
         </Bouton>

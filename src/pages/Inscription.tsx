@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth, type TypeCompte } from '../auth/AuthProvider';
+import { BoutonGoogle } from '../components/BoutonGoogle';
 import { PageAuth } from '../components/PageAuth';
 import { Alerte, Bouton, Champ } from '../components/ui';
 import { traduireErreur } from '../lib/erreurs';
@@ -112,6 +113,7 @@ export function Inscription() {
           Créer mon compte
         </Bouton>
       </form>
+      <BoutonGoogle libelle="M’inscrire avec Google" />
       <p className="text-center text-sm">
         Déjà inscrit ?{' '}
         <Link to="/connexion" className="font-semibold text-marque underline-offset-4 hover:underline">

@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/generer-guides.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:db": "supabase/tests/run.sh",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "build:apercu": "tsc --noEmit && vite build && GUIDES_TOUS=1 node scripts/generer-guides.mjs"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
@@ -29,11 +30,13 @@
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.6.2",
     "fake-indexeddb": "^6.2.8",
+    "marked": "^18.2.1",
     "postcss": "^8.5.33",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",
     "vite": "^6.4.6",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "yaml": "^2.9.1"
   }
 }
