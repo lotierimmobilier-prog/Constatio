@@ -20,6 +20,16 @@ npm run test:db     # schéma et règles d'accès, sur un Postgres local
 npm run e2e -- --trace off   # parcours sur téléphone, contre la pile locale
 ```
 
+## Administration
+
+L'espace d'administration est à l'adresse `/admin`. Le premier super administrateur se désigne une fois, au déploiement, depuis l'éditeur SQL du projet Supabase (le compte doit déjà exister) :
+
+```sql
+select public.admin_designer('adresse@du-compte.fr', 'superadmin');
+```
+
+Les suivants se nomment depuis `/admin/reglages`. Aucune adresse d'administrateur n'est écrite dans le code.
+
 ## Organisation
 
 - `supabase/migrations` : schéma, règles d'accès, export Collab

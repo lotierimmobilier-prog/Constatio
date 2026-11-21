@@ -6,6 +6,13 @@ import { Inscription } from './pages/Inscription';
 import { MotDePasseOublie } from './pages/MotDePasseOublie';
 import { NouveauMotDePasse } from './pages/NouveauMotDePasse';
 import { Passage } from './pages/Passage';
+import { CoquilleAdmin } from './pages/admin/CoquilleAdmin';
+import { AdminAccueil } from './pages/admin/AdminAccueil';
+import { AdminCompte, AdminComptes } from './pages/admin/AdminComptes';
+import { AdminTarifs } from './pages/admin/AdminTarifs';
+import { AdminSignabail } from './pages/admin/AdminSignabail';
+import { AdminJournal } from './pages/admin/AdminJournal';
+import { AdminReglages } from './pages/admin/AdminReglages';
 import { TableauDeBord } from './pages/app/TableauDeBord';
 import { Compte } from './pages/app/Compte';
 import { NouvelEdl } from './pages/app/NouvelEdl';
@@ -37,6 +44,15 @@ export function App() {
         <Route path="edl/:id/cles" element={<EdlCles />} />
         <Route path="edl/:id/inventaire" element={<EdlInventaire />} />
         <Route path="edl/:id/controles" element={<EdlControles />} />
+      </Route>
+      <Route path="/admin" element={<CoquilleAdmin />}>
+        <Route index element={<AdminAccueil />} />
+        <Route path="comptes" element={<AdminComptes />} />
+        <Route path="comptes/:id" element={<AdminCompte />} />
+        <Route path="tarifs" element={<AdminTarifs />} />
+        <Route path="signabail" element={<AdminSignabail />} />
+        <Route path="journal" element={<AdminJournal />} />
+        <Route path="reglages" element={<AdminReglages />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

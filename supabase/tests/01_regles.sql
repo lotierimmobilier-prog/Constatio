@@ -298,6 +298,76 @@ begin
   perform t.connecter(a);
   perform t.lignes('un autre client ne voit rien de tout cela', 'select 1 from public.edl where source = ''signabail''', 0);
 
+  -- Administration -----------------------------------------------------------------
+  perform t.connecter(a);
+  perform t.egal('un client n''a aucun rôle d''administration', public.admin_moi(), null);
+  perform t.refuse('un client lit le tableau de bord', 'select public.admin_tableau_de_bord()');
+  perform t.refuse('un client liste les comptes', 'select public.admin_comptes()');
+  perform t.refuse('un client lit le détail d''un autre compte', format('select public.admin_compte(%L)', org_b));
+  perform t.refuse('un client s''offre des crédits', format('select public.admin_offrir_credits(%L, 5, ''pour moi'')', org_a));
+  perform t.refuse('un client change un tarif', 'select public.admin_modifier_tarif(''edl_unite'', 1, 1, true, ''x'')');
+  perform t.refuse('un client coupe le mode test', 'select public.admin_mode_test(false)');
+  perform t.refuse('un client lit le journal d''administration', 'select public.admin_journal_lire()');
+  perform t.refuse('un client lit la table des administrateurs', 'select 1 from public.administrateurs');
+  perform t.refuse('un client se désigne administrateur', 'select public.admin_designer(''zzrec-a@example.test'')');
+  perform t.refuse('un client donne un rôle', 'select public.admin_definir_role(''zzrec-a@example.test'', ''superadmin'')');
+  perform t.role('anon');
+  perform t.refuse('un visiteur appelle une fonction d''administration', 'select public.admin_moi()');
+
+  perform t.role('service_role');
+  perform public.admin_designer('ZZREC-C@example.test', 'admin');     -- c : administrateur
+  perform t.refuse('désigner une adresse sans compte', 'select public.admin_designer(''personne@example.test'')');
+  perform t.connecter(c);
+  perform t.egal('rôle de l''administrateur', public.admin_moi(), 'admin');
+  perform t.egal('tableau de bord : mode test actif', public.admin_tableau_de_bord() ->> 'mode_test', 'true');
+  perform t.egal('tableau de bord : comptes', public.admin_tableau_de_bord() ->> 'comptes', '3');
+  perform t.egal('recherche d''un compte par adresse', public.admin_comptes('zzrec-b') #>> '{0,email}', 'zzrec-b@example.test');
+  perform t.egal('recherche sans résultat', public.admin_comptes('introuvable')::text, '[]');
+  perform t.egal('détail : la liste des EDL, sans leur contenu', (select string_agg(k, ',' order by k) from jsonb_object_keys(public.admin_compte(org_b) #> '{edl,0}') k), 'date,id,source,statut,type,ville');
+  perform t.lignes('l''administrateur ne lit toujours pas les EDL d''un client', format('select 1 from public.edl where organisation_id = %L', org_b), 0);
+  perform t.lignes('ni ses éléments', format('select 1 from public.edl_elements el join public.edl e on e.id = el.edl_id where e.organisation_id = %L', org_b), 0);
+
+  perform t.refuse('crédits offerts sans motif', format('select public.admin_offrir_credits(%L, 2, '' '')', org_b));
+  perform t.refuse('plus de 50 crédits à la fois', format('select public.admin_offrir_credits(%L, 51, ''erreur'')', org_b));
+  perform public.admin_offrir_credits(org_b, 2, 'Geste après un incident');
+  perform t.egal('crédits offerts : valables 24 mois, origine tracée',
+    (select (l ->> 'quantite') || ' ' || (l ->> 'origine') || ' ' || ((l ->> 'expire_le')::date - current_date > 700)
+     from jsonb_array_elements(public.admin_compte(org_b) -> 'lots') l where l ->> 'origine' = 'geste_commercial'), '2 geste_commercial true');
+  perform t.lignes('l''administrateur ne lit pas la table des crédits d''un client', format('select 1 from public.credit_lots where organisation_id = %L', org_b), 0);
+  perform t.egal('retrait du reste d''un lot', public.admin_annuler_lot((select (l ->> 'id')::uuid from jsonb_array_elements(public.admin_compte(org_b) -> 'lots') l where l ->> 'origine' = 'geste_commercial'), 'Saisi par erreur')::text, '2');
+  perform public.admin_modifier_tarif('edl_unite', 990, 1, true, 'État des lieux à l''unité');
+  perform t.egal('tarif modifié', (select montant_cents::text from public.tarifs where code = 'edl_unite'), '990');
+  perform t.refuse('tarif négatif', 'select public.admin_modifier_tarif(''edl_unite'', -1, 1, true, ''x'')');
+  perform public.admin_definir_test(org_b, true);
+  perform t.egal('compte marqué « test »', public.admin_compte(org_b) #>> '{organisation,est_test}', 'true');
+  perform t.egal('message Signabail rejoué', public.admin_rejouer_signabail((select (x ->> 'id')::uuid from jsonb_array_elements(public.admin_signabail(false)) x where x ->> 'bail' = 'bail-E')), 'traite');
+  perform t.egal('le message de test passe maintenant que le compte est un compte de test',
+    (select count(*)::text from jsonb_array_elements(public.admin_compte(org_b) -> 'edl') x where x ->> 'source' = 'signabail'), '5');
+  perform t.egal('liste des messages Signabail sans le contenu du bail', (public.admin_signabail(false) -> 0 ? 'payload')::text, 'false');
+
+  perform t.refuse('un simple administrateur coupe le mode test', 'select public.admin_mode_test(false)');
+  perform t.refuse('un simple administrateur nomme un administrateur', 'select public.admin_definir_role(''zzrec-a@example.test'', ''admin'')');
+  perform t.refuse('un simple administrateur liste les administrateurs', 'select public.admin_administrateurs()');
+  perform t.egal('chaque action est au journal', (select string_agg(x ->> 'action', ',' order by (x ->> 'id')::int) from jsonb_array_elements(public.admin_journal_lire()) x),
+    'admin.designe_par_le_serveur,credits.offerts,credits.retires,tarif.modifie,compte.test,signabail.rejoue');
+  perform t.egal('le journal garde l''avant et l''après d''un tarif',
+    (select x #>> '{details,avant,montant_cents}' || '>' || (x #>> '{details,apres,montant_cents}') from jsonb_array_elements(public.admin_journal_lire()) x where x ->> 'action' = 'tarif.modifie'), '1490>990');
+
+  perform t.role('service_role');
+  perform public.admin_designer('zzrec-b@example.test', 'superadmin');
+  perform t.refuse('même le serveur ne réécrit pas le journal', 'update public.admin_journal set action = ''x''');
+  perform t.connecter(b);
+  perform public.admin_mode_test(false);
+  perform t.egal('mode test coupé par le super administrateur', (select valeur::text from public.parametres where cle = 'mode_test'), 'false');
+  perform public.admin_mode_test(true);
+  perform t.refuse('modifier son propre rôle', 'select public.admin_definir_role(''zzrec-b@example.test'', ''admin'')');
+  perform public.admin_definir_role('zzrec-c@example.test', null);
+  perform t.egal('rôle retiré', (public.admin_administrateurs() @> '[{"email": "zzrec-c@example.test"}]')::text, 'false');
+  perform t.connecter(c);
+  perform t.refuse('l''ancien administrateur n''a plus accès', 'select public.admin_tableau_de_bord()');
+  perform t.role('service_role');
+  update public.tarifs set montant_cents = 1490 where code = 'edl_unite';
+
   -- Visiteur non connecté -------------------------------------------------------------
   perform t.role('anon');
   perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 8);

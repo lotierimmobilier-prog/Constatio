@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, type TypeCompte } from '../../auth/AuthProvider';
 import { Alerte, Bouton, Carte, Champ, Liste } from '../../components/ui';
 import { traduireErreur } from '../../lib/erreurs';
@@ -15,6 +15,8 @@ export function Compte() {
   const aller = useNavigate();
   const { enAttente, enLigne } = useSync();
   const [confirmer, setConfirmer] = useState(false);
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => { supabase.rpc('admin_moi').then(({ data }) => setAdmin(!!data)); }, []);
   if (!profil || !organisation) return null;
   const peutGerer = role === 'proprietaire' || role === 'admin';
 
@@ -24,6 +26,7 @@ export function Compte() {
       <p className="text-sm text-discret">
         {session?.user.email} · {role ? ROLES[role] : ''}
       </p>
+      {admin && <Link to="/admin" className="font-semibold text-marque underline underline-offset-4">Ouvrir l’administration de Constatio</Link>}
       <FormulaireProfil key={profil.id} recharger={recharger} />
       <FormulaireOrganisation key={organisation.id} lectureSeule={!peutGerer} recharger={recharger} />
       <FormulaireMotDePasse />
