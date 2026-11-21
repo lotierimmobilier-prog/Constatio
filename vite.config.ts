@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       ? {
           '/auth/v1': { target: env.DEV_PROXY_AUTH, rewrite: (p: string) => p.replace(/^\/auth\/v1/, '') },
           '/rest/v1': { target: env.DEV_PROXY_REST, rewrite: (p: string) => p.replace(/^\/rest\/v1/, '') },
+          ...(env.DEV_PROXY_STOCKAGE ? { '/storage/v1': { target: env.DEV_PROXY_STOCKAGE, rewrite: (p: string) => p.replace(/^\/storage\/v1/, '') } } : {}),
         }
       : undefined;
   return {

@@ -258,7 +258,9 @@ create table public.edl_photos (
   edl_id       uuid not null references public.edl (id) on delete cascade,
   piece_id     uuid,
   element_id   uuid,
-  compteur_id  uuid,
+  -- Photo d'un compteur : rattachée par énergie. L'identifiant de la ligne du compteur
+  -- n'est pas le même sur l'appareil et sur le serveur tant que la saisie n'est pas envoyée.
+  compteur_type public.compteur_type,
   storage_path text not null unique,             -- {organisation}/{edl}/photos/{id}.jpg
   nom          text not null default '',
   mime         text not null default 'image/jpeg',
@@ -274,8 +276,7 @@ create table public.edl_photos (
   legende      text,
   created_at   timestamptz not null default now(),
   foreign key (piece_id, edl_id)    references public.edl_pieces (id, edl_id)    on delete cascade,
-  foreign key (element_id, edl_id)  references public.edl_elements (id, edl_id)  on delete cascade,
-  foreign key (compteur_id, edl_id) references public.edl_compteurs (id, edl_id) on delete cascade
+  foreign key (element_id, edl_id)  references public.edl_elements (id, edl_id)  on delete cascade
 );
 create index edl_photos_edl_idx     on public.edl_photos (edl_id);
 create index edl_photos_element_idx on public.edl_photos (element_id);

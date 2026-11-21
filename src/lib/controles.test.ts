@@ -8,7 +8,7 @@ const complet = (): DonneesControle => ({
     { role: 'locataire', nom: 'Marty', nouvelle_adresse: null, represente_id: null },
   ],
   pieces: [{ id: 'p1', nom: 'Séjour' }],
-  elements: [{ piece_id: 'p1', libelle: 'Sol', etat: 'bon', observations: null }],
+  elements: [{ id: 'el1', piece_id: 'p1', libelle: 'Sol', etat: 'bon', observations: null }],
   compteurs: [
     { type: 'electricite', absent: false, index_1: 18432, index_2: 9877, double_tarif: true, numero: '0945' },
     { type: 'eau_froide', absent: false, index_1: 214, index_2: null, double_tarif: false, numero: 'E12' },
@@ -17,6 +17,7 @@ const complet = (): DonneesControle => ({
   ],
   cles: [{ nombre: 3, destination: 'Porte palière' }],
   inventaire: [],
+  photos: [{ element_id: null, compteur_type: 'electricite' }, { element_id: null, compteur_type: 'eau_froide' }],
 });
 const messages = (d: DonneesControle) => controler(d).map((x) => x.message);
 
@@ -30,7 +31,7 @@ describe('controler', () => {
   });
   it('renvoie vers la pièce dont des éléments n’ont pas d’état', () => {
     const d = complet();
-    d.elements.push({ piece_id: 'p1', libelle: 'Murs', etat: null, observations: null }, { piece_id: 'p1', libelle: 'Plafond', etat: null, observations: null });
+    d.elements.push({ id: 'el2', piece_id: 'p1', libelle: 'Murs', etat: null, observations: null }, { id: 'el3', piece_id: 'p1', libelle: 'Plafond', etat: null, observations: null });
     expect(controler(d)).toEqual([{ niveau: 'bloquant', message: 'Séjour : 2 éléments sans état.', vers: 'pieces/p1', action: 'Ouvrir la pièce' }]);
   });
   it('« sans objet » vaut réponse', () => {
@@ -39,10 +40,12 @@ describe('controler', () => {
   });
   it('conseille de décrire un défaut noté sans observation', () => {
     const d = complet(); d.elements[0].etat = 'hors_service';
-    const [x] = controler(d);
+    const [x, y] = controler(d);
     expect(x.niveau).toBe('conseil');
     expect(x.message).toContain('sol en mauvais état sans observation');
+    expect(y.message).toContain('sol en mauvais état sans photo');
     d.elements[0].observations = 'Lame cassée';
+    d.photos.push({ element_id: 'el1', compteur_type: null });
     expect(controler(d)).toEqual([]);
   });
   it('un compteur est relevé ou déclaré absent, jamais vide', () => {
@@ -80,6 +83,13 @@ describe('controler', () => {
     expect(controler(d).map((x) => x.niveau)).toEqual(['bloquant', 'conseil']);
     d.parties[1].nouvelle_adresse = '3 impasse des Lilas, Trèbes'; d.entreeConnue = true;
     expect(controler(d)).toEqual([]);
+  });
+  it('conseille la photo d’un compteur relevé', () => {
+    const d = complet(); d.photos = [];
+    expect(controler(d).map((x) => [x.niveau, x.message])).toEqual([
+      ['conseil', 'Électricité : pas de photo du compteur. Elle évite toute contestation de l’index.'],
+      ['conseil', 'Eau froide : pas de photo du compteur. Elle évite toute contestation de l’index.'],
+    ]);
   });
   it('garage : ni compteur ni inventaire attendus', () => {
     const d = complet(); d.sansCompteurs = true; d.compteurs = []; d.meuble = true;

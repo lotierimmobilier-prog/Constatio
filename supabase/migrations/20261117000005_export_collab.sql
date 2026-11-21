@@ -49,7 +49,7 @@ language sql stable set search_path = '' as $$
       'numero', coalesce(c.numero, ''), 'reference', '',
       'type', case when c.absent then 'absent' when c.index_1 is not null then 'individuel' else '' end,
       'emplacement', coalesce(c.emplacement, ''),
-      'photo', (select ph.id from public.edl_photos ph where ph.compteur_id = c.id order by ph.pris_le limit 1))
+      'photo', (select ph.id from public.edl_photos ph where ph.edl_id = c.edl_id and ph.compteur_type = c.type order by ph.pris_le limit 1))
     from public.edl_compteurs c where c.edl_id = p_edl and c.type = p_type limit 1),
     jsonb_build_object('valeur', '', 'verifie', false, 'hc', '', 'numero', '', 'reference', '',
                        'type', '', 'emplacement', '', 'photo', null))
@@ -139,7 +139,7 @@ language sql stable set search_path = '' as $$
         'remarquesLocataire', '',
         'photosLibres', coalesce((select jsonb_agg(jsonb_build_object('id', ph.id, 'commentaire', coalesce(ph.legende, '')))
             from public.edl_photos ph
-            where ph.edl_id = e.id and ph.piece_id is null and ph.element_id is null and ph.compteur_id is null), '[]'),
+            where ph.edl_id = e.id and ph.piece_id is null and ph.element_id is null and ph.compteur_type is null), '[]'),
         'edlPrecedent', '',
         'departAnticipe', false,
         'finPreavis', '',
@@ -174,7 +174,7 @@ language sql stable set search_path = '' as $$
     'edl2_photos', coalesce((select jsonb_agg(jsonb_build_object(
         'id', ph.id, 'edlId', coalesce(e.collab_edl_id, e.id::text),
         'pieceId', coalesce(ph.piece_id::text, (select el.piece_id::text from public.edl_elements el where el.id = ph.element_id), ''),
-        'elementId', coalesce(ph.element_id::text, ph.compteur_id::text, ''),
+        'elementId', coalesce(ph.element_id::text, ph.compteur_type::text, ''),
         'name', ph.nom, 'mime', ph.mime, 'size', ph.taille,
         'storagePath', ph.storage_path, 'sha256', ph.sha256, 'createdAt', ph.pris_le))
         from public.edl_photos ph where ph.edl_id = e.id), '[]')

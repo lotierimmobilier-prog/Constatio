@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Pile locale réduite pour le développement : Postgres (image Supabase),
-# authentification (GoTrue), API (PostgREST) et boîte mail de test (Mailpit).
+# authentification (GoTrue), API (PostgREST), stockage des fichiers (Storage)
+# et boîte mail de test (Mailpit).
 # À utiliser quand « supabase start » n'est pas possible. Secrets de
 # développement uniquement, sans valeur en dehors de cette machine.
 #   dev/pile-locale.sh start | stop | reset
@@ -17,7 +18,7 @@ attendre() {  # attendre <libellé> <commande…> : 60 s au plus
   echo " ÉCHEC : le service ne répond pas (voir docker logs)"; exit 1
 }
 
-stop() { docker rm -f cst-db cst-auth cst-rest cst-mail >/dev/null 2>&1 || true; }
+stop() { docker rm -f cst-db cst-auth cst-rest cst-mail cst-stockage >/dev/null 2>&1 || true; }
 
 start() {
   docker network inspect $NET >/dev/null 2>&1 || docker network create $NET >/dev/null
@@ -26,7 +27,7 @@ start() {
     supabase/postgres:17.12.0.000 >/dev/null
   attendre "base de données" psql "$DBURL" -qc "select 1"
   # L'image ne fixe pas de mot de passe aux rôles de service.
-  psql "${DBURL/postgres:/supabase_admin:}" -q -c "alter role supabase_auth_admin with password '$PW'" -c "alter role authenticator with password '$PW'"
+  psql "${DBURL/postgres:/supabase_admin:}" -q -c "alter role supabase_auth_admin with password '$PW'" -c "alter role authenticator with password '$PW'" -c "alter role supabase_storage_admin with password '$PW'"
   docker run -d --name cst-mail --network $NET -p 54324:8025 axllent/mailpit:v1.31.3 >/dev/null
   docker run -d --name cst-auth --network $NET -p 54325:9999 \
     -e GOTRUE_API_HOST=0.0.0.0 -e GOTRUE_API_PORT=9999 -e API_EXTERNAL_URL=http://127.0.0.1:5173/auth/v1 \
@@ -39,28 +40,27 @@ start() {
     -e GOTRUE_MAILER_URLPATHS_RECOVERY=/auth/v1/verify -e GOTRUE_MAILER_URLPATHS_CONFIRMATION=/auth/v1/verify \
     supabase/gotrue:v2.198.0 >/dev/null
   attendre "authentification" curl -sf --noproxy '*' http://127.0.0.1:54325/health
-  # Le stockage Supabase n'est pas disponible dans cette pile : tables minimales à la place.
-  psql "${DBURL/postgres:/supabase_admin:}" -q -v ON_ERROR_STOP=1 <<'SQL'
-create table if not exists storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
-create table if not exists storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text);
-alter table storage.objects enable row level security;
-create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
-  select (string_to_array(name, '/'))[1 : array_length(string_to_array(name, '/'), 1) - 1] $$;
-alter table storage.buckets owner to postgres;
-alter table storage.objects owner to postgres;
-grant usage on schema storage to postgres, authenticated, service_role;
-grant all on storage.buckets, storage.objects to authenticated, service_role;
-SQL
+  jeton() {  # jeton <rôle> : JWT signé avec le secret local
+    node -e '
+      const c=require("crypto"),b=o=>Buffer.from(JSON.stringify(o)).toString("base64url");
+      const d=b({alg:"HS256",typ:"JWT"})+"."+b({role:process.argv[2],iss:"constatio-dev",exp:4102444800});
+      console.log(d+"."+c.createHmac("sha256",process.argv[1]).update(d).digest("base64url"))' "$JWT" "$1"
+  }
+  ANON=$(jeton anon); SERVICE=$(jeton service_role)
+  # Le stockage crée lui-même ses tables (storage.buckets, storage.objects) au démarrage.
+  docker run -d --name cst-stockage --network $NET -p 54327:5000 \
+    -e ANON_KEY=$ANON -e SERVICE_KEY=$SERVICE -e PGRST_JWT_SECRET=$JWT -e POSTGREST_URL=http://cst-rest:3000 \
+    -e "DATABASE_URL=postgres://supabase_storage_admin:$PW@cst-db:5432/postgres" \
+    -e STORAGE_BACKEND=file -e FILE_STORAGE_BACKEND_PATH=/var/lib/storage -e FILE_SIZE_LIMIT=52428800 \
+    -e TENANT_ID=stub -e REGION=stub -e GLOBAL_S3_BUCKET=stub -e ENABLE_IMAGE_TRANSFORMATION=false \
+    supabase/storage-api:v1.96.0 >/dev/null
+  attendre "stockage" curl -sf --noproxy '*' http://127.0.0.1:54327/status
   for f in supabase/migrations/*.sql; do echo "→ $f"; psql "$DBURL" -q -v ON_ERROR_STOP=1 < "$f"; done
   docker run -d --name cst-rest --network $NET -p 54326:3000 \
     -e "PGRST_DB_URI=postgres://authenticator:$PW@cst-db:5432/postgres" -e PGRST_DB_SCHEMAS=public \
     -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET=$JWT postgrest/postgrest:v16.5 >/dev/null
   attendre "API" curl -sf --noproxy '*' http://127.0.0.1:54326/
-  ANON=$(node -e '
-    const c=require("crypto"),b=o=>Buffer.from(JSON.stringify(o)).toString("base64url");
-    const d=b({alg:"HS256",typ:"JWT"})+"."+b({role:"anon",iss:"constatio-dev",exp:4102444800});
-    console.log(d+"."+c.createHmac("sha256",process.argv[1]).update(d).digest("base64url"))' "$JWT")
-  printf 'VITE_SUPABASE_URL=http://127.0.0.1:5173\nVITE_SUPABASE_ANON_KEY=%s\nDEV_PROXY_AUTH=http://127.0.0.1:54325\nDEV_PROXY_REST=http://127.0.0.1:54326\n' "$ANON" > .env.local
+  printf 'VITE_SUPABASE_URL=http://127.0.0.1:5173\nVITE_SUPABASE_ANON_KEY=%s\nDEV_PROXY_AUTH=http://127.0.0.1:54325\nDEV_PROXY_REST=http://127.0.0.1:54326\nDEV_PROXY_STOCKAGE=http://127.0.0.1:54327\n' "$ANON" > .env.local
   echo "Pile locale démarrée. .env.local écrit. E-mails de test : http://127.0.0.1:54324"
 }
 

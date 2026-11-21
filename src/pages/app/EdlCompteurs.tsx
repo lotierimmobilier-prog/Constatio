@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
+import { Photos } from '../../components/Photos';
 import { Alerte, Carte, Champ, classesBouton } from '../../components/ui';
+import { chargerEdl } from '../../lib/edl';
+import type { Photo } from '../../lib/photos';
 import { COMPTEURS, type TypeCompteur } from '../../lib/controles';
 import { lireIndex } from '../../lib/edl';
 import { local } from '../../lib/local';
@@ -27,11 +30,15 @@ const fr = (n: number | null) => (n === null ? '' : String(n).replace('.', ','))
 export function EdlCompteurs() {
   const { id, verrouille } = useVerrou();
   const [lignes, setLignes] = useState<Record<TypeCompteur, Ligne> | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [organisationId, setOrganisationId] = useState('');
   const [etat, setEtat] = useState<Partial<Record<TypeCompteur, 'ok' | 'saisie'>>>({});
 
   useEffect(() => {
     void (async () => {
-      await local.tirerEdl(id);
+      const fiche = await chargerEdl(id);
+      setOrganisationId(fiche?.edl.organisation_id ?? '');
+      setPhotos((await local.lister<Photo>('edl_photos', 'edl_id', id)).filter((p) => p.compteur_type));
       const data = await local.lister<{ type: TypeCompteur; absent: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }>('edl_compteurs', 'edl_id', id);
       const depart = Object.fromEntries(COMPTEURS.map((c) => [c.type, vide()])) as Record<TypeCompteur, Ligne>;
       for (const c of data)
@@ -98,6 +105,11 @@ export function EdlCompteurs() {
                   </div>
                   <Champ id={`num-${k}`} libelle="Numéro du compteur" value={l.numero} onChange={(e) => changer(k, { numero: e.target.value })} onBlur={() => enregistrer(k, l)}
                     aide={k === 'electricite' ? 'Ou le point de livraison (PDL, 14 chiffres).' : k === 'gaz' ? 'Ou le point de comptage (PCE).' : undefined} />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold">Photo du compteur</span>
+                    <Photos edl={{ id, organisation_id: organisationId }} cible={{ compteur_type: k }} photos={photos.filter((p) => p.compteur_type === k)} quoi={`compteur ${c.libelle.toLowerCase()}`} verrouille={verrouille}
+                      onChange={(suite) => setPhotos((toutes) => [...toutes.filter((p) => p.compteur_type !== k), ...suite])} />
+                  </div>
                   <Champ id={`emp-${k}`} libelle="Emplacement" value={l.emplacement} onChange={(e) => changer(k, { emplacement: e.target.value })} onBlur={() => enregistrer(k, l)} placeholder="Palier, placard de l’entrée…" />
                 </>
               )}

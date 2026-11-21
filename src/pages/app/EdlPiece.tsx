@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Photos } from '../../components/Photos';
 import { Alerte, Bouton, Carte, Champ } from '../../components/ui';
+import type { Photo } from '../../lib/photos';
 import { avancement, chargerEdl, type Element, type Piece } from '../../lib/edl';
 import { local } from '../../lib/local';
 import { ajouterPhrase, phrasesTypes } from '../../lib/phrases';
@@ -17,6 +19,8 @@ export function EdlPiece() {
   const [elements, setElements] = useState<Element[]>([]);
   const [origines, setOrigines] = useState<Map<string, Origine>>(new Map());
   const [verrouille, setVerrouille] = useState(false);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [organisationId, setOrganisationId] = useState('');
   // La pièce dont les éléments sont à l'écran : tant que ce n'est pas celle de l'adresse, on n'affiche rien d'elle.
   const [chargee, setChargee] = useState<string | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
@@ -31,6 +35,8 @@ export function EdlPiece() {
     setPieces(lesPieces);
     setElements(els);
     setVerrouille(fiche?.edl.statut === 'signe');
+    setOrganisationId(fiche?.edl.organisation_id ?? '');
+    setPhotos((await local.lister<Photo>('edl_photos', 'edl_id', id!)).filter((p) => p.piece_id === pieceId));
     setNomPiece(lesPieces.find((p) => p.id === pieceId)?.nom ?? '');
     // Sortie : l'état constaté à l'entrée, affiché en regard (lu sur l'appareil).
     const trouves = new Map<string, Origine>();
@@ -108,6 +114,8 @@ export function EdlPiece() {
           const origine = el.origine_id ? origines.get(el.origine_id) : undefined;
           const precision = detailAttendu(piece.type_piece, el.categorie);
           const estOuvert = ouvert === el.id;
+          const sesPhotos = photos.filter((p) => p.element_id === el.id);
+          const nbPhotos = sesPhotos.length;
           const ecart = origine?.etat && el.etat && el.etat !== 'sans_objet' && origine.etat !== el.etat;
           return (
             <li key={el.id} className="flex flex-col gap-2 rounded-2xl border border-trait bg-surface p-3" data-testid={`element-${el.categorie}`}>
@@ -118,7 +126,10 @@ export function EdlPiece() {
                   {el.etat === 'sans_objet' && <span className="block text-sm text-discret">Sans objet</span>}
                   {el.fonctionne === false && <span className="block text-sm font-semibold text-hs">Ne fonctionne pas</span>}
                 </span>
-                <span className="whitespace-nowrap text-sm font-semibold text-marque">{estOuvert ? 'Fermer' : el.observations ? 'Note ✓' : 'Détail'}</span>
+                <span className="whitespace-nowrap text-right text-sm font-semibold text-marque">
+                  {nbPhotos > 0 && <span className="block font-normal text-discret" data-testid="nb-photos">{nbPhotos} photo{nbPhotos > 1 ? 's' : ''}</span>}
+                  {estOuvert ? 'Fermer' : el.observations ? 'Note ✓' : 'Détail'}
+                </span>
               </button>
               <div role="group" aria-label={`État : ${el.libelle}`} className="grid grid-cols-5 gap-1.5">
                 {ETATS.map((x) => {
@@ -134,6 +145,8 @@ export function EdlPiece() {
               </div>
               {estOuvert && (
                 <fieldset disabled={verrouille} className="flex flex-col gap-3 border-t border-trait pt-3">
+                  <Photos edl={{ id: id!, organisation_id: organisationId }} cible={{ piece_id: piece.id, element_id: el.id }} photos={sesPhotos} quoi={`${piece.nom}, ${el.libelle}`} verrouille={verrouille}
+                    onChange={(suite) => setPhotos((toutes) => [...toutes.filter((p) => p.element_id !== el.id), ...suite])} />
                   <Champ id={`nature-${el.id}`} libelle="Nature, matériau" defaultValue={el.nature ?? ''} placeholder="Parquet stratifié, PVC double vitrage…"
                     onBlur={(e) => { const v = e.target.value.trim() || null; if (v !== el.nature) void modifier(el.id, { nature: v }); }} />
                   {precision && (

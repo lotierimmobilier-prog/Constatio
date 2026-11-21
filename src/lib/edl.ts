@@ -288,6 +288,7 @@ export async function controlerEdl(edlId: string): Promise<{ alertes: Alerte[]; 
     compteurs: await lister('edl_compteurs'),
     cles: await lister('edl_cles'),
     inventaire: await lister('edl_inventaire'),
+    photos: await lister('edl_photos'),
   };
   return { alertes: controler(donnees), donnees };
 }

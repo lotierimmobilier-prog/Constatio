@@ -35,10 +35,11 @@ export interface DonneesControle {
   entreeConnue: boolean;
   parties: { role: string; nom: string; nouvelle_adresse: string | null; represente_id: string | null }[];
   pieces: { id: string; nom: string }[];
-  elements: { piece_id: string; libelle: string; etat: Etat | null; observations: string | null }[];
+  elements: { id: string; piece_id: string; libelle: string; etat: Etat | null; observations: string | null }[];
   compteurs: { type: TypeCompteur; absent: boolean; index_1: number | null; index_2: number | null; double_tarif: boolean; numero: string | null }[];
   cles: { nombre: number; destination: string }[];
   inventaire: { code_decret: string | null }[];
+  photos: { element_id: string | null; compteur_type: string | null }[];
 }
 
 export interface Alerte {
@@ -79,6 +80,9 @@ export function controler(d: DonneesControle): Alerte[] {
     const muets = els.filter((x) => (x.etat === 'mauvais' || x.etat === 'hors_service') && !x.observations?.trim());
     if (muets.length)
       conseil(`${p.nom} : ${muets.map((x) => x.libelle.toLowerCase()).join(', ')} en mauvais état sans observation. Décrivez le défaut : c’est ce qui fera preuve.`, `pieces/${p.id}`, 'Ouvrir la pièce');
+    const sansPhoto = els.filter((x) => (x.etat === 'mauvais' || x.etat === 'hors_service') && !d.photos.some((ph) => ph.element_id === x.id));
+    if (sansPhoto.length)
+      conseil(`${p.nom} : ${sansPhoto.map((x) => x.libelle.toLowerCase()).join(', ')} en mauvais état sans photo. Une photo datée appuie la description.`, `pieces/${p.id}`, 'Ouvrir la pièce');
   }
 
   // Compteurs : chacun est relevé, ou déclaré absent. Jamais laissé vide.
@@ -90,6 +94,7 @@ export function controler(d: DonneesControle): Alerte[] {
       else if (!releve.absent) {
         if (releve.double_tarif && releve.index_2 === null) bloquant(`${c.libelle} : l’index heures creuses manque.`, 'compteurs', 'Aller aux compteurs');
         if (!releve.numero?.trim()) conseil(`${c.libelle} : le numéro du compteur n’est pas noté.`, 'compteurs', 'Aller aux compteurs');
+        if (!d.photos.some((ph) => ph.compteur_type === c.type)) conseil(`${c.libelle} : pas de photo du compteur. Elle évite toute contestation de l’index.`, 'compteurs', 'Aller aux compteurs');
       }
     }
   }

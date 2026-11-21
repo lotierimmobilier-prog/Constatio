@@ -9,8 +9,10 @@ class FauxServeur implements Transport {
   refuser: (m: Mutation) => string | null = () => null;
   contenu: ContenuEdl | null = null;
   liste: { edl: Ligne[]; logements: Ligne[] } = { edl: [], logements: [] };
-  async envoyer(m: Mutation): Promise<Reponse> {
+  fichiers: string[] = [];
+  async envoyer(m: Mutation, fichier?: Blob): Promise<Reponse> {
     if (!this.enLigne) return 'reseau';
+    if (m.op === 'fichier') this.fichiers.push(`${(m.donnees as { chemin: string }).chemin} (${fichier?.size} octets)`);
     const motif = this.refuser(m);
     if (motif) return { rejet: motif };
     this.recus.push(m);
@@ -92,6 +94,41 @@ describe('hors connexion', () => {
     expect(await m.tirerEdl('e1', true)).toBe('absent');
     expect(await m.lire('edl', 'e1')).toBeUndefined();
     expect(await m.lister('edl_pieces', 'edl_id', 'e1')).toHaveLength(0);
+  });
+});
+
+describe('photos', () => {
+  const photo = new Blob(['0123456789'], { type: 'image/jpeg' });
+  it('la photo est gardée sur l’appareil, puis déposée avant la ligne qui la cite', async () => {
+    serveur.enLigne = false;
+    await m.deposerFichier('ph1', photo, 'o1/e1/photos/ph1.jpg', 'Photo');
+    await m.inserer('edl_photos', { id: 'ph1', edl_id: 'e1', storage_path: 'o1/e1/photos/ph1.jpg' }, 'Photo');
+    expect((await m.lireFichier('ph1'))?.size).toBe(10); // visible sans réseau
+    expect(m.lireEtat().enAttente).toBe(2);
+    serveur.enLigne = true;
+    await m.synchroniser();
+    expect(serveur.fichiers).toEqual(['o1/e1/photos/ph1.jpg (10 octets)']);
+    expect(serveur.recus.map((x) => x.op)).toEqual(['fichier', 'insert']);
+    expect((await m.lireFichier('ph1'))?.size).toBe(10); // reste en cache après le dépôt
+  });
+  it('retirer une photo l’enlève de l’appareil et du serveur', async () => {
+    await m.deposerFichier('ph1', photo, 'o1/e1/photos/ph1.jpg', 'Photo');
+    await m.inserer('edl_photos', { id: 'ph1', edl_id: 'e1', storage_path: 'o1/e1/photos/ph1.jpg' }, 'Photo');
+    await m.supprimer('edl_photos', 'ph1', 'Photo');
+    await m.retirerFichier('ph1', 'o1/e1/photos/ph1.jpg', 'Photo');
+    await m.synchroniser();
+    expect(await m.lireFichier('ph1')).toBeUndefined();
+    expect(serveur.recus.map((x) => x.op)).toEqual(['fichier', 'insert', 'delete', 'retrait_fichier']);
+  });
+  it('un fichier disparu de l’appareil est signalé, sans bloquer la suite', async () => {
+    serveur.enLigne = false;
+    await m.deposerFichier('ph1', photo, 'o1/e1/photos/ph1.jpg', 'Photo du séjour');
+    await m.inserer('edl_pieces', piece('p9'), 'Cave');
+    await m.effacerFichierPourTest('ph1');
+    serveur.enLigne = true;
+    await m.synchroniser();
+    expect(m.lireEtat().rejets).toEqual(['Photo du séjour : le fichier n’est plus sur cet appareil']);
+    expect(serveur.recus.map((x) => x.op)).toEqual(['insert']);
   });
 });
 

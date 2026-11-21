@@ -13,7 +13,7 @@
 // teste sans réseau ni Supabase.
 import { openDB, type IDBPDatabase } from 'idb';
 
-export const TABLES_ENFANTS = ['edl_parties', 'edl_pieces', 'edl_elements', 'edl_compteurs', 'edl_cles', 'edl_inventaire'] as const;
+export const TABLES_ENFANTS = ['edl_parties', 'edl_pieces', 'edl_elements', 'edl_compteurs', 'edl_cles', 'edl_inventaire', 'edl_photos'] as const;
 export const TABLES = ['logements', 'edl', ...TABLES_ENFANTS] as const;
 export type Table = (typeof TABLES)[number];
 export type Ligne = Record<string, unknown> & { id: string };
@@ -21,7 +21,8 @@ export type Ligne = Record<string, unknown> & { id: string };
 export interface Mutation {
   seq?: number;
   table: Table;
-  op: 'insert' | 'update' | 'delete' | 'upsert';
+  /** « fichier » : dépôt d'un fichier gardé sur l'appareil ; « retrait_fichier » : sa suppression du serveur. */
+  op: 'insert' | 'update' | 'delete' | 'upsert' | 'fichier' | 'retrait_fichier';
   id: string;
   /** insert : la ligne ; update : les champs modifiés ; upsert : la ligne sans son identifiant. */
   donnees?: Record<string, unknown>;
@@ -34,7 +35,8 @@ export type Reponse = 'ok' | 'reseau' | { rejet: string };
 export type ContenuEdl = Record<Table, Ligne[]>;
 
 export interface Transport {
-  envoyer(m: Mutation): Promise<Reponse>;
+  /** `fichier` : le contenu à déposer, pour une mutation « fichier ». */
+  envoyer(m: Mutation, fichier?: Blob): Promise<Reponse>;
   /** Tout le contenu d'un état des lieux ; null s'il n'existe plus ou n'est plus accessible. */
   tirerEdl(edlId: string): Promise<ContenuEdl | 'reseau' | null>;
   tirerListe(organisationId: string): Promise<{ edl: Ligne[]; logements: Ligne[] } | 'reseau'>;
@@ -57,16 +59,19 @@ export class Magasin {
   private generation = 0;
 
   constructor(nom: string, private transport: Transport) {
-    this.db = openDB(nom, 1, {
+    this.db = openDB(nom, 2, {
       upgrade(db) {
         for (const t of TABLES) {
+          if (db.objectStoreNames.contains(t)) continue;
           const s = db.createObjectStore(t, { keyPath: 'id' });
           if (t === 'edl' || t === 'logements') s.createIndex('organisation_id', 'organisation_id');
           else s.createIndex('edl_id', 'edl_id');
           if (t === 'edl_elements') s.createIndex('piece_id', 'piece_id');
         }
-        db.createObjectStore('file', { keyPath: 'seq', autoIncrement: true });
-        db.createObjectStore('meta');
+        if (!db.objectStoreNames.contains('file')) db.createObjectStore('file', { keyPath: 'seq', autoIncrement: true });
+        if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta');
+        // Photos gardées sur l'appareil : affichées sans réseau, déposées au retour.
+        if (!db.objectStoreNames.contains('fichiers')) db.createObjectStore('fichiers');
       },
     });
     void this.rafraichirEtat();
@@ -123,6 +128,33 @@ export class Magasin {
     await this.apresEcriture();
   }
 
+  // ── Fichiers ───────────────────────────────────────────────────────────────
+  /** Garde un fichier sur l'appareil et met son dépôt en file. À appeler AVANT d'insérer la ligne qui le cite. */
+  async deposerFichier(id: string, contenu: Blob, chemin: string, quoi: string): Promise<void> {
+    const db = await this.db;
+    const tx = db.transaction(['fichiers', 'file'], 'readwrite');
+    await tx.objectStore('fichiers').put(contenu, id);
+    await tx.objectStore('file').add({ table: 'edl_photos', op: 'fichier', id, donnees: { chemin, mime: contenu.type }, quoi } satisfies Mutation);
+    await tx.done;
+    await this.apresEcriture();
+  }
+  /** Réservé aux tests : simule des données de navigateur effacées. */
+  async effacerFichierPourTest(id: string): Promise<void> {
+    await (await this.db).delete('fichiers', id);
+  }
+  async lireFichier(id: string): Promise<Blob | undefined> {
+    return (await this.db).get('fichiers', id) as Promise<Blob | undefined>;
+  }
+  /** Retire le fichier de l'appareil et met sa suppression du serveur en file. */
+  async retirerFichier(id: string, chemin: string, quoi: string): Promise<void> {
+    const db = await this.db;
+    const tx = db.transaction(['fichiers', 'file'], 'readwrite');
+    await tx.objectStore('fichiers').delete(id);
+    await tx.objectStore('file').add({ table: 'edl_photos', op: 'retrait_fichier', id, donnees: { chemin }, quoi } satisfies Mutation);
+    await tx.done;
+    await this.apresEcriture();
+  }
+
   /** Supprime une ligne et, comme le fait la base, tout ce qui en dépend. */
   async supprimer(table: Table, id: string, quoi: string): Promise<void> {
     const db = await this.db;
@@ -155,7 +187,10 @@ export class Magasin {
       if (!m) break;
       let r: Reponse;
       try {
-        r = await this.transport.envoyer(m);
+        // Un fichier disparu de l'appareil (données du navigateur effacées) ne peut plus être déposé :
+        // on le signale plutôt que de bloquer toute la file.
+        const fichier = m.op === 'fichier' ? ((await db.get('fichiers', m.id)) as Blob | undefined) : undefined;
+        r = m.op === 'fichier' && !fichier ? { rejet: 'le fichier n’est plus sur cet appareil' } : await this.transport.envoyer(m, fichier);
       } catch {
         r = 'reseau';
       }
@@ -248,8 +283,8 @@ export class Magasin {
   /** À la déconnexion : rien ne doit rester sur un appareil partagé. */
   async effacerTout(): Promise<void> {
     const db = await this.db;
-    const tx = db.transaction([...TABLES, 'file', 'meta'], 'readwrite');
-    for (const s of [...TABLES, 'file', 'meta']) await tx.objectStore(s).clear();
+    const tx = db.transaction([...TABLES, 'file', 'meta', 'fichiers'], 'readwrite');
+    for (const s of [...TABLES, 'file', 'meta', 'fichiers']) await tx.objectStore(s).clear();
     await tx.done;
     this.tires.clear();
     await this.rafraichirEtat();

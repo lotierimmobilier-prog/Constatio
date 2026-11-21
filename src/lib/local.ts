@@ -13,7 +13,18 @@ const estPassager = (e: Erreur | null, status: number) =>
 const motif = (e: Erreur) => (e.code === 'P0001' ? e.message : 'refusé par le serveur');
 
 const transport: Transport = {
-  async envoyer(m: Mutation): Promise<Reponse> {
+  async envoyer(m: Mutation, fichier?: Blob): Promise<Reponse> {
+    if (m.op === 'fichier' || m.op === 'retrait_fichier') {
+      const { chemin, mime } = m.donnees as { chemin: string; mime?: string };
+      const depot = supabase.storage.from('edl');
+      const { error } = m.op === 'fichier' ? await depot.upload(chemin, fichier!, { contentType: mime, upsert: false }) : await depot.remove([chemin]);
+      if (!error) return 'ok';
+      const statut = Number((error as { statusCode?: string | number; status?: number }).statusCode ?? (error as { status?: number }).status ?? 0);
+      // Déjà déposé lors d'un envoi précédent dont la réponse s'est perdue.
+      if (m.op === 'fichier' && (statut === 409 || /already exists|duplicate/i.test(error.message))) return 'ok';
+      if (estPassager(error, statut)) return 'reseau';
+      return { rejet: statut === 403 || /row-level security|not authorized/i.test(error.message) ? 'dépôt refusé (état des lieux signé, ou droit insuffisant)' : 'fichier refusé par le serveur' };
+    }
     const t = supabase.from(m.table);
     if (m.op === 'insert') {
       const { error, status } = await t.insert(m.donnees!);
