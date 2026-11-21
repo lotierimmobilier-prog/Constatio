@@ -8,6 +8,7 @@ import { Inscription } from './pages/Inscription';
 import { MotDePasseOublie } from './pages/MotDePasseOublie';
 import { NouveauMotDePasse } from './pages/NouveauMotDePasse';
 import { Passage } from './pages/Passage';
+import { Signer } from './pages/Signer';
 import { CoquilleAdmin } from './pages/admin/CoquilleAdmin';
 import { AdminAccueil } from './pages/admin/AdminAccueil';
 import { AdminCompte, AdminComptes } from './pages/admin/AdminComptes';
@@ -56,6 +57,7 @@ export function App() {
       <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
       <Route path="/nouveau-mot-de-passe" element={<NouveauMotDePasse />} />
       <Route path="/passage" element={<Passage />} />
+      <Route path="/signer/:jeton" element={<Signer />} />
       <Route path="/app" element={<CoquilleApp />}>
         <Route index element={<TableauDeBord />} />
         <Route path="compte" element={<Compte />} />

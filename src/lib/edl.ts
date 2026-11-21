@@ -5,6 +5,7 @@ export type TypeEdl = 'entrant' | 'sortant' | 'releve';
 export type StatutEdl = 'brouillon' | 'termine' | 'signe';
 export type RolePartie = 'bailleur' | 'locataire' | 'mandataire_bailleur' | 'mandataire_locataire';
 
+export const ROLES_PARTIE: Record<RolePartie, string> = { bailleur: 'Bailleur', locataire: 'Locataire', mandataire_bailleur: 'Mandataire du bailleur', mandataire_locataire: 'Mandataire du locataire' };
 export const TYPES_EDL: Record<TypeEdl, string> = { entrant: 'Entrée', sortant: 'Sortie', releve: 'Relevé d’état' };
 export const STATUTS_EDL: Record<StatutEdl, { libelle: string; couleur: string }> = {
   brouillon: { libelle: 'Brouillon', couleur: 'text-usage' },
@@ -118,6 +119,8 @@ export interface EdlLigne {
   credit_consomme: boolean;
   pdf_path?: string | null;
   pdf_sha256?: string | null;
+  pdf_signe_path?: string | null;
+  pdf_signe_sha256?: string | null;
   genere_le?: string | null;
   remarques_generales: string | null;
   source?: string;

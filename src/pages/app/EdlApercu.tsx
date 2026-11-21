@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
+import { Signatures } from '../../components/Signatures';
 import { Alerte, Bouton, Carte, classesBouton } from '../../components/ui';
 import { adresseDocument, construireApercu, genererDocument, rouvrir, type Apercu } from '../../lib/document';
 import { chargerEdl, controlerEdl, type EdlLigne } from '../../lib/edl';
@@ -14,6 +15,7 @@ export function EdlApercu() {
   const [bloquants, setBloquants] = useState(0);
   const [apercu, setApercu] = useState<(Apercu & { adresse: string }) | null>(null);
   const [definitif, setDefinitif] = useState<string | null>(null);
+  const [exemplaireSigne, setExemplaireSigne] = useState<string | null>(null);
   const [etat, setEtat] = useState<'chargement' | 'pret' | 'generation' | 'introuvable'>('chargement');
   const [message, setMessage] = useState<{ ton: 'erreur' | 'succes' | 'info'; texte: string; versCompte?: boolean } | null>(null);
   const [confirmer, setConfirmer] = useState(false);
@@ -24,6 +26,7 @@ export function EdlApercu() {
     setEdl(fiche.edl);
     setBloquants((await controlerEdl(id))?.alertes.filter((a) => a.niveau === 'bloquant').length ?? 0);
     setDefinitif(fiche.edl.pdf_path ? await adresseDocument(fiche.edl.pdf_path) : null);
+    setExemplaireSigne(fiche.edl.pdf_signe_path ? await adresseDocument(fiche.edl.pdf_signe_path) : null);
     if (fiche.edl.statut === 'brouillon') {
       const a = await construireApercu(id);
       if (a) setApercu((ancien) => { if (ancien) URL.revokeObjectURL(ancien.adresse); return { ...a, adresse: URL.createObjectURL(new Blob([a.pdf as BlobPart], { type: 'application/pdf' })) }; });
@@ -108,29 +111,42 @@ export function EdlApercu() {
         </>
       )}
 
-      {edl.statut !== 'brouillon' && (
+      {edl.statut === 'signe' && (
         <Carte>
-          <h2 className="text-lg font-bold">{edl.statut === 'signe' ? 'Document signé' : 'Document définitif'}</h2>
-          {edl.pdf_path ? (
-            definitif ? (
-              <>
-                <a href={definitif} target="_blank" rel="noreferrer" className={classesBouton('repere')} data-testid="ouvrir-document">Ouvrir le document</a>
-                <p className="break-all text-xs text-discret" data-testid="empreinte">Empreinte SHA-256 : {edl.pdf_sha256}</p>
-              </>
-            ) : <p className="text-sm">Le document est conservé sur le serveur : il s’ouvre dès que le réseau revient.</p>
-          ) : (
+          <h2 className="text-lg font-bold">Document signé</h2>
+          <p className="text-sm">Toutes les parties ont signé. L’état des lieux est définitivement figé.</p>
+          {exemplaireSigne ? (
             <>
-              <p className="text-sm">L’état des lieux est terminé, mais son document n’a pas pu être déposé. Relancez la génération : elle ne coûte rien.</p>
-              <Bouton disabled={etat === 'generation'} onClick={generer} data-testid="generer">{etat === 'generation' ? 'Génération en cours…' : 'Relancer la génération'}</Bouton>
+              <a href={exemplaireSigne} target="_blank" rel="noreferrer" className={classesBouton('repere')} data-testid="ouvrir-signe">Ouvrir l’exemplaire signé</a>
+              <p className="text-sm text-discret">Il contient les signatures et le dossier de preuve. Remettez-en un exemplaire à chaque partie.</p>
+              <p className="break-all text-xs text-discret" data-testid="empreinte-signe">Empreinte SHA-256 : {edl.pdf_signe_sha256}</p>
             </>
-          )}
-          {edl.statut === 'termine' && (
-            <>
-              <p className="text-sm text-discret">La signature des parties arrive à la prochaine étape. D’ici là, une erreur se corrige en rouvrant l’état des lieux : le document actuel est alors retiré, et le nouveau ne coûte rien.</p>
-              <Bouton variante="contour" onClick={corriger} data-testid="rouvrir">Rouvrir pour corriger</Bouton>
-            </>
-          )}
+          ) : <p className="text-sm">Le document est conservé sur le serveur : il s’ouvre dès que le réseau revient.</p>}
         </Carte>
+      )}
+
+      {edl.statut === 'termine' && (
+        <>
+          <Carte>
+            <h2 className="text-lg font-bold">Document définitif</h2>
+            {edl.pdf_path ? (
+              definitif ? (
+                <>
+                  <a href={definitif} target="_blank" rel="noreferrer" className={classesBouton('repere')} data-testid="ouvrir-document">Ouvrir le document</a>
+                  <p className="break-all text-xs text-discret" data-testid="empreinte">Empreinte SHA-256 : {edl.pdf_sha256}</p>
+                </>
+              ) : <p className="text-sm">Le document est conservé sur le serveur : il s’ouvre dès que le réseau revient.</p>
+            ) : (
+              <>
+                <p className="text-sm">L’état des lieux est terminé, mais son document n’a pas pu être déposé. Relancez la génération : elle ne coûte rien.</p>
+                <Bouton disabled={etat === 'generation'} onClick={generer} data-testid="generer">{etat === 'generation' ? 'Génération en cours…' : 'Relancer la génération'}</Bouton>
+              </>
+            )}
+            <p className="text-sm text-discret">Une erreur ? Tant que personne n’a signé, rouvrez l’état des lieux : le document actuel est retiré, et le nouveau ne coûte rien.</p>
+            <Bouton variante="contour" onClick={corriger} data-testid="rouvrir">Rouvrir pour corriger</Bouton>
+          </Carte>
+          {edl.pdf_path && <Signatures edlId={id} documentAdresse={definitif} onSigne={() => { setMessage({ ton: 'succes', texte: 'Toutes les parties ont signé : l’exemplaire signé est prêt.' }); void charger(); }} />}
+        </>
       )}
     </>
   );
