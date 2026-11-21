@@ -143,8 +143,16 @@ class Feuille {
   }
 }
 
+/** Emplacement réservé à la signature d'une partie : la signature électronique y est apposée ensuite. */
+export interface CaseSignature { partie_id: string; page: number; x: number; y: number; largeur: number; hauteur: number }
+
 export async function construirePdf(d: DonneesPdf): Promise<Uint8Array> {
+  return (await construireDocument(d)).octets;
+}
+
+export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8Array; cases: CaseSignature[] }> {
   const pdf = await PDFDocument.create();
+  const cases: CaseSignature[] = [];
   const titreDoc = `${TITRES[d.edl.type]} — ${d.logement.adresse}, ${d.logement.code_postal} ${d.logement.ville}`;
   pdf.setTitle(net(titreDoc));
   pdf.setAuthor(net(d.emetteur.nom));
@@ -257,6 +265,7 @@ export async function construirePdf(d: DonneesPdf): Promise<Uint8Array> {
       f.page.drawRectangle({ x, y: f.y - 84, width: largeurCase, height: 84, borderColor: TRAIT, borderWidth: 1 });
       f.page.drawText(net(ROLES[p.role] ?? p.role), { x: x + 6, y: f.y - 14, size: 8, font: f.normal, color: DISCRET });
       f.page.drawText(net(personne(p)).slice(0, 48), { x: x + 6, y: f.y - 27, size: 9.5, font: f.gras, color: ENCRE });
+      cases.push({ partie_id: p.id, page: pdf.getPageCount() - 1, x: x + 6, y: f.y - 80, largeur: largeurCase - 12, hauteur: 48 });
     });
     f.y -= 92;
   }
@@ -308,7 +317,7 @@ export async function construirePdf(d: DonneesPdf): Promise<Uint8Array> {
     }
     if (d.apercu) page.drawText(net('APERÇU SANS VALEUR'), { x: 92, y: 250, size: 46, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.14, rotate: degrees(52) });
   });
-  return pdf.save();
+  return { octets: await pdf.save(), cases };
 }
 
 /** Empreinte SHA-256 du document : conservée avec lui, elle permet de prouver qu'il n'a pas été modifié. */

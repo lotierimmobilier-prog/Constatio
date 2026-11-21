@@ -13,7 +13,7 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { PDFDocument } from 'pdf-lib';
 import { controler, type DonneesControle } from '../_partage/controles.ts';
-import { assembler, construirePdf, empreintePdf, type LignesEdl } from '../_partage/pdf.ts';
+import { assembler, construireDocument, empreintePdf, type LignesEdl } from '../_partage/pdf.ts';
 
 const ORIGINE = Deno.env.get('SITE_URL') ?? 'https://constatio.fr';
 const ENTETES = {
@@ -91,7 +91,7 @@ Deno.serve(async (requete) => {
       else console.error('generer-pdf : photo illisible', p.id, fichier.error?.message);
     }
     const manquantes = lignes.photos.length - octets.size;
-    const pdf = await construirePdf(assembler(lignes, octets, false));
+    const { octets: pdf, cases } = await construireDocument(assembler(lignes, octets, false));
     const sha256 = await empreintePdf(pdf);
     const pages = (await PDFDocument.load(pdf)).getPageCount();
     const chemin = `${lignes.edl.organisation_id}/${edl_id}/pdf/${sha256.slice(0, 16)}.pdf`;
@@ -99,7 +99,7 @@ Deno.serve(async (requete) => {
     const service = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
     const depot = await service.storage.from('edl').upload(chemin, pdf, { contentType: 'application/pdf', upsert: true });
     if (depot.error) throw new Error(`dépôt : ${depot.error.message}`);
-    lu(await service.rpc('edl_deposer_pdf', { p_edl: edl_id, p_chemin: chemin, p_sha256: sha256, p_acteur: qui.user.id, p_pages: pages, p_octets: pdf.length }));
+    lu(await service.rpc('edl_deposer_pdf', { p_edl: edl_id, p_chemin: chemin, p_sha256: sha256, p_acteur: qui.user.id, p_pages: pages, p_octets: pdf.length, p_cases: cases }));
     return json(200, { statut: 'genere', pdf_path: chemin, pdf_sha256: sha256, pages, photos_manquantes: manquantes });
   } catch (e) {
     if (e instanceof Refus) return json(e.statut, { statut: 'refuse', motif: e.motif, details: e.details });

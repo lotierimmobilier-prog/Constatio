@@ -149,17 +149,35 @@ begin
   perform public.edl_finaliser(e1);
   perform t.egal('seconde correction, toujours sans crédit', (select restant::text from public.credit_lots where id = lot_libre), '5');
   perform t.refuse('changer le type d''un EDL déjà généré', format('update public.edl set type = ''sortant'' where id = %L', e1));
-  perform t.refuse('A marque lui-même l''EDL signé', format('select public.edl_marquer_signe(%L)', e1));
+  perform t.refuse('A signe lui-même par la base', format('select public.edl_signer(%L, %L, ''sur_place'', null, null, ''x'')', e1, p_loc));
+  perform t.refuse('A clôt lui-même les signatures', format('select public.edl_cloturer_signatures(%L, %L, %L)', e1, org_a || '/' || e1 || '/pdf/s.pdf', repeat('b', 64)));
   perform t.refuse('A dépose lui-même une signature',
     format('insert into public.edl_signatures (edl_id, partie_id, mode, pdf_sha256) values (%L, %L, ''sur_place'', ''abc'')', e1, p_loc));
 
-  -- Signature : par le serveur, et seulement quand tout le monde a signé ---------
+  -- Signature : par le serveur, sur le document généré, et close quand tous ont signé --
   perform t.role('service_role');
-  update public.edl set pdf_path = 'x.pdf', pdf_sha256 = 'abc' where id = e1;
-  insert into public.edl_signatures (edl_id, partie_id, mode, pdf_sha256) values (e1, p_bail, 'sur_place', 'abc');
-  perform t.refuse('signé alors que le locataire n''a pas signé', format('select public.edl_marquer_signe(%L)', e1));
-  insert into public.edl_signatures (edl_id, partie_id, mode, pdf_sha256) values (e1, p_loc, 'sur_place', 'abc');
-  perform public.edl_marquer_signe(e1);
+  perform t.refuse('signature avant que le document existe', format('select public.edl_signer(%L, %L, ''sur_place'', null, null, ''x'')', e1, p_bail));
+  perform public.edl_deposer_pdf(e1, org_a || '/' || e1 || '/pdf/b.pdf', repeat('c', 64), a, 3, 1000);
+  perform t.egal('bailleur signe sur place : il en reste', public.edl_signer(e1, p_bail, 'sur_place', null, '203.0.113.7', 'Téléphone de test', a)::text, '1');
+  perform t.refuse('le bailleur signe deux fois', format('select public.edl_signer(%L, %L, ''sur_place'', null, null, ''x'')', e1, p_bail));
+  perform t.refuse('clôture alors que le locataire n''a pas signé', format('select public.edl_cloturer_signatures(%L, %L, %L)', e1, org_a || '/' || e1 || '/pdf/s.pdf', repeat('b', 64)));
+  perform t.refuse('document remplacé après une signature', format('select public.edl_deposer_pdf(%L, %L, %L, %L, 1, 10)', e1, org_a || '/' || e1 || '/pdf/z.pdf', repeat('d', 64), a));
+  perform t.refuse('signature à distance sans lien', format('select public.edl_signer(%L, %L, ''a_distance'', null, null, ''x'', null, ''inconnu'')', e1, p_loc));
+  perform public.edl_creer_jeton_signature(e1, p_loc, 'hash-1', a);
+  perform public.edl_creer_jeton_signature(e1, p_loc, 'hash-2', a);
+  perform t.refuse('un lien remplacé ne vaut plus', format('select public.edl_signer(%L, %L, ''a_distance'', null, null, ''x'', null, ''hash-1'')', e1, p_loc));
+  perform t.refuse('lien d''une autre personne', format('select public.edl_signer(%L, %L, ''a_distance'', null, null, ''x'', null, ''hash-2'')', e1, p_bail));
+  perform t.refuse('lien déjà signé pour le bailleur', format('select public.edl_creer_jeton_signature(%L, %L, ''hash-3'', %L)', e1, p_bail, a));
+  perform t.connecter(a);
+  perform t.refuse('rouvrir après une signature', format('select public.edl_rouvrir(%L)', e1));
+  perform t.refuse('A lit les liens de signature', 'select * from public.edl_jetons');
+  perform t.role('service_role');
+  perform t.egal('locataire signe à distance : plus personne', public.edl_signer(e1, p_loc, 'a_distance', null, '198.51.100.4', 'Navigateur', null, 'hash-2')::text, '0');
+  perform t.refuse('le lien ne sert qu''une fois', format('select public.edl_signer(%L, %L, ''a_distance'', null, null, ''x'', null, ''hash-2'')', e1, p_loc));
+  perform t.refuse('exemplaire signé hors du dossier', format('select public.edl_cloturer_signatures(%L, %L, %L)', e1, 'ailleurs/pdf/s.pdf', repeat('b', 64)));
+  perform public.edl_cloturer_signatures(e1, org_a || '/' || e1 || '/pdf/s.pdf', repeat('b', 64));
+  perform t.egal('exemplaire signé conservé', (select pdf_signe_sha256 from public.edl where id = e1), repeat('b', 64));
+  perform t.egal('journal : deux signatures', (select count(*)::text from public.edl_journal where edl_id = e1 and evenement = 'signature'), '2');
   perform t.egal('statut après signatures', (select statut::text from public.edl where id = e1), 'signe');
 
   -- Verrou après signature : vaut pour tout le monde, serveur compris -------------

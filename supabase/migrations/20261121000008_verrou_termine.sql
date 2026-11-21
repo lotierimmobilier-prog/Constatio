@@ -64,7 +64,8 @@ begin
 end $$;
 
 -- Dépôt du document définitif : réservé au serveur, sur un état des lieux terminé.
-create function public.edl_deposer_pdf(p_edl uuid, p_chemin text, p_sha256 text, p_acteur uuid, p_pages integer, p_octets integer)
+-- p_cases : emplacement des cases de signature dans le PDF (pour y apposer les signatures).
+create function public.edl_deposer_pdf(p_edl uuid, p_chemin text, p_sha256 text, p_acteur uuid, p_pages integer, p_octets integer, p_cases jsonb default '[]')
 returns public.edl language plpgsql security definer set search_path = '' as $$
 declare e public.edl;
 begin
@@ -80,8 +81,8 @@ begin
   end if;
   update public.edl set pdf_path = p_chemin, pdf_sha256 = p_sha256, genere_le = now() where id = p_edl returning * into e;
   insert into public.edl_journal (edl_id, evenement, acteur_id, details)
-  values (p_edl, 'pdf_genere', p_acteur, jsonb_build_object('pdf_sha256', p_sha256, 'pages', p_pages, 'octets', p_octets));
+  values (p_edl, 'pdf_genere', p_acteur, jsonb_build_object('pdf_sha256', p_sha256, 'pages', p_pages, 'octets', p_octets, 'cases', p_cases));
   return e;
 end $$;
-revoke all on function public.edl_deposer_pdf(uuid, text, text, uuid, integer, integer) from public, anon, authenticated;
-grant execute on function public.edl_deposer_pdf(uuid, text, text, uuid, integer, integer) to service_role;
+revoke all on function public.edl_deposer_pdf(uuid, text, text, uuid, integer, integer, jsonb) from public, anon, authenticated;
+grant execute on function public.edl_deposer_pdf(uuid, text, text, uuid, integer, integer, jsonb) to service_role;

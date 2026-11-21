@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { configure, supabase } from '../lib/supabase';
 
 /** Rappelle que le coupe-circuit est actif : aucun e-mail, signature ni paiement réels. */
 export function BandeauModeTest() {
   const [actif, setActif] = useState(false);
   useEffect(() => {
+    if (!configure) return;
     supabase
       .from('parametres')
       .select('valeur')

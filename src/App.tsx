@@ -1,4 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { Logo, classesBouton } from './components/ui';
+import { configure } from './lib/supabase';
 import { CoquilleApp } from './components/CoquilleApp';
 import { Accueil } from './pages/Accueil';
 import { Connexion } from './pages/Connexion';
@@ -25,7 +27,27 @@ import { EdlInventaire } from './pages/app/EdlInventaire';
 import { EdlApercu } from './pages/app/EdlApercu';
 import { EdlControles } from './pages/app/EdlControles';
 
+/** Site publié avant l'ouverture du service : on le dit, plutôt que de proposer une inscription qui échouerait. */
+function Ouverture() {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
+      <Logo />
+      <h1 className="text-2xl font-bold">Ouverture prochaine</h1>
+      <p className="text-discret">L’espace client de Constatio n’est pas encore en service. Les inscriptions ouvriront très bientôt.</p>
+      <Link to="/" className={classesBouton('plein')}>Revenir à l’accueil</Link>
+    </main>
+  );
+}
+
 export function App() {
+  if (!configure) {
+    return (
+      <Routes>
+        <Route path="/" element={<Accueil />} />
+        <Route path="*" element={<Ouverture />} />
+      </Routes>
+    );
+  }
   return (
     <Routes>
       <Route path="/" element={<Accueil />} />
