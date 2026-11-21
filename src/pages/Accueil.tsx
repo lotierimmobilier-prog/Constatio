@@ -312,7 +312,7 @@ export function Accueil() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-discret sm:px-6 md:flex-row md:items-center md:justify-between">
           <p>Service partenaire de Signabail — conçu par LOTIER, 40 rue Française, 34500 Béziers.</p>
           <p className="flex flex-wrap gap-x-5 gap-y-1">
-<a href="/guides/" className="underline underline-offset-4">Guides</a><span>Conditions générales de vente</span><span>Mentions légales</span><span>Confidentialité</span>
+<a href="/guides/" className="underline underline-offset-4">Guides</a><Link to="/cgv" className="underline underline-offset-4">Conditions générales</Link><Link to="/mentions-legales" className="underline underline-offset-4">Mentions légales</Link><Link to="/confidentialite" className="underline underline-offset-4">Confidentialité et cookies</Link>
           </p>
         </div>
       </footer>

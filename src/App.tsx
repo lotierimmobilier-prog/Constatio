@@ -7,6 +7,7 @@ import { Connexion } from './pages/Connexion';
 import { Inscription } from './pages/Inscription';
 import { MotDePasseOublie } from './pages/MotDePasseOublie';
 import { NouveauMotDePasse } from './pages/NouveauMotDePasse';
+import { Cgv, Confidentialite, MentionsLegales } from './pages/Legal';
 import { Passage } from './pages/Passage';
 import { Signer } from './pages/Signer';
 import { CoquilleAdmin } from './pages/admin/CoquilleAdmin';
@@ -45,6 +46,9 @@ export function App() {
     return (
       <Routes>
         <Route path="/" element={<Accueil />} />
+        <Route path="/mentions-legales" element={<MentionsLegales />} />
+        <Route path="/cgv" element={<Cgv />} />
+        <Route path="/confidentialite" element={<Confidentialite />} />
         <Route path="*" element={<Ouverture />} />
       </Routes>
     );
@@ -52,6 +56,9 @@ export function App() {
   return (
     <Routes>
       <Route path="/" element={<Accueil />} />
+      <Route path="/mentions-legales" element={<MentionsLegales />} />
+      <Route path="/cgv" element={<Cgv />} />
+      <Route path="/confidentialite" element={<Confidentialite />} />
       <Route path="/connexion" element={<Connexion />} />
       <Route path="/inscription" element={<Inscription />} />
       <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />

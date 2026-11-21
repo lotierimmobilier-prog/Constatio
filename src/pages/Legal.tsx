@@ -1,0 +1,188 @@
+import { useEffect, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { Logo } from '../components/ui';
+import { EDITEUR as e } from '../lib/editeur';
+
+// Pages légales. Chaque affirmation de la politique de confidentialité décrit ce que
+// fait réellement le code : la modifier quand un traitement change.
+// Projet soumis à validation juridique avant l'ouverture du service payant.
+const MAJ = '21 novembre 2026';
+const ecrire = <a href={`mailto:${e.email}`}>{e.email}</a>;
+
+export function LiensLegaux({ className = '' }: { className?: string }) {
+  return (
+    <nav aria-label="Informations légales" className={`flex flex-wrap gap-x-5 gap-y-1 ${className}`}>
+      <Link to="/mentions-legales" className="underline underline-offset-4">Mentions légales</Link>
+      <Link to="/cgv" className="underline underline-offset-4">Conditions générales</Link>
+      <Link to="/confidentialite" className="underline underline-offset-4">Confidentialité et cookies</Link>
+    </nav>
+  );
+}
+
+function PageLegale({ titre, chapeau, children }: { titre: string; chapeau: string; children: ReactNode }) {
+  useEffect(() => { document.title = `${titre} — Constatio`; window.scrollTo(0, 0); }, [titre]);
+  return (
+    <div className="min-h-dvh bg-fond">
+      <header className="border-b border-trait bg-surface">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          <Link to="/" aria-label="Accueil de Constatio"><Logo /></Link>
+          <Link to="/" className="text-sm font-semibold text-marque">← Accueil</Link>
+        </div>
+      </header>
+      <main className="mx-auto max-w-3xl px-4 py-8">
+        <h1 className="text-3xl font-bold leading-tight">{titre}</h1>
+        <p className="mt-2 text-sm text-discret">{chapeau}</p>
+        <div className="mt-6 flex flex-col gap-3 leading-relaxed [&_a]:font-semibold [&_a]:text-marque [&_a]:underline [&_a]:underline-offset-4 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_li]:list-disc [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5">
+          {children}
+        </div>
+      </main>
+      <footer className="border-t border-trait bg-surface">
+        <div className="mx-auto max-w-3xl px-4 py-6 text-sm text-discret"><LiensLegaux /></div>
+      </footer>
+    </div>
+  );
+}
+
+export function MentionsLegales() {
+  return (
+    <PageLegale titre="Mentions légales" chapeau={`Dernière mise à jour : ${MAJ}.`}>
+      <h2>Éditeur</h2>
+      <p>Le site constatio.fr et le service Constatio sont édités par <strong>{e.nom}</strong>, {e.qualite}, {e.forme} au capital de {e.capital}, immatriculée sous le numéro {e.rcs}, dont le siège est situé {e.adresse}.</p>
+      <ul>
+        <li>SIRET : {e.siret}</li>
+        <li>N° de TVA intracommunautaire : {e.tva}</li>
+        <li>Téléphone : {e.telephone} · e-mail : {ecrire}</li>
+        <li>Directeur de la publication : {e.directeurPublication}</li>
+      </ul>
+      <h2>Activité immobilière</h2>
+      <p>{e.nom} exerce également, sous l’enseigne {e.enseigne}, une activité d’agent immobilier régie par la loi n° 70-9 du 2 janvier 1970 (loi Hoguet) : carte professionnelle n° {e.cartePro} délivrée par la {e.carteProAutorite}. Garantie financière : {e.garantieFinanciere}. Assurance de responsabilité civile professionnelle : {e.assuranceRcp}. Site de l’agence : <a href="https://www.lotier-immobilier.com/" rel="noopener noreferrer" target="_blank">www.lotier-immobilier.com</a>.</p>
+      <h2>Hébergement</h2>
+      <ul>
+        <li><strong>Site</strong> : Hostinger International Ltd, 61 Lordou Vironos Street, 6023 Larnaca, Chypre — <a href="https://www.hostinger.fr" rel="noopener noreferrer" target="_blank">www.hostinger.fr</a>.</li>
+        <li><strong>Comptes, états des lieux, photos et documents</strong> : Supabase Inc. (États-Unis) — <a href="https://supabase.com" rel="noopener noreferrer" target="_blank">supabase.com</a>. Les données sont enregistrées dans l’Union européenne, à Francfort (Allemagne).</li>
+      </ul>
+      <h2>Nature du service</h2>
+      <p>Constatio met à disposition un outil de saisie, des modèles et des contrôles automatiques que l’utilisateur complète lui-même, sous sa responsabilité. Le service ne constitue ni une consultation juridique, ni un constat établi par un commissaire de justice. Constatio est un service partenaire de <a href="https://signabail.fr" rel="noopener noreferrer" target="_blank">Signabail</a>, édité par la même société.</p>
+      <h2>Propriété intellectuelle</h2>
+      <p>Le site, sa mise en page, ses textes et ses guides sont la propriété de {e.nom}. Les états des lieux, photos et documents que vous créez restent les vôtres.</p>
+      <h2>Médiation de la consommation</h2>
+      <p>Médiateur de la consommation : {e.mediateur}.</p>
+    </PageLegale>
+  );
+}
+
+export function Cgv() {
+  return (
+    <PageLegale titre="Conditions générales d’utilisation et de vente" chapeau={`Version du ${MAJ} — projet soumis à validation juridique avant l’ouverture du service payant.`}>
+      <h2>1. Objet</h2>
+      <p>Les présentes conditions régissent l’utilisation du service Constatio et l’achat de crédits et d’abonnements auprès de {e.nom}, {e.qualite}, {e.forme} au capital de {e.capital}, {e.rcs}, {e.adresse} (TVA {e.tva}). La création d’un compte vaut acceptation de ces conditions.</p>
+      <h2>2. Nature du service</h2>
+      <p>Constatio permet de réaliser soi-même un <strong>état des lieux</strong> locatif (entrée, sortie, relevé d’état) depuis un téléphone : saisie pièce par pièce, photos, contrôle des mentions prévues par le décret n° 2016-382 du 30 mars 2016, document PDF et signature électronique des parties.</p>
+      <p>L’utilisateur constate lui-même l’état du logement et vérifie l’exactitude de ce qu’il saisit. Les contrôles automatiques signalent les mentions manquantes ; ils ne remplacent pas sa vigilance. Le service ne constitue ni une consultation juridique, ni un constat de commissaire de justice. Un état des lieux n’a de valeur contradictoire que s’il est signé par les parties ou leurs mandataires.</p>
+      <h2>3. Compte</h2>
+      <p>Le compte est personnel. L’utilisateur garde ses identifiants confidentiels et répond de l’usage fait de son compte. Il garantit être en droit de saisir les informations relatives aux autres parties (locataire, bailleur, mandataire).</p>
+      <h2>4. Mode test</h2>
+      <p>Tant que le bandeau « Mode test » est affiché, le service est en phase d’essai : aucun paiement n’est encaissé, et les signatures recueillies sont des démonstrations sans valeur, mention qui figure sur les documents produits.</p>
+      <h2>5. Crédits</h2>
+      <ul>
+        <li>La saisie, les brouillons et l’aperçu sont gratuits. <strong>Un crédit</strong> est consommé à la génération du document définitif d’un état des lieux.</li>
+        <li>Tant qu’aucune partie n’a signé, un état des lieux peut être rouvert, corrigé et régénéré sans nouveau crédit.</li>
+        <li>Les crédits achetés à l’unité ou en pack sont valables vingt-quatre mois à compter de l’achat.</li>
+        <li>Le crédit offert avec un bail Signabail est réservé à l’état des lieux d’entrée de ce bail et valable vingt-quatre mois ; il n’est ni cessible ni remboursable.</li>
+      </ul>
+      <h2>6. Prix et paiement</h2>
+      <p>Les prix en vigueur sont ceux affichés sur le site au moment de la commande, en euros toutes taxes comprises (TVA à 20 % incluse). Le paiement s’effectuera par carte bancaire via Stripe ; une facture est émise pour chaque paiement. Le paiement en ligne n’est pas encore ouvert.</p>
+      <h2>7. Abonnements Premium</h2>
+      <p>L’abonnement mensuel est sans engagement et résiliable à tout moment depuis l’espace client ; la résiliation prend effet à la fin de la période en cours. Les états des lieux inclus dans un abonnement sont attribués pour la période d’abonnement et ne se reportent pas. Les abonnés aux deux services, Signabail et Constatio, bénéficient de la remise affichée sur le site.</p>
+      <h2>8. Droit de rétractation</h2>
+      <p>Le consommateur dispose d’un délai de quatorze jours pour se rétracter d’un achat de crédits ou d’un abonnement. Conformément à l’article L.221-28, 13° du Code de la consommation, ce droit ne peut plus être exercé pour un document généré, contenu numérique fourni immédiatement à la demande expresse du consommateur, qui reconnaît alors renoncer à son droit de rétractation pour le crédit correspondant.</p>
+      <h2>9. Signature électronique</h2>
+      <p>Les parties signent sur l’appareil de la personne qui réalise l’état des lieux, ou à distance par un lien personnel à usage unique. Il s’agit d’une signature électronique simple au sens du règlement (UE) n° 910/2014 (eIDAS). Celui qui transmet un lien de signature s’assure qu’il le remet à la bonne personne. Un dossier de preuve (date, mode de signature, adresse IP, appareil, empreinte numérique du document) est joint à l’exemplaire signé.</p>
+      <h2>10. Conservation et disponibilité</h2>
+      <p>Les documents restent accessibles dans l’espace client pendant la durée de vie du compte. L’utilisateur est invité à en conserver un exemplaire et à en remettre un à chaque partie. {e.nom} s’efforce d’assurer la continuité du service, sans garantir une disponibilité ininterrompue ; la saisie d’une visite reste possible hors connexion.</p>
+      <h2>11. Responsabilité</h2>
+      <p>{e.nom} met à jour les modèles et les contrôles en fonction de l’évolution des textes. Sa responsabilité ne saurait être engagée du fait d’informations inexactes ou incomplètes saisies par l’utilisateur, d’un état des lieux non signé par les parties, ni de l’usage d’un document en dehors de son objet.</p>
+      <h2>12. Données personnelles</h2>
+      <p>Le traitement des données est décrit dans la <Link to="/confidentialite">politique de confidentialité</Link>.</p>
+      <h2>13. Médiation et litiges</h2>
+      <p>En cas de litige, le consommateur adresse d’abord une réclamation écrite à {ecrire}. À défaut de solution, il peut recourir gratuitement au médiateur de la consommation : {e.mediateur}, dans un délai d’un an à compter de sa réclamation écrite (art. L.612-2 du Code de la consommation). Droit applicable : droit français.</p>
+    </PageLegale>
+  );
+}
+
+export function Confidentialite() {
+  return (
+    <PageLegale titre="Politique de confidentialité et cookies" chapeau={`Dernière mise à jour : ${MAJ}.`}>
+      <p>Cette politique décrit comment Constatio traite les données personnelles de ses utilisateurs (bailleurs, professionnels) et des personnes qui figurent dans les états des lieux (locataires, mandataires), conformément au Règlement général sur la protection des données (RGPD, règlement UE 2016/679) et à la loi « Informatique et Libertés ».</p>
+
+      <h2>1. Responsable du traitement</h2>
+      <p>{e.nom} ({e.forme}, {e.rcs}), {e.qualite}, {e.adresse} — voir les <Link to="/mentions-legales">mentions légales</Link>. Pour toute question relative aux données personnelles : {ecrire}.</p>
+      <p>Lorsque vous saisissez les coordonnées d’un locataire ou d’un mandataire pour établir un état des lieux, vous le faites pour votre propre compte ; Constatio conserve ces données pour vous fournir le service.</p>
+
+      <h2>2. Données que nous traitons</h2>
+      <ul>
+        <li><strong>Compte</strong> : nom, prénom, adresse e-mail, téléphone si vous l’indiquez, mot de passe (enregistré uniquement sous forme hachée). Pour une SCI ou un professionnel : dénomination, SIRET, adresse, carte professionnelle.</li>
+        <li><strong>États des lieux</strong> : adresse et description du logement, identité et coordonnées des parties et de leurs mandataires, nouvelle adresse du locataire à la sortie, relevés de compteurs, clés remises, état de chaque élément, inventaire du mobilier, remarques.</li>
+        <li><strong>Photos</strong> : l’image, la date et l’heure de la prise de vue et, seulement si vous l’autorisez sur votre appareil, la position géographique.</li>
+        <li><strong>Signature</strong> : le tracé manuscrit, la date et l’heure, le mode de signature, l’adresse IP et le type d’appareil du signataire, l’empreinte numérique du document signé.</li>
+        <li><strong>Journal de preuve</strong> : horodatage des générations de documents, des liens de signature créés et des signatures.</li>
+        <li><strong>Lien avec Signabail</strong>, si vous l’utilisez : l’identifiant de votre compte Signabail, votre adresse e-mail et les informations du bail utiles à l’état des lieux (adresse, parties, type de bail, pièces).</li>
+        <li><strong>Crédits et abonnements</strong> : historique des crédits reçus et consommés. Le paiement en ligne, lorsqu’il sera ouvert, sera traité par Stripe : Constatio ne recevra ni ne conservera aucun numéro de carte.</li>
+      </ul>
+      <p>Constatio n’utilise aucun outil publicitaire, aucun traceur tiers et aucun outil de mesure d’audience.</p>
+
+      <h2>3. Finalités et bases légales</h2>
+      <ul>
+        <li><strong>Réalisation, génération, signature et conservation des états des lieux</strong> : exécution du contrat conclu avec l’utilisateur.</li>
+        <li><strong>Dossier de preuve des signatures et journal</strong> : intérêt légitime à établir la date, l’auteur et l’intégrité des documents.</li>
+        <li><strong>Crédits, facturation et comptabilité</strong> : exécution du contrat et obligation légale.</li>
+        <li><strong>E-mails de service</strong> (confirmation d’inscription, mot de passe oublié) : exécution du contrat. Aucun e-mail commercial n’est envoyé sans votre accord.</li>
+        <li><strong>Administration et assistance</strong> : intérêt légitime à assurer le fonctionnement et la sécurité du service ; chaque intervention d’un administrateur est journalisée.</li>
+      </ul>
+
+      <h2>4. Destinataires</h2>
+      <p>Vos données ne sont accessibles qu’aux membres de votre compte et, dans la limite de leurs fonctions, aux personnes habilitées de {e.nom}. Une partie invitée à signer à distance ne voit que le document qu’elle doit signer. Les données sont confiées aux seuls prestataires nécessaires au service :</p>
+      <ul>
+        <li><strong>Supabase</strong> : base de données, comptes et fichiers (photos, documents), dans l’Union européenne ;</li>
+        <li><strong>Hostinger</strong> : hébergement du site ;</li>
+        <li><strong>Stripe</strong> : paiement en ligne, lorsqu’il sera ouvert.</li>
+      </ul>
+      <p>Nous ne vendons ni ne louons vos données à des tiers.</p>
+
+      <h2>5. Hébergement et transferts hors de l’Union européenne</h2>
+      <p>Les comptes, états des lieux, photos et documents sont enregistrés à Francfort (Allemagne). Supabase étant une société américaine, et Stripe pouvant traiter certaines données hors de l’Union européenne, ces relations sont encadrées par les garanties prévues par le RGPD (décision d’adéquation ou clauses contractuelles types de la Commission européenne).</p>
+
+      <h2>6. Durées de conservation</h2>
+      <ul>
+        <li><strong>États des lieux, photos, signatures et journal de preuve</strong> : pendant la durée de vie du compte et, pour un état des lieux signé, pendant la durée du bail augmentée du délai de prescription applicable, sauf demande d’effacement compatible avec nos obligations légales.</li>
+        <li><strong>Brouillons</strong> : jusqu’à leur suppression par l’utilisateur.</li>
+        <li><strong>Liens de signature</strong> : valables sept jours ; seule une empreinte du lien est conservée.</li>
+        <li><strong>Données de facturation</strong> : dix ans (art. L.123-22 du Code de commerce).</li>
+        <li><strong>Compte</strong> : jusqu’à sa fermeture, puis archivage des seules données soumises à une obligation légale.</li>
+      </ul>
+
+      <h2>7. Sécurité</h2>
+      <p>Connexions chiffrées (HTTPS), mots de passe hachés, cloisonnement strict des données par compte appliqué par la base de données elle-même, liens de signature personnels à usage unique, documents signés figés, empreinte numérique permettant de détecter toute modification d’un document.</p>
+
+      <h2>8. Vos droits</h2>
+      <p>Vous disposez d’un droit d’accès, de rectification, d’effacement, de limitation, d’opposition et de portabilité de vos données. Pour les exercer, écrivez à {ecrire}. Nous répondons dans un délai d’un mois.</p>
+      <p>Si vous êtes locataire ou partie à un état des lieux, vous pouvez aussi vous adresser à la personne qui l’a établi. Un état des lieux signé étant une pièce contractuelle commune aux parties, son effacement peut être limité tant qu’il est nécessaire à la preuve.</p>
+      <p>Vous pouvez introduire une réclamation auprès de la <strong>CNIL</strong> : <a href="https://www.cnil.fr" rel="noopener noreferrer" target="_blank">www.cnil.fr</a>.</p>
+
+      <h2>9. Fermeture du compte</h2>
+      <p>Vous pouvez demander la fermeture de votre compte et la suppression de vos données personnelles, hors données que la loi nous oblige à conserver, en écrivant à {ecrire}.</p>
+
+      <h2 id="cookies">10. Cookies et stockage sur votre appareil</h2>
+      <p>Constatio ne dépose <strong>aucun cookie publicitaire ni de mesure d’audience</strong> ; c’est pourquoi aucun bandeau de consentement ne vous est présenté. Seul un stockage strictement nécessaire au service est utilisé sur votre appareil :</p>
+      <ul>
+        <li>votre <strong>session de connexion</strong>, pour vous éviter de vous identifier à chaque page ;</li>
+        <li>une <strong>copie de vos états des lieux et de vos photos</strong>, pour travailler sans réseau pendant la visite ; elle est envoyée au serveur dès que la connexion revient ;</li>
+        <li>les fichiers de l’application, pour qu’elle s’ouvre hors connexion.</li>
+      </ul>
+      <p>Ce stockage est effacé à la déconnexion, ou en vidant les données du site dans votre navigateur. Sur un appareil partagé, déconnectez-vous après usage.</p>
+
+      <h2>11. Modifications</h2>
+      <p>Cette politique peut être mise à jour ; la date de la dernière mise à jour figure en haut de page.</p>
+    </PageLegale>
+  );
+}
