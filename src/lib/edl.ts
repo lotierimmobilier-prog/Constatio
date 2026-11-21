@@ -116,6 +116,9 @@ export interface EdlLigne {
   bail_date_entree: string | null;
   depot_garantie_cents: number | null;
   credit_consomme: boolean;
+  pdf_path?: string | null;
+  pdf_sha256?: string | null;
+  genere_le?: string | null;
   remarques_generales: string | null;
   source?: string;
   signabail_bail_id?: string | null;

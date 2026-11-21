@@ -34,7 +34,7 @@ export function EdlPiece() {
     const els = await local.lister<Element>('edl_elements', 'piece_id', pieceId!);
     setPieces(lesPieces);
     setElements(els);
-    setVerrouille(fiche?.edl.statut === 'signe');
+    setVerrouille(fiche?.edl.statut !== 'brouillon');
     setOrganisationId(fiche?.edl.organisation_id ?? '');
     setPhotos((await local.lister<Photo>('edl_photos', 'edl_id', id!)).filter((p) => p.piece_id === pieceId));
     setNomPiece(lesPieces.find((p) => p.id === pieceId)?.nom ?? '');
@@ -107,7 +107,7 @@ export function EdlPiece() {
         <h1 className="min-w-0 text-2xl font-bold">{piece.nom}</h1>
         <p className="whitespace-nowrap text-sm text-discret tabular-nums">pièce {rang + 1} / {pieces.length} · {av.faits} / {av.total}</p>
       </div>
-      {verrouille && <Alerte ton="info">État des lieux signé : il ne peut plus être modifié.</Alerte>}
+      {verrouille && <Alerte ton="info">Document généré : cet état des lieux ne se modifie plus. Tant que personne n’a signé, vous pouvez le rouvrir depuis « Aperçu et document ».</Alerte>}
 
       <ul className="flex flex-col gap-3">
         {elements.map((el) => {

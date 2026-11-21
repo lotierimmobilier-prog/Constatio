@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pile locale réduite pour le développement : Postgres (image Supabase),
-# authentification (GoTrue), API (PostgREST), stockage des fichiers (Storage)
-# et boîte mail de test (Mailpit).
+# authentification (GoTrue), API (PostgREST), stockage des fichiers (Storage),
+# fonctions serveur (Edge Runtime), passerelle (Kong) et boîte mail de test (Mailpit).
 # À utiliser quand « supabase start » n'est pas possible. Secrets de
 # développement uniquement, sans valeur en dehors de cette machine.
 #   dev/pile-locale.sh start | stop | reset
@@ -18,7 +18,7 @@ attendre() {  # attendre <libellé> <commande…> : 60 s au plus
   echo " ÉCHEC : le service ne répond pas (voir docker logs)"; exit 1
 }
 
-stop() { docker rm -f cst-db cst-auth cst-rest cst-mail cst-stockage >/dev/null 2>&1 || true; }
+stop() { docker rm -f cst-db cst-auth cst-rest cst-mail cst-stockage cst-kong cst-fonctions >/dev/null 2>&1 || true; }
 
 start() {
   docker network inspect $NET >/dev/null 2>&1 || docker network create $NET >/dev/null
@@ -60,7 +60,23 @@ start() {
     -e "PGRST_DB_URI=postgres://authenticator:$PW@cst-db:5432/postgres" -e PGRST_DB_SCHEMAS=public \
     -e PGRST_DB_ANON_ROLE=anon -e PGRST_JWT_SECRET=$JWT postgrest/postgrest:v16.5 >/dev/null
   attendre "API" curl -sf --noproxy '*' http://127.0.0.1:54326/
-  printf 'VITE_SUPABASE_URL=http://127.0.0.1:5173\nVITE_SUPABASE_ANON_KEY=%s\nDEV_PROXY_AUTH=http://127.0.0.1:54325\nDEV_PROXY_REST=http://127.0.0.1:54326\nDEV_PROXY_STOCKAGE=http://127.0.0.1:54327\n' "$ANON" > .env.local
+  # Passerelle unique, puis fonctions serveur. Celles-ci tournent sur le réseau de la machine pour
+  # pouvoir télécharger leurs dépendances ; elles joignent le reste par la passerelle.
+  docker run -d --name cst-kong --network $NET --add-host host.docker.internal:host-gateway -p 54321:8000 \
+    -e KONG_DATABASE=off -e KONG_DECLARATIVE_CONFIG=/kong.yml -v "$PWD/dev/kong.yml:/kong.yml:ro" kong:2.8.1 >/dev/null
+  PROXY_ARGS=()
+  if [ -n "${HTTPS_PROXY:-}" ]; then
+    PROXY_ARGS=(-e "HTTPS_PROXY=$HTTPS_PROXY" -e "HTTP_PROXY=$HTTPS_PROXY" -e NO_PROXY=127.0.0.1,localhost)
+    [ -f /root/.ccr/ca-bundle.crt ] && PROXY_ARGS+=(-v /root/.ccr/ca-bundle.crt:/ca.crt:ro -e DENO_CERT=/ca.crt -e SSL_CERT_FILE=/ca.crt)
+  fi
+  docker run -d --name cst-fonctions --network host \
+    -v "$PWD/supabase/functions:/home/deno/functions:ro" -v "$PWD/dev/fonctions-main:/home/deno/main:ro" "${PROXY_ARGS[@]}" \
+    -e SUPABASE_URL=http://127.0.0.1:54321 -e SUPABASE_ANON_KEY=$ANON -e SUPABASE_SERVICE_ROLE_KEY=$SERVICE \
+    -e SIGNABAIL_WEBHOOK_SECRET=secret-local-signabail -e SITE_URL=http://127.0.0.1:5173 \
+    supabase/edge-runtime:v1.79.1 start --main-service /home/deno/main -p 54328 >/dev/null
+  attendre "fonctions" curl -sf --noproxy '*' http://127.0.0.1:54328/sante
+  attendre "passerelle" curl -sf --noproxy '*' http://127.0.0.1:54321/functions/v1/sante
+  printf 'VITE_SUPABASE_URL=http://127.0.0.1:5173\nVITE_SUPABASE_ANON_KEY=%s\nDEV_PROXY_AUTH=http://127.0.0.1:54325\nDEV_PROXY_REST=http://127.0.0.1:54326\nDEV_PROXY_STOCKAGE=http://127.0.0.1:54327\nDEV_PROXY_FONCTIONS=http://127.0.0.1:54328\n' "$ANON" > .env.local
   echo "Pile locale démarrée. .env.local écrit. E-mails de test : http://127.0.0.1:54324"
 }
 

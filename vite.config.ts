@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       ? {
           '/auth/v1': { target: env.DEV_PROXY_AUTH, rewrite: (p: string) => p.replace(/^\/auth\/v1/, '') },
           '/rest/v1': { target: env.DEV_PROXY_REST, rewrite: (p: string) => p.replace(/^\/rest\/v1/, '') },
+          ...(env.DEV_PROXY_FONCTIONS ? { '/functions/v1': { target: env.DEV_PROXY_FONCTIONS, rewrite: (p: string) => p.replace(/^\/functions\/v1/, '') } } : {}),
           ...(env.DEV_PROXY_STOCKAGE ? { '/storage/v1': { target: env.DEV_PROXY_STOCKAGE, rewrite: (p: string) => p.replace(/^\/storage\/v1/, '') } } : {}),
         }
       : undefined;
@@ -45,7 +46,7 @@ export default defineConfig(({ mode }) => {
           navigateFallback: '/index.html',
           // Les appels au serveur ne passent jamais par le cache.
           // Ni les appels au serveur ni les guides (pages statiques à part) ne passent par l'application.
-          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//, /^\/guides/, /^\/(sitemap\.xml|robots\.txt|llms(-full)?\.txt)$/],
+          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//, /^\/functions\//, /^\/guides/, /^\/(sitemap\.xml|robots\.txt|llms(-full)?\.txt)$/],
         },
       }),
     ],

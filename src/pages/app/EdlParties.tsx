@@ -26,7 +26,7 @@ export function EdlParties() {
     setParties(await local.lister<Partie>('edl_parties', 'edl_id', id!));
     if (fiche) {
       setType(fiche.edl.type);
-      setVerrouille(fiche.edl.statut === 'signe');
+      setVerrouille(fiche.edl.statut !== 'brouillon');
     }
     setCharge(true);
   }, [id]);
@@ -50,7 +50,7 @@ export function EdlParties() {
       <Link to={`/app/edl/${id}`} className="text-sm font-semibold text-marque">← Retour à l’état des lieux</Link>
       <h1 className="text-2xl font-bold">Parties</h1>
       <p className="text-sm text-discret">L’état des lieux est contradictoire : il est établi en présence du bailleur et du locataire, ou de leurs mandataires.</p>
-      {verrouille && <Alerte ton="info">État des lieux signé : il ne peut plus être modifié.</Alerte>}
+      {verrouille && <Alerte ton="info">Document généré : cet état des lieux ne se modifie plus. Tant que personne n’a signé, vous pouvez le rouvrir depuis « Aperçu et document ».</Alerte>}
 
       {parties.map((p) => (
         <FichePartie key={p.id} partie={p} parties={parties} sortie={type === 'sortant'} verrouille={verrouille} recharger={charger} />

@@ -6,7 +6,7 @@
 //   SIGNABAIL_WEBHOOK_SECRET   secret partagé, sens Signabail → Constatio
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   fournis par Supabase
 //
-// NON ENCORE DÉPLOYÉE NI EXÉCUTÉE : le projet Supabase n'existe pas. La
+// Exécutée et testée sur la pile locale (e2e/signabail.spec.ts) ; pas encore déployée. La
 // vérification de signature et le traitement en base sont testés séparément.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { verifier } from '../_partage/signature.ts';

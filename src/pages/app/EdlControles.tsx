@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
-import { Bouton } from '../../components/ui';
+import { classesBouton } from '../../components/ui';
 import type { Alerte } from '../../lib/controles';
 import { chargerEdl, controlerEdl } from '../../lib/edl';
 
@@ -39,10 +39,8 @@ export function EdlControles() {
           <ul className="flex flex-col gap-2">{conseils.map(ligne)}</ul>
         </>
       )}
-      <div className="flex flex-col gap-1">
-        <Bouton variante="repere" disabled aria-describedby="apercu-note">Voir l’aperçu</Bouton>
-        <p id="apercu-note" className="text-center text-sm text-discret">L’aperçu et la génération du PDF arrivent à une prochaine étape du développement.</p>
-      </div>
+      <Link to={`/app/edl/${id}/apercu`} className={classesBouton('repere')} data-testid="vers-apercu">Voir l’aperçu</Link>
+      <p className="text-center text-sm text-discret">L’aperçu est gratuit et fonctionne sans réseau. Le document définitif se génère à l’étape suivante.</p>
     </>
   );
 }

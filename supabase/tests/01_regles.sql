@@ -131,6 +131,23 @@ begin
   perform public.edl_rouvrir(e1);
   perform public.edl_finaliser(e1);
   perform t.egal('rouvrir puis régénérer ne coûte rien', (select restant::text from public.credit_lots where id = lot_libre), '5');
+  -- Terminé = figé : le document généré doit rester fidèle aux données ------------
+  perform t.refuse('A dépose lui-même le PDF', format('select public.edl_deposer_pdf(%L, %L, %L, %L, 1, 10)', e1, org_a || '/' || e1 || '/pdf/a.pdf', repeat('a', 64), a));
+  perform t.egal('A ne peut plus modifier un élément terminé', (select private.edl_modifiable(e1))::text, 'false');
+  perform t.role('service_role');
+  perform t.refuse('élément modifié sur un EDL terminé', format('update public.edl_elements set etat = ''neuf'' where id = %L', elem));
+  perform t.refuse('remarques modifiées sur un EDL terminé', format('update public.edl set remarques_generales = ''x'' where id = %L', e1));
+  perform t.refuse('PDF déposé hors du dossier de l''EDL', format('select public.edl_deposer_pdf(%L, %L, %L, %L, 1, 10)', e1, org_a || '/autre/pdf/a.pdf', repeat('a', 64), a));
+  perform t.refuse('PDF déposé avec une empreinte invalide', format('select public.edl_deposer_pdf(%L, %L, %L, %L, 1, 10)', e1, org_a || '/' || e1 || '/pdf/a.pdf', 'abc', a));
+  perform public.edl_deposer_pdf(e1, org_a || '/' || e1 || '/pdf/a.pdf', repeat('a', 64), a, 3, 1000);
+  perform t.egal('empreinte du PDF conservée', (select pdf_sha256 from public.edl where id = e1), repeat('a', 64));
+  perform t.egal('dépôt du PDF journalisé', (select count(*)::text from public.edl_journal where edl_id = e1 and evenement = 'pdf_genere'), '1');
+  perform t.connecter(a);
+  perform public.edl_rouvrir(e1);
+  perform t.egal('rouvert : l''empreinte est effacée', coalesce((select pdf_sha256 from public.edl where id = e1), 'aucune'), 'aucune');
+  perform t.egal('rouvert : de nouveau modifiable', (select private.edl_modifiable(e1))::text, 'true');
+  perform public.edl_finaliser(e1);
+  perform t.egal('seconde correction, toujours sans crédit', (select restant::text from public.credit_lots where id = lot_libre), '5');
   perform t.refuse('changer le type d''un EDL déjà généré', format('update public.edl set type = ''sortant'' where id = %L', e1));
   perform t.refuse('A marque lui-même l''EDL signé', format('select public.edl_marquer_signe(%L)', e1));
   perform t.refuse('A dépose lui-même une signature',

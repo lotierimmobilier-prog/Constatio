@@ -4,7 +4,7 @@
 // Toute la décision est dans ../_partage/passage.ts (testée) ; ce fichier ne fait
 // que la brancher sur Supabase.
 //
-// NON ENCORE DÉPLOYÉE NI EXÉCUTÉE : le projet Supabase n'existe pas.
+// Exécutée et testée sur la pile locale (e2e/signabail.spec.ts) ; pas encore déployée.
 // Secrets attendus : SIGNABAIL_WEBHOOK_SECRET (le même que pour les messages),
 // SITE_URL (origine autorisée), SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY.
 import { createClient } from 'jsr:@supabase/supabase-js@2';

@@ -8,7 +8,7 @@ export function useVerrou(): { id: string; verrouille: boolean } {
   const { id } = useParams();
   const [verrouille, setVerrouille] = useState(false);
   useEffect(() => {
-    void chargerEdl(id!).then((r) => setVerrouille(r?.edl.statut === 'signe'));
+    void chargerEdl(id!).then((r) => setVerrouille(r?.edl.statut !== 'brouillon'));
   }, [id]);
   return { id: id!, verrouille };
 }
@@ -19,7 +19,7 @@ export function EnteteEdl({ id, titre, intro, verrouille }: { id: string; titre:
       <Link to={`/app/edl/${id}`} className="text-sm font-semibold text-marque">← Retour à l’état des lieux</Link>
       <h1 className="text-2xl font-bold">{titre}</h1>
       {intro && <p className="text-sm text-discret">{intro}</p>}
-      {verrouille && <Alerte ton="info">État des lieux signé : il ne peut plus être modifié.</Alerte>}
+      {verrouille && <Alerte ton="info">Document généré : cet état des lieux ne se modifie plus. Tant que personne n’a signé, vous pouvez le rouvrir depuis « Aperçu et document ».</Alerte>}
     </>
   );
 }

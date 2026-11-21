@@ -22,6 +22,7 @@ import { EdlPiece } from './pages/app/EdlPiece';
 import { EdlCompteurs } from './pages/app/EdlCompteurs';
 import { EdlCles } from './pages/app/EdlCles';
 import { EdlInventaire } from './pages/app/EdlInventaire';
+import { EdlApercu } from './pages/app/EdlApercu';
 import { EdlControles } from './pages/app/EdlControles';
 
 export function App() {
@@ -44,6 +45,7 @@ export function App() {
         <Route path="edl/:id/cles" element={<EdlCles />} />
         <Route path="edl/:id/inventaire" element={<EdlInventaire />} />
         <Route path="edl/:id/controles" element={<EdlControles />} />
+        <Route path="edl/:id/apercu" element={<EdlApercu />} />
       </Route>
       <Route path="/admin" element={<CoquilleAdmin />}>
         <Route index element={<AdminAccueil />} />

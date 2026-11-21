@@ -49,7 +49,7 @@ export function Edl() {
   if (introuvable) return <Alerte>Cet état des lieux n’existe pas ou ne vous est pas accessible. <Link to="/app" className="font-semibold underline">Revenir à la liste</Link></Alerte>;
   if (!edl || !controle) return <p className="text-center text-discret">Chargement…</p>;
 
-  const verrouille = edl.statut === 'signe';
+  const verrouille = edl.statut !== 'brouillon';
   const global = avancement(elements);
   const locataires = parties.filter((p) => p.role === 'locataire');
   const d = controle.donnees;
@@ -165,9 +165,16 @@ export function Edl() {
             if (v !== edl.remarques_generales) { await local.modifier('edl', edl.id, { remarques_generales: v }, 'Remarques générales'); await charger(); }
           }} />
       </div>
-      <Link to="controles" className={`${classesBouton(bloquants ? 'contour' : 'repere')}`} data-testid="lien-controles">
-        {bloquants ? `Contrôles : ${bloquants} point${bloquants > 1 ? 's' : ''} à corriger` : 'Contrôles : tout est complet'}
-      </Link>
+      {verrouille ? (
+        <Link to="apercu" className={classesBouton('repere')} data-testid="lien-document">Voir le document</Link>
+      ) : (
+        <>
+          <Link to="controles" className={`${classesBouton(bloquants ? 'contour' : 'repere')}`} data-testid="lien-controles">
+            {bloquants ? `Contrôles : ${bloquants} point${bloquants > 1 ? 's' : ''} à corriger` : 'Contrôles : tout est complet'}
+          </Link>
+          <Link to="apercu" className={classesBouton('contour')} data-testid="lien-apercu">Aperçu et document</Link>
+        </>
+      )}
 
       {edl.statut === 'brouillon' && !edl.credit_consomme &&
         (aSupprimer ? (

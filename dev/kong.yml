@@ -1,0 +1,16 @@
+# Passerelle de la pile locale : une seule adresse (port 54321) devant
+# l'authentification, l'API, le stockage et les fonctions, comme chez Supabase.
+_format_version: "2.1"
+services:
+  - name: auth
+    url: http://cst-auth:9999/
+    routes: [{ name: auth, paths: ["/auth/v1/"], strip_path: true }]
+  - name: rest
+    url: http://cst-rest:3000/
+    routes: [{ name: rest, paths: ["/rest/v1/"], strip_path: true }]
+  - name: stockage
+    url: http://cst-stockage:5000/
+    routes: [{ name: stockage, paths: ["/storage/v1/"], strip_path: true }]
+  - name: fonctions
+    url: http://host.docker.internal:54328/
+    routes: [{ name: fonctions, paths: ["/functions/v1/"], strip_path: true }]
