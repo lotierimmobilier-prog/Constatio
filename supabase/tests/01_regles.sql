@@ -403,6 +403,56 @@ begin
   perform t.role('service_role');
   update public.tarifs set montant_cents = 1490 where code = 'edl_unite';
 
+  -- Paiements Stripe : tout passe par le serveur, une fois, et le mode test fait barrage ---
+  perform t.connecter(b);
+  perform t.refuse('B s''attribue un paiement', format('select public.stripe_recevoir(%L)', '{"id":"evt_x","type":"checkout.session.completed"}'));
+  perform t.role('service_role');
+  perform t.egal('message réel écarté en mode test', public.stripe_recevoir(jsonb_build_object('id', 'evt_live', 'type', 'checkout.session.completed', 'livemode', true,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_live', 'mode', 'payment', 'payment_status', 'paid', 'payment_intent', 'pi_live',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'pack_10'))))), 'ecarte_mode');
+  perform t.egal('aucun crédit pour le message écarté', (select count(*)::text from public.credit_lots where reference = 'stripe:pi_live'), '0');
+  perform t.egal('paiement pas encore encaissé', public.stripe_recevoir(jsonb_build_object('id', 'evt_att', 'type', 'checkout.session.completed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_1', 'mode', 'payment', 'payment_status', 'unpaid', 'payment_intent', 'pi_1',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'pack_5'))))), 'en_attente_paiement');
+  perform t.egal('achat d''un pack de 5', public.stripe_recevoir(jsonb_build_object('id', 'evt_1', 'type', 'checkout.session.async_payment_succeeded', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_1', 'mode', 'payment', 'payment_status', 'paid', 'payment_intent', 'pi_1', 'customer', 'cus_B',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'pack_5'))))), 'traite');
+  perform t.egal('5 crédits, valables 24 mois', (select restant || ' ' || (expire_le > now() + interval '23 months') from public.credit_lots where reference = 'stripe:pi_1'), '5 true');
+  perform t.egal('client Stripe retenu', public.stripe_client(org_b), 'cus_B');
+  perform t.egal('même message reçu deux fois', public.stripe_recevoir(jsonb_build_object('id', 'evt_1', 'type', 'checkout.session.async_payment_succeeded', 'livemode', false)), 'deja_traite');
+  perform t.egal('même paiement annoncé par un autre message', public.stripe_recevoir(jsonb_build_object('id', 'evt_1bis', 'type', 'checkout.session.completed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_1', 'mode', 'payment', 'payment_status', 'paid', 'payment_intent', 'pi_1',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'pack_5'))))), 'traite');
+  perform t.egal('un seul lot pour ce paiement', (select count(*) || ' ' || sum(restant) from public.credit_lots where reference = 'stripe:pi_1'), '1 5');
+  perform t.egal('tarif inconnu : en erreur, à retenter', public.stripe_recevoir(jsonb_build_object('id', 'evt_ko', 'type', 'checkout.session.completed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_ko', 'mode', 'payment', 'payment_status', 'paid', 'payment_intent', 'pi_ko',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'inconnu'))))), 'erreur');
+  perform t.egal('l''erreur est gardée, le message reste à traiter', (select (traite_le is null) || ' ' || erreur from public.webhook_evenements where evenement_id = 'evt_ko'), 'true Commande Stripe sans compte ou sans tarif reconnu.');
+  perform t.egal('remboursement total : crédits retirés', public.stripe_recevoir(jsonb_build_object('id', 'evt_rb', 'type', 'charge.refunded', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'ch_1', 'refunded', true, 'payment_intent', 'pi_1')))), 'traite');
+  perform t.egal('plus de crédit sur l''achat remboursé', (select restant::text from public.credit_lots where reference = 'stripe:pi_1'), '0');
+
+  perform t.egal('abonnement Premium Investisseur', public.stripe_recevoir(jsonb_build_object('id', 'evt_abo', 'type', 'checkout.session.completed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_2', 'mode', 'subscription', 'payment_status', 'paid', 'subscription', 'sub_B', 'customer', 'cus_B',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'premium_investisseur'))))), 'traite');
+  perform t.egal('Premium actif', (select exists (select 1 from public.abonnements where organisation_id = org_b and statut = 'actif' and periode_fin > now()))::text, 'true');
+  perform t.egal('quota de l''année, utilisable tant que l''abonnement est payé',
+    (select restant || ' ' || (expire_le < now() + interval '32 days') from public.credit_lots where reference = 'stripe:abo:sub_B:annee:0'), '12 true');
+  perform t.egal('échéance réglée', public.stripe_recevoir(jsonb_build_object('id', 'evt_fac', 'type', 'invoice.paid', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'in_1', 'parent', jsonb_build_object('subscription_details', jsonb_build_object('subscription', 'sub_B')),
+      'lines', jsonb_build_object('data', jsonb_build_array(jsonb_build_object('period', jsonb_build_object('end', extract(epoch from now() + interval '60 days'))))))))), 'traite');
+  perform t.egal('quota prolongé, pas doublé', (select count(*) || ' ' || sum(restant) || ' ' || bool_and(expire_le > now() + interval '59 days') from public.credit_lots where reference like 'stripe:abo:sub_B:%'), '1 12 true');
+  perform t.egal('échéance impayée', public.stripe_recevoir(jsonb_build_object('id', 'evt_imp', 'type', 'invoice.payment_failed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'in_2', 'subscription', 'sub_B')))), 'traite');
+  perform t.egal('Premium suspendu', (select exists (select 1 from public.abonnements where organisation_id = org_b and statut = 'actif' and periode_fin > now()))::text, 'false');
+  perform t.egal('résiliation', public.stripe_recevoir(jsonb_build_object('id', 'evt_fin', 'type', 'customer.subscription.deleted', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'sub_B', 'status', 'canceled')))), 'traite');
+  perform t.egal('abonnement résilié, quota éteint', (select a.statut || ' ' || (l.expire_le <= now()) from public.abonnements a, public.credit_lots l
+    where a.stripe_subscription_id = 'sub_B' and l.reference = 'stripe:abo:sub_B:annee:0'), 'resilie true');
+  perform t.egal('facture d''un abonnement inconnu', public.stripe_recevoir(jsonb_build_object('id', 'evt_inc', 'type', 'invoice.paid', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'in_9', 'subscription', 'sub_inconnu')))), 'sans_abonnement');
+  perform t.egal('type de message non géré', public.stripe_recevoir(jsonb_build_object('id', 'evt_autre', 'type', 'customer.created', 'livemode', false, 'data', jsonb_build_object('object', '{}'::jsonb))), 'ignore');
+
   -- Visiteur non connecté -------------------------------------------------------------
   perform t.role('anon');
   perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 8);

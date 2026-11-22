@@ -73,6 +73,7 @@ start() {
     -v "$PWD/supabase/functions:/home/deno/functions:ro" -v "$PWD/dev/fonctions-main:/home/deno/main:ro" "${PROXY_ARGS[@]}" \
     -e SUPABASE_URL=http://127.0.0.1:54321 -e SUPABASE_ANON_KEY=$ANON -e SUPABASE_SERVICE_ROLE_KEY=$SERVICE \
     -e SIGNABAIL_WEBHOOK_SECRET=secret-local-signabail -e SITE_URL=http://127.0.0.1:5173 \
+    -e STRIPE_SECRET_KEY=sk_test_pile_locale -e STRIPE_WEBHOOK_SECRET=whsec_pile_locale -e STRIPE_API_URL=http://127.0.0.1:54399 \
     supabase/edge-runtime:v1.79.1 start --main-service /home/deno/main -p 54328 >/dev/null
   attendre "fonctions" curl -sf --noproxy '*' http://127.0.0.1:54328/sante
   attendre "passerelle" curl -sf --noproxy '*' http://127.0.0.1:54321/functions/v1/sante

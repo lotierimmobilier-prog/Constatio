@@ -19,6 +19,7 @@ import { AdminJournal } from './pages/admin/AdminJournal';
 import { AdminReglages } from './pages/admin/AdminReglages';
 import { TableauDeBord } from './pages/app/TableauDeBord';
 import { Compte } from './pages/app/Compte';
+import { Credits } from './pages/app/Credits';
 import { NouvelEdl } from './pages/app/NouvelEdl';
 import { Edl } from './pages/app/Edl';
 import { EdlParties } from './pages/app/EdlParties';
@@ -68,6 +69,7 @@ export function App() {
       <Route path="/app" element={<CoquilleApp />}>
         <Route index element={<TableauDeBord />} />
         <Route path="compte" element={<Compte />} />
+        <Route path="credits" element={<Credits />} />
         <Route path="edl/nouveau" element={<NouvelEdl />} />
         <Route path="edl/:id" element={<Edl />} />
         <Route path="edl/:id/parties" element={<EdlParties />} />

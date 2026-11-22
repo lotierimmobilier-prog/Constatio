@@ -71,7 +71,7 @@ export function EdlApercu() {
     <>
       <EnteteEdl id={id} titre={edl.statut === 'brouillon' ? 'Aperçu et document' : 'Document'} verrouille={false}
         intro={edl.statut === 'brouillon' ? 'Relisez le document tel qu’il sera remis aux parties, puis générez la version définitive.' : undefined} />
-      {message && <Alerte ton={message.ton}>{message.texte}{message.versCompte && <> <Link to="/app/compte" className="font-semibold underline">Voir mon compte</Link></>}</Alerte>}
+      {message && <Alerte ton={message.ton}>{message.texte}{message.versCompte && <> <Link to="/app/credits" className="font-semibold underline">Acheter un crédit</Link></>}</Alerte>}
 
       {edl.statut === 'brouillon' && (
         <>

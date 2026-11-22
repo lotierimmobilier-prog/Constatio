@@ -438,3 +438,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.sante]
 verify_jwt = false
+[functions.webhook-stripe]
+verify_jwt = false
