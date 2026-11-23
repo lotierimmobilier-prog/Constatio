@@ -2,11 +2,23 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { BandeauModeTest } from '../components/BandeauModeTest';
+import { CarrouselEcrans } from '../components/site/CarrouselEcrans';
 import { DemoVisite } from '../components/site/DemoVisite';
 import { Logo, classesBouton } from '../components/ui';
 import { ETATS } from '../lib/trame';
 
 /** Une section : la référence ou la note en marge, le contenu à côté. Sur téléphone, la note passe au-dessus. */
+const ECRANS = [
+  { src: '/ecrans/vue-ensemble.webp', alt: 'Vue d’ensemble d’un état des lieux : avancement, pièces, compteurs et contrôles' },
+  { src: '/ecrans/visite.webp', alt: 'Visite d’une pièce : un état par élément, du neuf au hors service' },
+  { src: '/ecrans/photo.webp', alt: 'Photo d’un élément avec sa date, son heure et sa position' },
+  { src: '/ecrans/compteurs.webp', alt: 'Relevé des compteurs d’électricité, d’eau et de gaz' },
+  { src: '/ecrans/controles.webp', alt: 'Contrôles : toutes les mentions obligatoires sont renseignées' },
+  { src: '/ecrans/apercu.webp', alt: 'Aperçu gratuit du document avant sa génération' },
+  { src: '/ecrans/signature.webp', alt: 'Signature au doigt d’une partie, à distance' },
+  { src: '/ecrans/hors-connexion.webp', alt: 'Visite poursuivie sans réseau, saisies gardées sur l’appareil' },
+];
+
 function Section({ id, marge, titre, chapeau, children }: { id: string; marge?: string; titre: string; chapeau?: string; children: ReactNode }) {
   return (
     <section id={id} aria-labelledby={`${id}-titre`} className="scroll-mt-20 border-t border-trait py-16 sm:py-24">
@@ -138,6 +150,10 @@ export function Accueil() {
             <div><dt className="text-discret">Données</dt><dd className="mt-0.5 font-semibold">Hébergées dans l’Union européenne</dd></div>
           </dl>
         </section>
+
+        <Section id="ecrans" marge="Faites-le tourner du doigt." titre="L’application, écran par écran." chapeau="De la première pièce à la signature : ce que vous aurez sous les yeux pendant la visite.">
+          <CarrouselEcrans ecrans={ECRANS} />
+        </Section>
 
         <Section id="profils" marge="Le document s’adapte à qui le signe." titre="Fait pour celui qui loue, et pour celui qui gère.">
           <ul className="grid gap-y-8 md:grid-cols-3 md:divide-x md:divide-trait">
