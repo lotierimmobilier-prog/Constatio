@@ -56,6 +56,10 @@ test('paiement : achat d’un pack, abonnement, messages refusés', async ({ pag
   await expect(page.getByText(/Mode test : aucun paiement réel/)).toBeVisible();
   if (captures) await page.screenshot({ path: `${captures}/30-credits.png`, fullPage: true });
 
+  // Pas de commande sans avoir accepté les conditions générales.
+  await expect(page.getByTestId('offre-pack_5').getByRole('button', { name: 'Acheter' })).toBeDisabled();
+  await page.getByTestId('accepter-cgv').check();
+
   // ── Achat d'un pack : Constatio demande la page de paiement, au prix de la base ──────
   await page.getByTestId('offre-pack_5').getByRole('button', { name: 'Acheter' }).click();
   await expect(page.getByText(/Paiement reçu, merci/)).toBeVisible({ timeout: 30_000 });
@@ -84,6 +88,7 @@ test('paiement : achat d’un pack, abonnement, messages refusés', async ({ pag
 
   // ── Abonnement ──────────────────────────────────────────────────────────────────
   await page.getByRole('button', { name: 'Fermer' }).click();
+  await page.getByTestId('accepter-cgv').check();
   await page.getByTestId('offre-premium_investisseur').getByRole('button', { name: 'S’abonner' }).click();
   await expect(page.getByText(/Paiement reçu, merci/)).toBeVisible({ timeout: 30_000 });
   expect(demandes.at(-1)!.champs).toMatchObject({ mode: 'subscription', 'line_items[0][price_data][unit_amount]': '990', 'line_items[0][price_data][recurring][interval]': 'month', customer: `cus_${org}` });

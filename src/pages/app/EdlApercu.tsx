@@ -19,6 +19,7 @@ export function EdlApercu() {
   const [etat, setEtat] = useState<'chargement' | 'pret' | 'generation' | 'introuvable'>('chargement');
   const [message, setMessage] = useState<{ ton: 'erreur' | 'succes' | 'info'; texte: string; versCompte?: boolean } | null>(null);
   const [confirmer, setConfirmer] = useState(false);
+  const [renonce, setRenonce] = useState(false);
 
   const charger = useCallback(async () => {
     const fiche = await chargerEdl(id);
@@ -96,9 +97,15 @@ export function EdlApercu() {
             ) : confirmer ? (
               <>
                 <p className="text-sm">{edl.credit_consomme ? 'Ce document a déjà été réglé : le régénérer ne coûte rien.' : 'La génération utilise 1 crédit.'} Une fois généré, l’état des lieux est figé ; vous pourrez le rouvrir pour le corriger, sans nouveau crédit, tant que personne n’a signé.</p>
+                {!edl.credit_consomme && (
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-1 h-5 w-5" checked={renonce} onChange={(e) => setRenonce(e.target.checked)} data-testid="renonciation" />
+                    <span>Je demande la fourniture immédiate de ce document et je reconnais perdre mon droit de rétractation pour le crédit utilisé (<Link to="/cgv" target="_blank" className="font-semibold text-marque underline underline-offset-4">conditions générales</Link>, article 7).</span>
+                  </label>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <Bouton variante="contour" onClick={() => setConfirmer(false)}>Annuler</Bouton>
-                  <Bouton onClick={generer} data-testid="confirmer-generation">Générer</Bouton>
+                  <Bouton onClick={generer} disabled={!edl.credit_consomme && !renonce} data-testid="confirmer-generation">Générer</Bouton>
                 </div>
               </>
             ) : (

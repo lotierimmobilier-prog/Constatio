@@ -43,13 +43,15 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
 
   const edl = page.url().match(/edl\/([0-9a-f-]{36})/)![1];
   const org = sql(`select organisation_id from public.edl where id = '${edl}'`);
-  sql(`update public.edl_elements set etat = 'bon' where edl_id = '${edl}';
+  sql(`update public.edl_parties set adresse = '1 rue des Tests, 34500 Béziers' where edl_id = '${edl}' and role = 'bailleur';
+       update public.edl_elements set etat = 'bon' where edl_id = '${edl}';
        insert into public.edl_parties (edl_id, role, civilite, prenom, nom, ordre) values ('${edl}', 'locataire', 'M.', 'Hugo', 'ZZREC Marty', 1);
        insert into public.edl_cles (edl_id, nature, nombre, destination) values ('${edl}', 'cle', 1, 'Porte du garage');
        delete from public.credit_lots where organisation_id = '${org}';
        insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le) values ('${org}', 'geste_commercial', 1, 1, now() + interval '1 year');`);
   await page.goto(`/app/edl/${edl}/apercu`);
   await page.getByTestId('generer').click();
+  await page.getByTestId('renonciation').check();
   await page.getByTestId('confirmer-generation').click();
   await expect(page.getByText('Document généré.')).toBeVisible({ timeout: 60_000 });
   const empreinte = (await page.getByTestId('empreinte').innerText()).replace('Empreinte SHA-256 : ', '').trim();

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider';
 import { Alerte, Bouton, Carte } from '../../components/ui';
 import { supabase } from '../../lib/supabase';
@@ -30,6 +30,7 @@ export function Credits() {
   const [essai, setEssai] = useState(false);
   const [occupe, setOccupe] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [accepte, setAccepte] = useState(false);
   const retour = params.get('paiement');
 
   const charger = useCallback(async () => {
@@ -79,7 +80,7 @@ export function Credits() {
       </span>
       <span className="flex shrink-0 flex-col items-end gap-1">
         <span className="font-bold tabular-nums">{euros(t.montant_cents)}{t.periodicite === 'mensuel' ? ' / mois' : ''}</span>
-        <Bouton disabled={occupe !== null || (t.periodicite === 'mensuel' && abonnement !== null)} onClick={() => aller({ action: 'commander', tarif: t.code }, t.code)}>
+        <Bouton disabled={!accepte || occupe !== null || (t.periodicite === 'mensuel' && abonnement !== null)} onClick={() => aller({ action: 'commander', tarif: t.code }, t.code)}>
           {occupe === t.code ? 'Ouverture…' : t.periodicite === 'mensuel' ? 'S’abonner' : 'Acheter'}
         </Bouton>
       </span>
@@ -119,6 +120,10 @@ export function Credits() {
         </Carte>
       )}
 
+      <label className="flex items-start gap-2 rounded-xl border border-trait bg-surface p-3 text-sm">
+        <input type="checkbox" className="mt-1 h-5 w-5" checked={accepte} onChange={(e) => setAccepte(e.target.checked)} data-testid="accepter-cgv" />
+        <span>J’ai lu et j’accepte les <Link to="/cgv" target="_blank" className="font-semibold text-marque underline underline-offset-4">conditions générales de vente</Link>, dont le droit de rétractation de quatorze jours (article 7). Commande avec obligation de paiement.</span>
+      </label>
       <h2 className="mt-2 text-lg font-bold">Acheter des crédits</h2>
       <ul className="flex flex-col gap-2">{achats.map(offre)}</ul>
       <h2 className="mt-2 text-lg font-bold">Abonnements Premium</h2>

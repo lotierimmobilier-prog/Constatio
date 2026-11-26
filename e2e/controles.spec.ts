@@ -38,10 +38,10 @@ test('un brouillon neuf : les contrôles listent ce qui manque et y renvoient', 
   await page.getByLabel(/Logement meublé/).check();
   await page.getByRole('button', { name: 'Créer le brouillon' }).click();
 
-  // 1 locataire + 6 pièces + 4 compteurs + clés + inventaire = 13 points.
-  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 13 points à corriger');
+  // 1 locataire + adresse du bailleur + 6 pièces + 4 compteurs + clés + inventaire = 14 points.
+  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 14 points à corriger');
   await page.getByTestId('lien-controles').click();
-  await expect(page.getByTestId('verdict')).toHaveText('13 points à corriger');
+  await expect(page.getByTestId('verdict')).toHaveText('14 points à corriger');
   await expect(page.getByText('Aucun locataire n’est identifié.')).toBeVisible();
   await expect(page.getByText('Gaz : compteur non relevé. Indiquez l’index, ou qu’il n’y a pas de compteur.')).toBeVisible();
   await expect(page.getByText('Aucune clé n’est décrite.')).toBeVisible();
@@ -135,6 +135,11 @@ test('tout complété : plus aucun point bloquant, les conseils restent', async 
   await connecter(page);
   // Locataire
   await page.getByRole('link', { name: /Parties/ }).click();
+  // Bailleur : son adresse est une mention obligatoire.
+  const bailleur = page.locator('section', { has: page.getByRole('heading', { name: /^Bailleur/ }) });
+  await bailleur.getByLabel('Adresse', { exact: true }).fill('12 rue des Balances, 34500 Béziers');
+  await bailleur.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByTestId('envoi')).toHaveCount(0, { timeout: 15_000 });
   await page.getByRole('button', { name: 'Ajouter un locataire' }).click();
   const fiche = page.locator('section', { has: page.getByRole('heading', { name: 'Locataire', exact: true }) });
   await fiche.getByLabel('Nom ou société').fill('ZZREC Marty');

@@ -41,9 +41,9 @@ const PROFILS = [
 ];
 
 const ETAPES = [
-  { titre: 'Vous visitez pièce par pièce', texte: 'Un appui par élément, une photo, une observation dictée. Le logement est décrit avant que le locataire ait fini de faire le tour.' },
+  { titre: 'Vous visitez pièce par pièce', texte: 'Un appui par élément, une photo, une observation choisie parmi des phrases types. Le logement est décrit avant que le locataire ait fini de faire le tour.' },
   { titre: 'Vous relisez les contrôles', texte: 'Compteur non relevé, clé non décrite, meublé incomplet : chaque alerte vous ramène à l’endroit à compléter.' },
-  { titre: 'Chacun signe sur place', texte: 'Bailleur et locataire signent sur l’écran, ou à distance. Chacun reçoit le PDF, et plus rien n’est modifiable.' },
+  { titre: 'Chacun signe sur place', texte: 'Bailleur et locataire signent sur l’écran, ou à distance. Vous remettez à chacun son exemplaire en PDF, et plus rien n’est modifiable.' },
 ];
 
 const CONTROLES: [string, string, string][] = [
@@ -51,8 +51,8 @@ const CONTROLES: [string, string, string][] = [
   ['Décret n° 2016-382, art. 2', 'Compteurs', 'Électricité, gaz, eau froide et eau chaude : chacun est relevé, ou déclaré absent. Jamais laissé vide.'],
   ['Décret n° 2015-981, art. 2', 'Inventaire du meublé', 'Les onze équipements obligatoires sont pointés un par un ; celui qui manque est nommé.'],
   ['Art. 3-2, loi de 1989', 'Complément d’état des lieux', 'Le locataire peut le demander pendant dix jours, et pour le chauffage pendant le premier mois de chauffe.'],
-  ['Art. 3-2, loi de 1989', 'Sortie', 'Nouvelle adresse du locataire et date de l’état des lieux d’entrée, exigées en sortie.'],
-  ['Art. 22, loi de 1989', 'Dépôt de garantie', 'Délai de restitution d’un ou deux mois calculé, vétusté déduite, retenues justifiées ligne par ligne.'],
+  ['Art. 3-2, loi de 1989', 'Sortie', 'Nouvelle adresse du locataire exigée en sortie, date de l’état des lieux d’entrée rappelée sur le document.'],
+  ['Art. 22, loi de 1989', 'Dépôt de garantie', 'Entrée et sortie côte à côte pour chaque élément : chaque écart est signalé, pour justifier une retenue. Chiffrage et décompte : bientôt.'],
 ];
 
 /** Ce que risque un bailleur dont l'état des lieux est absent ou mal fait. Textes à faire relire par un avocat avant mise en ligne. */
@@ -62,16 +62,16 @@ const RISQUES = [
     reference: 'Art. 7 c et 22, loi du 6 juillet 1989', parade: 'Même trame à l’entrée et à la sortie, un état par élément, les écarts affichés côte à côte avec les photos.' },
   { cause: 'Dépôt de garantie rendu en retard', consequence: '10 % du loyer par mois de retard',
     texte: 'Le dépôt se rend dans le mois si la sortie est conforme à l’entrée, dans les deux mois sinon. Passé ce délai, chaque mois de retard commencé coûte 10 % du loyer mensuel.',
-    reference: 'Art. 22, loi de 1989', parade: 'Date limite calculée à la remise des clés, décompte et courrier au locataire préparés.' },
+    reference: 'Art. 22, loi de 1989', parade: 'Écarts entre l’entrée et la sortie signalés dans le document. Calcul de la date limite et décompte : bientôt.' },
   { cause: 'Vétusté non prise en compte', consequence: 'Une retenue contestée devant le juge',
     texte: 'Le locataire ne répond pas de l’usure normale. Lui facturer une peinture de dix ans au prix du neuf, c’est s’exposer à devoir tout rembourser.',
-    reference: 'Art. 7 d, loi de 1989 ; décret n° 2016-382, art. 4', parade: 'Grille de vétusté appliquée à chaque retenue, par défaut ou la vôtre.' },
+    reference: 'Art. 7 d, loi de 1989 ; décret n° 2016-382, art. 4', parade: 'État d’entrée et état de sortie en regard pour chaque élément. Grille de vétusté : bientôt.' },
   { cause: 'Inventaire du mobilier absent ou incomplet', consequence: 'Un meublé requalifié en location vide',
     texte: 'Sans les onze équipements exigés, le logement n’est pas un meublé. Le locataire peut demander au juge d’appliquer les règles de la location vide : bail de trois ans, préavis allongé.',
     reference: 'Art. 25-4 et 25-5, loi de 1989 ; décret n° 2015-981', parade: 'Inventaire pointé avec l’état des lieux ; l’équipement manquant bloque le document.' },
   { cause: 'État des lieux fait seul, sans le locataire', consequence: 'Un document sans valeur contre lui',
     texte: 'L’état des lieux est contradictoire : il se fait en présence des deux parties ou de leurs mandataires. Si l’une refuse, il faut un commissaire de justice, à frais partagés.',
-    reference: 'Art. 3-2, loi de 1989', parade: 'Parties, mandataires et procurations identifiés ; mise en relation avec un commissaire de justice en cas de refus.' },
+    reference: 'Art. 3-2, loi de 1989', parade: 'Parties et mandataires identifiés ; une partie absente est signalée sur le document.' },
   { cause: 'Photos sans date ni lieu', consequence: 'Des preuves que l’on peut écarter',
     texte: 'Une photo prise « avant » ne prouve rien si rien n’établit quand ni où elle a été prise. Elle doit être rattachée à l’état des lieux signé.',
     reference: 'Pratique des tribunaux', parade: 'Photos horodatées et géolocalisées, rattachées à chaque élément, figées à la signature.' },
@@ -90,10 +90,10 @@ export const TARIFS: [string, string, string][] = [
 export const FAQ = [
   ['Un état des lieux fait sur téléphone a-t-il la même valeur qu’un état des lieux papier ?', 'Oui. La loi autorise expressément la forme électronique. Ce qui compte, c’est qu’il soit établi contradictoirement, qu’il contienne les mentions du décret du 30 mars 2016 et que chaque partie en reçoive un exemplaire signé.'],
   ['Que se passe-t-il s’il n’y a pas de réseau dans le logement ?', 'Vous continuez. Tout ce que vous saisissez est gardé sur le téléphone et envoyé dès que le réseau revient. Vous pouvez faire une visite entière dans une cave.'],
-  ['Le locataire doit-il créer un compte ?', 'Non. Il signe sur votre écran, ou depuis un lien reçu par e-mail. Il reçoit ensuite son exemplaire en PDF.'],
+  ['Le locataire doit-il créer un compte ?', 'Non. Il signe sur votre écran, ou depuis un lien personnel que vous lui transmettez. Il retrouve son exemplaire signé par ce même lien.'],
   ['Quand est-ce que je paie ?', 'Au moment de générer le document définitif. Le brouillon est gratuit : vous pouvez préparer tout l’état des lieux avant de payer.'],
-  ['Le locataire peut-il contester après avoir signé ?', 'Il peut demander à compléter l’état des lieux d’entrée dans les dix jours, et pour le chauffage pendant le premier mois de la période de chauffe. Constatio enregistre sa demande et votre réponse.'],
-  ['Et si le locataire refuse de signer ?', 'L’état des lieux est alors établi par un commissaire de justice, à frais partagés par moitié entre le bailleur et le locataire. Constatio vous indique la marche à suivre.'],
+  ['Le locataire peut-il contester après avoir signé ?', 'Il peut demander à compléter l’état des lieux d’entrée dans les dix jours, et pour le chauffage pendant le premier mois de la période de chauffe. Le document le rappelle en toutes lettres.'],
+  ['Et si le locataire refuse de signer ?', 'L’état des lieux est alors établi par un commissaire de justice, à frais partagés par moitié entre le bailleur et le locataire. Nos guides expliquent la marche à suivre.'],
 ];
 
 export function Accueil() {
@@ -127,7 +127,7 @@ export function Accueil() {
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[1.15fr_1fr] lg:pb-24 lg:pt-20">
             <div>
               <h1 className="text-[2.5rem] font-bold leading-[1.04] sm:text-[3.9rem]">
-                Un état des lieux <span className="bg-[linear-gradient(transparent_62%,rgb(var(--repere))_62%,rgb(var(--repere))_92%,transparent_92%)]">incontestable</span> en 20 minutes, depuis votre téléphone.
+                Un état des lieux <span className="bg-[linear-gradient(transparent_62%,rgb(var(--repere))_62%,rgb(var(--repere))_92%,transparent_92%)]">complet</span> en 20 minutes, depuis votre téléphone.
               </h1>
               <p className="mt-8 max-w-[56ch] text-lg leading-relaxed text-discret">
                 Vous faites le tour du logement, un appui par élément. Constatio relève ce que le décret exige, horodate les photos, fait signer sur place et garde la preuve. À la sortie, il compare avec l’entrée et chiffre les retenues.
@@ -239,7 +239,7 @@ export function Accueil() {
                   ['Mentions obligatoires vérifiées', 'À chaque étape', 'Non', 'Oui'],
                   ['Photos datées, rattachées au document', 'Oui', 'Non', 'Selon le prestataire'],
                   ['Comparaison entrée / sortie', 'Automatique', 'À la main', 'Selon le prestataire'],
-                  ['Vétusté et décompte du dépôt', 'Calculés', 'Non', 'Rarement'],
+                  ['Vétusté et décompte du dépôt', 'Bientôt', 'Non', 'Rarement'],
                   ['Délai', '20 minutes, quand vous voulez', 'Variable', 'Sur rendez-vous'],
                 ].map(([c, a, b, d]) => (
                   <tr key={c} className="border-b border-trait">

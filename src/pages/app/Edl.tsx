@@ -5,11 +5,15 @@ import { STATUTS_EDL, TYPES_EDL, avancement, chargerEdl, completerBrouillonRecu,
 import { local } from '../../lib/local';
 import { PIECES_TYPES, pieceType } from '../../lib/trame';
 
+/** La date du jour de la visite, dans le fuseau de l'appareil. */
+const jourLocal = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
 interface Fiche {
   id: string;
   type: TypeEdl;
   statut: StatutEdl;
   date_edl: string;
+  date_edl_entree?: string | null;
   entree_id: string | null;
   credit_consomme: boolean;
   remarques_generales: string | null;
@@ -96,6 +100,16 @@ export function Edl() {
       {edl.type === 'sortant' && !edl.entree_id && (
         <Alerte ton="info">Sans état des lieux d’entrée précis, une retenue sur le dépôt de garantie est très difficile à justifier.</Alerte>
       )}
+
+      {/* La date portée par le document est celle de la visite, pas celle où le brouillon a été préparé. */}
+      <div className={`grid gap-3 ${edl.type === 'sortant' && !edl.entree_id ? 'sm:grid-cols-2' : ''}`}>
+        <Champ id="date-edl" libelle="Date de l’état des lieux" type="date" disabled={verrouille} value={jourLocal(edl.date_edl)}
+          onChange={async (e) => { if (e.target.value) { await local.modifier('edl', edl.id, { date_edl: new Date(`${e.target.value}T12:00:00`).toISOString() }, 'Date de l’état des lieux'); await charger(); } }} />
+        {edl.type === 'sortant' && !edl.entree_id && (
+          <Champ id="date-entree" libelle="Date de l’état des lieux d’entrée" type="date" disabled={verrouille} value={edl.date_edl_entree ?? ''} aide="Mention attendue sur un état des lieux de sortie."
+            onChange={async (e) => { await local.modifier('edl', edl.id, { date_edl_entree: e.target.value || null }, 'Date de l’état des lieux d’entrée'); await charger(); }} />
+        )}
+      </div>
 
       <Link to="parties" className="flex items-center justify-between gap-3 rounded-2xl border border-trait bg-surface p-4">
         <span className="min-w-0">

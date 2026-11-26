@@ -73,7 +73,8 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
   await expect(sol.getByTestId('nb-photos')).toHaveText('1 photo');
   await expect(page.getByTestId('envoi')).toHaveCount(0, { timeout: 20_000 });
   const edl = page.url().match(/edl\/([0-9a-f-]{36})/)![1];
-  sql(`update public.edl_elements set etat = 'bon' where edl_id = '${edl}';
+  sql(`update public.edl_parties set adresse = '1 rue des Tests, 34500 Béziers' where edl_id = '${edl}' and role = 'bailleur';
+       update public.edl_elements set etat = 'bon' where edl_id = '${edl}';
        insert into public.edl_parties (edl_id, role, prenom, nom) values ('${edl}', 'locataire', 'Hugo', 'ZZREC Marty');
        insert into public.edl_cles (edl_id, nature, nombre, destination) values ('${edl}', 'cle', 1, 'Porte du garage');
        delete from public.credit_lots where organisation_id = '${org}';
@@ -90,6 +91,7 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
 
   // ── Document définitif, construit par le serveur ───────────────────────────────
   await page.getByTestId('generer').click();
+  await page.getByTestId('renonciation').check();
   await page.getByTestId('confirmer-generation').click();
   await expect(page.getByText('Document généré.')).toBeVisible({ timeout: 60_000 });
   const definitif = join(dossier, 'definitif.pdf');

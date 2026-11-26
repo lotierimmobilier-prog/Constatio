@@ -4,7 +4,7 @@ import { MOBILIER_DECRET, controler, type DonneesControle } from './controles';
 const complet = (): DonneesControle => ({
   type: 'entrant', meuble: false, sansCompteurs: false, entreeConnue: false,
   parties: [
-    { role: 'bailleur', nom: 'Vidal', nouvelle_adresse: null, represente_id: null },
+    { role: 'bailleur', nom: 'Vidal', adresse: '1 rue A, 34500 Béziers', nouvelle_adresse: null, represente_id: null },
     { role: 'locataire', nom: 'Marty', nouvelle_adresse: null, represente_id: null },
   ],
   pieces: [{ id: 'p1', nom: 'Séjour' }],
@@ -94,5 +94,14 @@ describe('controler', () => {
   it('garage : ni compteur ni inventaire attendus', () => {
     const d = complet(); d.sansCompteurs = true; d.compteurs = []; d.meuble = true;
     expect(controler(d)).toEqual([]);
+  });
+  it('exige l’adresse du bailleur et celle d’un mandataire (décret de 2016, art. 2)', () => {
+    const d = complet();
+    d.parties = [
+      { role: 'bailleur', nom: 'Vidal', adresse: ' ', nouvelle_adresse: null, represente_id: null },
+      { role: 'locataire', nom: 'Marty', nouvelle_adresse: null, represente_id: null },
+      { role: 'mandataire_bailleur', nom: 'Agence', adresse: null, nouvelle_adresse: null, represente_id: 'x' },
+    ];
+    expect(controler(d).filter((a) => a.niveau === 'bloquant').map((a) => a.message)).toEqual(['L’adresse du bailleur (domicile ou siège) est obligatoire.', 'L’adresse du mandataire est obligatoire.']);
   });
 });

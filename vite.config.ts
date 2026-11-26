@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
           navigateFallback: '/index.html',
           // Les appels au serveur ne passent jamais par le cache.
           // Ni les appels au serveur ni les guides (pages statiques à part) ne passent par l'application.
-          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//, /^\/functions\//, /^\/guides/, /^\/(sitemap\.xml|robots\.txt|llms(-full)?\.txt)$/],
+          navigateFallbackDenylist: [/^\/auth\//, /^\/rest\//, /^\/storage\//, /^\/functions\//, /^\/guides/, /^\/(sitemap\.xml|robots\.txt|assistant\.json|llms(-full)?\.txt)$/],
         },
       }),
     ],

@@ -1,6 +1,7 @@
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { Logo, classesBouton } from './components/ui';
 import { configure } from './lib/supabase';
+import { Assistant } from './components/Assistant';
 import { CoquilleApp } from './components/CoquilleApp';
 import { Accueil } from './pages/Accueil';
 import { Connexion } from './pages/Connexion';
@@ -45,6 +46,8 @@ function Ouverture() {
 export function App() {
   if (!configure) {
     return (
+      <>
+      <Assistant />
       <Routes>
         <Route path="/" element={<Accueil />} />
         <Route path="/mentions-legales" element={<MentionsLegales />} />
@@ -52,9 +55,12 @@ export function App() {
         <Route path="/confidentialite" element={<Confidentialite />} />
         <Route path="*" element={<Ouverture />} />
       </Routes>
+      </>
     );
   }
   return (
+    <>
+    <Assistant />
     <Routes>
       <Route path="/" element={<Accueil />} />
       <Route path="/mentions-legales" element={<MentionsLegales />} />
@@ -91,5 +97,6 @@ export function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

@@ -48,7 +48,8 @@ test('document : aperçu gratuit, génération payée par un crédit, verrou, r�
   // Le reste de la visite est saisi directement en base : ce test porte sur le document.
   const edl = page.url().match(/edl\/([0-9a-f-]{36})/)![1];
   const org = sql(`select organisation_id from public.edl where id = '${edl}'`);
-  sql(`update public.edl_elements set etat = 'bon', observations = case when libelle = 'Sol' then 'Tache d''huile au centre' end where edl_id = '${edl}';
+  sql(`update public.edl_parties set adresse = '1 rue des Tests, 34500 Béziers' where edl_id = '${edl}' and role = 'bailleur';
+       update public.edl_elements set etat = 'bon', observations = case when libelle = 'Sol' then 'Tache d''huile au centre' end where edl_id = '${edl}';
        insert into public.edl_parties (edl_id, role, civilite, prenom, nom, email) values ('${edl}', 'locataire', 'M.', 'Hugo', 'ZZREC Marty', 'hugo@constatio.test');
        insert into public.edl_cles (edl_id, nature, nombre, destination) values ('${edl}', 'telecommande', 2, 'Porte du garage');
        delete from public.credit_lots where organisation_id = '${org}';`);
@@ -70,6 +71,9 @@ test('document : aperçu gratuit, génération payée par un crédit, verrou, r�
   // ── Sans crédit : refus net, rien n'est figé ───────────────────────────────────
   await page.getByTestId('generer').click();
   await expect(page.getByText('La génération utilise 1 crédit.')).toBeVisible();
+  // Pas de génération sans demande expresse et renonciation à la rétractation pour ce crédit.
+  await expect(page.getByTestId('confirmer-generation')).toBeDisabled();
+  await page.getByTestId('renonciation').check();
   await page.getByTestId('confirmer-generation').click();
   await expect(page.getByText('Aucun crédit disponible pour ce document. Rien n’a été débité.')).toBeVisible({ timeout: 30_000 });
   expect(sql(`select statut from public.edl where id = '${edl}'`)).toBe('brouillon');
@@ -77,6 +81,7 @@ test('document : aperçu gratuit, génération payée par un crédit, verrou, r�
   // ── Avec un crédit : document définitif, empreinte conservée ───────────────────
   sql(`insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le) values ('${org}', 'geste_commercial', 1, 1, now() + interval '1 year')`);
   await page.getByTestId('generer').click();
+  await page.getByTestId('renonciation').check();
   await page.getByTestId('confirmer-generation').click();
   await expect(page.getByText('Document généré.')).toBeVisible({ timeout: 60_000 });
   const empreinte = (await page.getByTestId('empreinte').innerText()).replace('Empreinte SHA-256 : ', '').trim();
@@ -115,6 +120,7 @@ test('document : aperçu gratuit, génération payée par un crédit, verrou, r�
   expect(sql(`select statut || ' ' || coalesce(pdf_sha256, 'aucune') from public.edl where id = '${edl}'`)).toBe('brouillon aucune');
   await page.getByTestId('generer').click();
   await expect(page.getByText('Ce document a déjà été réglé : le régénérer ne coûte rien.')).toBeVisible();
+  await expect(page.getByTestId('renonciation')).toHaveCount(0); // déjà réglé : plus rien à quoi renoncer
   await page.getByTestId('confirmer-generation').click();
   await expect(page.getByText('Document généré.')).toBeVisible({ timeout: 60_000 });
   expect(sql(`select statut from public.edl where id = '${edl}'`)).toBe('termine');

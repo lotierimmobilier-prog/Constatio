@@ -35,7 +35,7 @@ export interface DonneesControle {
   /** Garage ou parking : ni compteur ni inventaire attendus. */
   sansCompteurs: boolean;
   entreeConnue: boolean;
-  parties: { role: string; nom: string; nouvelle_adresse: string | null; represente_id: string | null }[];
+  parties: { role: string; nom: string; adresse?: string | null; nouvelle_adresse: string | null; represente_id: string | null }[];
   pieces: { id: string; nom: string }[];
   elements: { id: string; piece_id: string; libelle: string; etat: Etat | null; observations: string | null }[];
   compteurs: { type: TypeCompteur; absent: boolean; index_1: number | null; index_2: number | null; double_tarif: boolean; numero: string | null }[];
@@ -65,6 +65,9 @@ export function controler(d: DonneesControle): Alerte[] {
   if (!nommes('bailleur').length) bloquant('Le bailleur n’est pas identifié.', 'parties', 'Compléter les parties');
   if (!nommes('locataire').length) bloquant('Aucun locataire n’est identifié.', 'parties', 'Compléter les parties');
   if (d.parties.some((p) => !p.nom.trim())) bloquant('Une partie n’a pas de nom.', 'parties', 'Compléter les parties');
+  // Décret n° 2016-382, art. 2 : domicile ou siège social du bailleur ; nom et domicile ou siège des mandataires.
+  if (nommes('bailleur').some((p) => !p.adresse?.trim())) bloquant('L’adresse du bailleur (domicile ou siège) est obligatoire.', 'parties', 'Compléter les parties');
+  if (d.parties.some((p) => p.role.startsWith('mandataire') && p.nom.trim() && !p.adresse?.trim())) bloquant('L’adresse du mandataire est obligatoire.', 'parties', 'Compléter les parties');
   if (d.type === 'sortant') {
     if (nommes('locataire').some((p) => !p.nouvelle_adresse?.trim()))
       bloquant('Sortie : la nouvelle adresse du locataire est obligatoire.', 'parties', 'Compléter les parties');

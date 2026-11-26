@@ -205,6 +205,14 @@ ${publies.map((g) => `- [${g.titre}](${SITE}/guides/${g.slug}/) : ${g.resume}`).
 `);
 writeFileSync(`${DIST}llms-full.txt`, `# Constatio — texte complet des guides\n\n${publies.map((g) => `## ${g.titre}\n\nAdresse : ${SITE}/guides/${g.slug}/\nPublié le ${g.date}. Catégorie : ${g.categorie}.\n\n${g.resume}\n\n${g.points_cles.map((p) => `- ${p}`).join('\n')}\n\n${g.corps.replace(/^## /gm, '### ')}\n\n### Questions fréquentes\n\n${g.questions.map((x) => `**${x.q}** ${x.r}`).join('\n\n')}\n\nTextes cités : ${g.sources.join(' ; ')}.`).join('\n\n---\n\n')}\n`);
 
+// Base de l'assistant du site : les questions de tous les guides, et le résumé de chacun.
+// Un guide pas encore paru répond déjà, mais sans lien vers sa page.
+const fiches = tous.flatMap((g) => {
+  const url = publiesSlugs.has(g.slug) ? `/guides/${g.slug}/` : null;
+  return [{ q: g.titre, r: g.resume, url, source: 'Lire le guide' }, ...g.questions.map((x) => ({ q: x.q, r: x.r, url, source: `Guide : ${g.titre}` }))];
+});
+writeFileSync(`${DIST}assistant.json`, JSON.stringify(fiches));
+
 // IndexNow (Bing, et par lui plusieurs assistants IA) : le jour où un guide paraît, on le signale tout de suite.
 // Jamais depuis un poste de développement ; un échec n'empêche pas la publication.
 const parusAujourdhui = publies.filter((g) => g.date === aujourdhui);
