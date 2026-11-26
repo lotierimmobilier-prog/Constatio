@@ -1,7 +1,7 @@
 ---
 titre: "Chauffage : compléter l'état des lieux le premier mois de chauffe"
 description: "Le locataire peut faire ajouter l'état des éléments de chauffage à l'état des lieux pendant le premier mois de la période de chauffe. Mode d'emploi."
-date: 2027-02-04
+date: 2026-12-31
 categorie: "Cas particuliers"
 resume: "Pendant le premier mois de la période de chauffe, le locataire peut demander que l'état des lieux soit complété par l'état des éléments de chauffage. Cette possibilité s'ajoute au délai de dix jours prévu pour compléter l'état des lieux d'entrée. Elle permet de constater des radiateurs qu'il était impossible de tester le jour de l'entrée."
 points_cles:

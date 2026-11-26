@@ -1,7 +1,7 @@
 ---
 titre: "L'état des lieux électronique vaut-il un état des lieux papier ?"
 description: "Le décret de 2016 admet l'état des lieux sur téléphone ou tablette. Deux conditions pour qu'il fasse preuve comme le papier : auteur identifié, intégrité."
-date: 2026-12-07
+date: 2026-11-26
 categorie: "Obligations"
 image_chiffre: "Électronique"
 image_legende: "même force probante que le papier, auteur identifiable"

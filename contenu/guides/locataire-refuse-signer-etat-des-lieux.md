@@ -1,7 +1,7 @@
 ---
 titre: "Refus de faire ou de signer l'état des lieux : que faire ?"
 description: "Locataire ou bailleur refuse l'état des lieux ? La loi prévoit le recours au commissaire de justice, à frais partagés par moitié. Démarche, délais et coût."
-date: 2027-01-04
+date: 2026-12-07
 categorie: "Cas particuliers"
 image_chiffre: "7 jours"
 image_legende: "au moins entre la convocation recommandée et l'état des lieux"

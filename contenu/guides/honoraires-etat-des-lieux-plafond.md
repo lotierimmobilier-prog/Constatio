@@ -1,7 +1,7 @@
 ---
 titre: "État des lieux : combien peut-on facturer au locataire ?"
 description: "État des lieux d'entrée par un professionnel : la part du locataire est plafonnée à 3 € par mètre carré et ne dépasse pas celle du bailleur. Exemples."
-date: 2027-01-25
+date: 2026-12-21
 categorie: "Obligations"
 image_chiffre: "3 €/m²"
 image_legende: "au plus à la charge du locataire pour l'état des lieux d'entrée"

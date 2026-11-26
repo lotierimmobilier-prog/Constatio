@@ -1,7 +1,7 @@
 ---
 titre: "Dégradation ou usure normale : comment faire la différence ?"
 description: "L'usure normale reste à la charge du bailleur, la dégradation à celle du locataire. Les questions à se poser et le rôle des états des lieux pour trancher."
-date: 2026-12-21
+date: 2026-11-30
 categorie: "Dépôt de garantie"
 image_chiffre: "Vétusté"
 image_legende: "l'usure résultant du temps ou de l'usage normal du logement"

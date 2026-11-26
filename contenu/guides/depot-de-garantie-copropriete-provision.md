@@ -1,7 +1,7 @@
 ---
 titre: "Dépôt de garantie en copropriété : la provision de 20 %"
 description: "En immeuble collectif, le bailleur peut conserver au plus 20 % du dépôt de garantie jusqu'à l'arrêté annuel des comptes. Calcul, délais et décompte."
-date: 2027-02-11
+date: 2027-01-07
 categorie: "Dépôt de garantie"
 resume: "Dans un immeuble collectif, le bailleur peut conserver une provision d'au plus 20 % du dépôt de garantie jusqu'à l'arrêté annuel des comptes de l'immeuble. Le reste du dépôt est rendu dans le délai habituel d'un mois ou de deux mois. La régularisation de la provision intervient dans le mois qui suit l'approbation définitive des comptes."
 points_cles:

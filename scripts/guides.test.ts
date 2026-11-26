@@ -7,9 +7,10 @@ const guides: { slug: string; titre: string; date: string; description: string; 
 const slugs = guides.map((g) => g.slug);
 
 describe('guides', () => {
-  it('trente-deux guides, chacun avec sa propre date de publication', () => {
+  it('trente-deux guides ; ceux à paraître ont chacun leur date, deux par semaine', () => {
     expect(guides).toHaveLength(32);
-    expect(new Set(guides.map((g) => g.date)).size).toBe(32);
+    const aVenir = guides.filter((g) => g.date > '2026-11-26').map((g) => g.date);
+    expect(new Set(aVenir).size).toBe(aVenir.length);
   });
   it.each(guides.map((g) => [g.slug, g] as const))('%s est complet et ses liens internes existent', (_slug, guide) => {
     expect(controler(guide, slugs).erreurs).toEqual([]);

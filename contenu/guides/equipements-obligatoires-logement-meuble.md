@@ -1,7 +1,7 @@
 ---
 titre: "Logement meublé : les onze équipements obligatoires à pointer"
 description: "Literie, plaques, réfrigérateur, vaisselle, luminaires : les onze équipements imposés en location meublée, à pointer un par un à l'état des lieux."
-date: 2027-02-15
+date: 2027-01-11
 categorie: "Obligations"
 resume: "Un logement loué meublé comporte au minimum onze équipements, fixés par le décret du 31 juillet 2015 : literie, occultation des chambres, plaques de cuisson, four, réfrigérateur, vaisselle, ustensiles, table et sièges, rangements, luminaires et matériel d'entretien. Un inventaire et un état détaillé du mobilier sont établis à l'entrée et à la sortie, dans les mêmes formes que l'état des lieux."
 points_cles:

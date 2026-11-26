@@ -1,7 +1,7 @@
 ---
 titre: "État des lieux : combien d'exemplaires, à qui les remettre ?"
 description: "Un exemplaire par partie, joint au bail, remis en main propre ou par voie dématérialisée à la signature : les règles de remise de l'état des lieux."
-date: 2027-03-01
+date: 2027-01-25
 categorie: "Obligations"
 resume: "L'état des lieux est établi en autant d'exemplaires que de parties et il est joint au bail (loi de 1989, art. 3-2). Chaque partie, ou son mandataire, reçoit le sien en main propre ou par voie dématérialisée, au moment de la signature (décret du 30 mars 2016). Le document peut être sur papier ou sous forme électronique."
 points_cles:

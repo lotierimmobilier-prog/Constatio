@@ -1,7 +1,7 @@
 ---
 titre: "Peut-on se faire représenter à un état des lieux ?"
 description: "Bailleur ou locataire absent : l'état des lieux peut être établi par un tiers mandaté. Mentions à porter, signature du mandataire et précautions à prendre."
-date: 2027-03-04
+date: 2027-01-28
 categorie: "Cas particuliers"
 resume: "Oui. L'état des lieux est établi par les parties ou par un tiers qu'elles mandatent (loi de 1989, art. 3-2). Le document mentionne alors le nom et le domicile ou le siège du mandataire, qui signe à la place de la partie qu'il représente (décret du 30 mars 2016, art. 2). Un mandat écrit est une précaution utile, sans que les textes cités ici en fixent la forme."
 points_cles:

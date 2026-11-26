@@ -1,7 +1,7 @@
 ---
 titre: "Litige de location : quel délai pour agir après la sortie ?"
 description: "Les actions nées du bail se prescrivent par trois ans. Ce que ce délai change pour un litige d'état des lieux ou de dépôt de garantie, et quoi conserver."
-date: 2027-03-11
+date: 2027-02-04
 categorie: "Cas particuliers"
 resume: "Les actions nées du bail se prescrivent par trois ans (loi de 1989, art. 7-1). Ce délai concerne les litiges les plus courants après une sortie : restitution du dépôt de garantie, retenues, dégradations. Le point de départ du délai dépend de chaque situation et relève d'un professionnel du droit."
 points_cles:

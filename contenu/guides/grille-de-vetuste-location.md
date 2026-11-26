@@ -1,7 +1,7 @@
 ---
 titre: "Grille de vétusté en location : à quoi sert-elle vraiment ?"
 description: "La grille de vétusté fixe la part d'usure de chaque élément du logement. Comment la choisir dès la signature du bail, puis l'appliquer à la sortie."
-date: 2026-12-17
+date: 2026-11-26
 categorie: "Dépôt de garantie"
 image_chiffre: "Facultative"
 image_legende: "la grille de vétusté se convient dès la signature du bail"

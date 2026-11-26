@@ -1,7 +1,7 @@
 ---
 titre: "Photos dans un état des lieux : que prouvent-elles vraiment ?"
 description: "Le décret permet d'illustrer l'état des lieux d'images, sans remplacer la description écrite. Comment prendre des photos lisibles, datées et utiles."
-date: 2027-01-21
+date: 2026-12-17
 categorie: "Sur place"
 image_chiffre: "Photos"
 image_legende: "elles illustrent la description écrite sans la remplacer"

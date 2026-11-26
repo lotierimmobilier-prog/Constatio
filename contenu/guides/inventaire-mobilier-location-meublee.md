@@ -1,7 +1,7 @@
 ---
 titre: "Inventaire du mobilier en location meublée : que contient-il ?"
 description: "Location meublée : les onze équipements obligatoires, la façon de les constater un par un dans l'inventaire, et ce que le locataire peut se voir facturer."
-date: 2026-12-28
+date: 2026-11-26
 categorie: "Cas particuliers"
 image_chiffre: "11"
 image_legende: "équipements au minimum dans un logement meublé"

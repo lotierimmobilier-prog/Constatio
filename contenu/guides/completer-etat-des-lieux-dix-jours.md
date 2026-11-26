@@ -1,7 +1,7 @@
 ---
 titre: "Peut-on compléter un état des lieux d'entrée déjà signé ?"
 description: "Le locataire a dix jours pour demander au bailleur de compléter l'état des lieux d'entrée, et le premier mois de chauffe pour le chauffage. Mode d'emploi."
-date: 2026-12-31
+date: 2026-11-26
 categorie: "Cas particuliers"
 image_chiffre: "10 jours"
 image_legende: "pour demander à compléter l'état des lieux d'entrée"

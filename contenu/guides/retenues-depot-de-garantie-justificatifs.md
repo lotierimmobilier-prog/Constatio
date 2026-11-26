@@ -1,7 +1,7 @@
 ---
 titre: "Que peut retenir le bailleur sur le dépôt de garantie ?"
 description: "Loyers et charges restant dus, dégradations, réparations locatives non faites : ce que le bailleur peut déduire du dépôt, et comment le justifier."
-date: 2026-12-14
+date: 2026-11-26
 categorie: "Dépôt de garantie"
 image_chiffre: "Justifiées"
 image_legende: "condition de toute retenue sur le dépôt de garantie"

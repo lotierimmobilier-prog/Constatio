@@ -5,6 +5,7 @@ import { BandeauModeTest } from '../components/BandeauModeTest';
 import { CarrouselEcrans } from '../components/site/CarrouselEcrans';
 import { DemoVisite } from '../components/site/DemoVisite';
 import { Logo, classesBouton } from '../components/ui';
+import { bareme, euros, offreGroupee, useTarifs } from '../lib/tarifs';
 import { ETATS } from '../lib/trame';
 
 /** Une section : la référence ou la note en marge, le contenu à côté. Sur téléphone, la note passe au-dessus. */
@@ -77,16 +78,6 @@ const RISQUES = [
     reference: 'Pratique des tribunaux', parade: 'Photos horodatées et géolocalisées, rattachées à chaque élément, figées à la signature.' },
 ];
 
-export const TARIFS: [string, string, string][] = [
-  ['État des lieux à l’unité', 'Entrée, sortie ou relevé d’état', '14,90 €'],
-  ['Pack entrée + sortie', 'Les deux états des lieux d’une même location', '24,90 €'],
-  ['Pack 5 crédits', 'Valables 24 mois', '59 €'],
-  ['Pack 10 crédits', 'Valables 24 mois', '99 €'],
-  ['Bail Signabail + entrée + sortie', 'Le bail et ses deux états des lieux', '34,90 €'],
-  ['Premium Investisseur', '12 états des lieux par an, relevés d’état illimités, historique par logement', '9,90 € / mois'],
-  ['Premium Pro', 'Plusieurs utilisateurs, documents à votre en-tête, export vers votre logiciel', '39,90 € / mois'],
-];
-
 export const FAQ = [
   ['Un état des lieux fait sur téléphone a-t-il la même valeur qu’un état des lieux papier ?', 'Oui. La loi autorise expressément la forme électronique. Ce qui compte, c’est qu’il soit établi contradictoirement, qu’il contienne les mentions du décret du 30 mars 2016 et que chaque partie en reçoive un exemplaire signé.'],
   ['Que se passe-t-il s’il n’y a pas de réseau dans le logement ?', 'Vous continuez. Tout ce que vous saisissez est gardé sur le téléphone et envoyé dès que le réseau revient. Vous pouvez faire une visite entière dans une cave.'],
@@ -98,6 +89,8 @@ export const FAQ = [
 
 export function Accueil() {
   const { session } = useAuth();
+  const prix = useTarifs();
+  const groupee = offreGroupee(prix);
   const commencer = session ? '/app' : '/inscription';
   const lien = 'text-sm font-semibold text-encre underline-offset-4 hover:underline';
   return (
@@ -235,7 +228,7 @@ export function Accueil() {
               </thead>
               <tbody>
                 {[
-                  ['Prix', '14,90 € l’état des lieux', 'Gratuit', 'Au m², ou tarif réglementé'],
+                  ['Prix', `${euros(prix.edl_unite ?? 0)} l’état des lieux`, 'Gratuit', 'Au m², ou tarif réglementé'],
                   ['Mentions obligatoires vérifiées', 'À chaque étape', 'Non', 'Oui'],
                   ['Photos datées, rattachées au document', 'Oui', 'Non', 'Selon le prestataire'],
                   ['Comparaison entrée / sortie', 'Automatique', 'À la main', 'Selon le prestataire'],
@@ -258,8 +251,8 @@ export function Accueil() {
           <table className="w-full border-collapse text-left">
             <caption className="sr-only">Barème des tarifs</caption>
             <tbody className="border-t-2 border-encre">
-              {TARIFS.map(([nom, detail, prix]) => (
-                <tr key={nom} className="border-b border-trait align-baseline">
+              {bareme(prix).map(({ code, nom, detail, prix }) => (
+                <tr key={code} className="border-b border-trait align-baseline" data-testid={`tarif-${code}`}>
                   <th scope="row" className="py-4 pr-4 font-normal">
                     <span className="block font-titre text-lg font-bold">{nom}</span>
                     <span className="block text-sm text-discret">{detail}</span>
@@ -280,7 +273,7 @@ export function Accueil() {
             <ul className="flex flex-col gap-3 border-t border-trait pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">
               <li><span className="font-semibold">Un état des lieux d’entrée offert</span> <span className="text-discret">avec chaque bail d’habitation Signabail.</span></li>
               <li><span className="font-semibold">Import du bail en un geste</span> <span className="text-discret">: rien à ressaisir.</span></li>
-              <li><span className="font-semibold">Bail + entrée + sortie à 34,90 €</span> <span className="text-discret">au lieu de 44,80 €.</span></li>
+              {groupee && <li><span className="font-semibold">Bail + entrée + sortie à {groupee.prix}</span>{groupee.auLieuDe && <span className="text-discret"> au lieu de {groupee.auLieuDe}.</span>}</li>}
               <li><a href="https://signabail.fr" className="font-semibold text-marque underline underline-offset-4">Pas encore de bail ? Rédigez-le sur Signabail</a></li>
             </ul>
           </div>
@@ -294,7 +287,7 @@ export function Accueil() {
             </div>
             <div className="rounded-2xl border-2 border-encre p-5">
               <p className="text-sm text-discret">Forfait, quelle que soit la surface</p>
-              <p className="font-titre text-4xl font-bold tabular-nums">180 € <span className="text-base font-medium">TTC</span></p>
+              <p className="font-titre text-4xl font-bold tabular-nums">{euros(prix.prestation_sur_place ?? 18000)} <span className="text-base font-medium">TTC</span></p>
               <p className="mt-3 text-sm text-discret">Réservation d’un créneau en ligne, bientôt disponible.</p>
             </div>
           </div>

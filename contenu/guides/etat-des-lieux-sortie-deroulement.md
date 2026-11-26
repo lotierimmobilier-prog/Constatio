@@ -1,7 +1,7 @@
 ---
 titre: "Comment se déroule l'état des lieux de sortie d'un logement ?"
 description: "Comparaison avec l'entrée, nouvelle adresse du locataire, vétusté, délai de restitution du dépôt de garantie : ce qui change le jour de la sortie."
-date: 2026-11-30
+date: 2026-11-26
 categorie: "Obligations"
 image_chiffre: "2 mois"
 image_legende: "au plus pour restituer le dépôt après la remise des clés"

@@ -1,7 +1,7 @@
 ---
 titre: "Remise des clés à l'état des lieux : que faut-il noter ?"
 description: "Nombre, nature, destination de chaque clé, badges et télécommandes compris : ce que l'état des lieux doit indiquer sur les moyens d'accès au logement."
-date: 2027-01-18
+date: 2026-11-26
 categorie: "Sur place"
 image_chiffre: "Clés"
 image_legende: "leur détail et leur destination figurent dans l'état des lieux"

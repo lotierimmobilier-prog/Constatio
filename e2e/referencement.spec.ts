@@ -5,7 +5,7 @@ test('les pages publiques se lisent sans JavaScript, avec leurs données structu
   const accueil = await (await request.get('/')).text();
   expect(accueil).toContain('<link rel="canonical" href="https://constatio.fr/">');
   expect(accueil).toMatch(/<h1[^>]*>[^<]*état des lieux/i);
-  for (const attendu of ['Questions', 'Tarifs', '14,90', 'décret n° 2016-382', 'og:image']) expect(accueil, attendu).toContain(attendu);
+  for (const attendu of ['Questions', 'Tarifs', 'tarif-edl_unite', 'décret n° 2016-382', 'og:image']) expect(accueil, attendu).toContain(attendu);
   const blocs = [...accueil.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1]));
   expect(blocs.map((b) => b['@type'])).toEqual(['Organization', 'WebSite', 'SoftwareApplication', 'FAQPage']);
   expect(blocs[3].mainEntity.length).toBeGreaterThan(4);
@@ -48,4 +48,20 @@ test('l’espace client ne laisse pas apparaître la page d’accueil écrite da
   await expect(page.locator('[data-prerendu]')).toHaveCount(0);
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('état des lieux');
+});
+
+test('le prix affiché sur la page d’accueil est celui saisi dans l’administration', async ({ page }) => {
+  const { execFileSync } = await import('node:child_process');
+  const sql = (r: string) => execFileSync('psql', ['postgresql://postgres:postgres@127.0.0.1:54322/postgres', '-At', '-c', r], { encoding: 'utf8' }).trim();
+  const avant = sql(`select montant_cents from public.tarifs where code = 'edl_unite'`);
+  try {
+    sql(`update public.tarifs set montant_cents = 1234 where code = 'edl_unite'; update public.tarifs set actif = false where code = 'pack_10'`);
+    await page.goto('/');
+    await expect(page.getByTestId('tarif-edl_unite')).toContainText('12,34');
+    // Une offre retirée de la vente disparaît du barème.
+    await expect(page.getByTestId('tarif-pack_10')).toHaveCount(0);
+    await expect(page.getByTestId('tarif-pack_5')).toBeVisible();
+  } finally {
+    sql(`update public.tarifs set montant_cents = ${avant} where code = 'edl_unite'; update public.tarifs set actif = true where code = 'pack_10'`);
+  }
 });

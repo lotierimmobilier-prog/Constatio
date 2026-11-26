@@ -1,7 +1,7 @@
 ---
 titre: "Pourquoi noter la nouvelle adresse du locataire à la sortie ?"
 description: "La nouvelle adresse du locataire est une mention de l'état des lieux de sortie. Sans elle, la majoration de 10 % pour retard de restitution peut tomber."
-date: 2027-02-25
+date: 2027-01-21
 categorie: "Dépôt de garantie"
 resume: "L'état des lieux de sortie doit mentionner l'adresse du nouveau domicile ou du lieu d'hébergement du locataire (décret du 30 mars 2016). Cette adresse sert à restituer le dépôt de garantie. Si la restitution est en retard parce que le locataire n'a pas transmis sa nouvelle adresse, la majoration de 10 % du loyer mensuel n'est pas due (loi de 1989, art. 22)."
 points_cles:

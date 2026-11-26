@@ -1,7 +1,7 @@
 ---
 titre: "Dépôt de garantie rendu en retard : que coûte la pénalité ?"
 description: "Un dépôt de garantie rendu en retard est majoré de 10 % du loyer mensuel pour chaque mois de retard commencé. Le calcul, un exemple chiffré et l'exception."
-date: 2026-12-24
+date: 2026-12-03
 categorie: "Dépôt de garantie"
 image_chiffre: "10 %"
 image_legende: "du loyer mensuel par période mensuelle commencée en retard"

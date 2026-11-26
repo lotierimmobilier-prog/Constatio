@@ -1,7 +1,7 @@
 ---
 titre: "État des lieux par commissaire de justice : quand et comment ?"
 description: "Quand l'état des lieux amiable est impossible, un commissaire de justice l'établit : convocation sept jours avant, frais partagés par moitié."
-date: 2027-02-01
+date: 2026-12-28
 categorie: "Cas particuliers"
 resume: "Quand l'état des lieux ne peut pas être établi à l'amiable entre le bailleur et le locataire, il l'est par un commissaire de justice, à l'initiative de la partie la plus diligente. Les parties sont convoquées par lettre recommandée avec accusé de réception au moins sept jours à l'avance. Les frais sont partagés par moitié, à un tarif fixé par décret."
 points_cles:

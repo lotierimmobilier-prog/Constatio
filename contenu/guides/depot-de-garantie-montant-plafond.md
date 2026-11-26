@@ -1,7 +1,7 @@
 ---
 titre: "Dépôt de garantie : quel montant maximal peut-on demander ?"
 description: "Un mois de loyer hors charges en location vide, deux mois en meublé, aucun dépôt en bail mobilité : les plafonds du dépôt de garantie et leur calcul."
-date: 2027-02-08
+date: 2027-01-04
 categorie: "Dépôt de garantie"
 resume: "Le dépôt de garantie ne peut pas dépasser un mois de loyer hors charges en location vide, et deux mois de loyer en location meublée. En bail mobilité, aucun dépôt de garantie ne peut être demandé. Ces montants sont des plafonds : le bailleur peut demander moins."
 points_cles:

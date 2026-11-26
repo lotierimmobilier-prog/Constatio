@@ -1,7 +1,7 @@
 ---
 titre: "Réparations locatives : que doit payer le locataire ?"
 description: "Le locataire prend en charge l'entretien courant et les réparations locatives, sauf vétusté, malfaçon, vice de construction, cas fortuit ou force majeure."
-date: 2027-02-18
+date: 2027-01-14
 categorie: "Obligations"
 resume: "Le locataire prend en charge l'entretien courant du logement et les réparations locatives, dont la liste est fixée par le décret du 26 août 1987. Il n'en est pas tenu quand elles sont dues à la vétusté, à une malfaçon, à un vice de construction, à un cas fortuit ou à la force majeure. À la sortie, c'est la comparaison des deux états des lieux qui permet de faire le tri."
 points_cles:

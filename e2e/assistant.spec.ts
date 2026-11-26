@@ -8,7 +8,7 @@ test('assistant : répond sur le fonctionnement et la réglementation, et sait d
 
   // Une idée proposée d'un geste.
   await panneau.getByRole('button', { name: 'Combien ça coûte ?' }).click();
-  await expect(panneau.getByTestId('reponse').last()).toContainText('14,90 €');
+  await expect(panneau.getByTestId('reponse').last()).toContainText('rubrique Tarifs');
 
   // Une question réglementaire, tournée à sa façon : la réponse vient d'un guide.
   await panneau.getByLabel('Votre question').fill('sous combien de temps je dois rendre le dépôt de garantie ?');

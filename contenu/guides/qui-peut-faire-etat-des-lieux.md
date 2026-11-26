@@ -1,7 +1,7 @@
 ---
 titre: "Qui peut faire un état des lieux : vous, une agence, un tiers ?"
 description: "Le bailleur et le locataire eux-mêmes, un tiers qu'ils mandatent ou, à défaut d'accord, un commissaire de justice : qui intervient, quand, et qui paie."
-date: 2026-12-03
+date: 2026-11-26
 categorie: "Obligations"
 image_chiffre: "7 jours"
 image_legende: "au moins pour convoquer les parties devant le commissaire"

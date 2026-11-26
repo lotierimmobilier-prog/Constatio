@@ -1,7 +1,7 @@
 ---
 titre: "Relevé des compteurs à l'état des lieux : comment procéder ?"
 description: "Électricité, gaz, eau froide et eau chaude : quels index relever à l'état des lieux, comment les lire et quoi écrire quand il n'y a pas de compteur."
-date: 2027-01-14
+date: 2026-11-26
 categorie: "Sur place"
 image_chiffre: "2 index"
 image_legende: "à noter en option heures pleines et heures creuses"

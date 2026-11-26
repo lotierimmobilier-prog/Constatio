@@ -1,7 +1,7 @@
 ---
 titre: "Comment décrire sols, murs et plafonds dans un état des lieux ?"
 description: "Pièce par pièce, revêtements des sols, murs et plafonds, équipements et éléments : la méthode pour une description précise, avec réserves et photos."
-date: 2027-03-08
+date: 2027-02-01
 categorie: "Sur place"
 resume: "Le décret du 30 mars 2016 demande, pour chaque pièce et partie du logement, une description précise de l'état des revêtements des sols, murs et plafonds, des équipements et des éléments. Cette description peut être complétée d'observations ou de réserves et illustrée d'images. Une bonne ligne dit le matériau, l'état, le défaut, sa taille et son emplacement."
 points_cles:

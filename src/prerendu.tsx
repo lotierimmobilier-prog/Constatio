@@ -5,7 +5,8 @@ import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom/server';
 import { Contexte } from './auth/contexte';
 import { EDITEUR } from './lib/editeur';
-import { Accueil, FAQ, TARIFS } from './pages/Accueil';
+import { Accueil, FAQ } from './pages/Accueil';
+import { PRIX_SECOURS, bareme, type Prix } from './lib/tarifs';
 import { Cgv, Confidentialite, MentionsLegales } from './pages/Legal';
 
 const SITE = 'https://constatio.fr';
@@ -15,11 +16,11 @@ const rendre = (chemin: string, page: JSX.Element) =>
 
 const editeur = { '@type': 'Organization', name: 'Constatio', legalName: `${EDITEUR.nom} ${EDITEUR.forme}`, url: `${SITE}/`, logo: `${SITE}/icone-512.png`,
   address: { '@type': 'PostalAddress', streetAddress: '40 rue Française', postalCode: '34500', addressLocality: 'Béziers', addressCountry: 'FR' }, telephone: EDITEUR.telephone, email: EDITEUR.email };
-const prix = (texte: string) => (/(\d+),(\d{2})\s*€/.exec(texte) ? texte.replace(/.*?(\d+),(\d{2})\s*€.*/, '$1.$2') : null);
 
 export interface PagePrerendue { chemin: string; titre: string; description: string; html: string; donnees: unknown[] }
 
 export function pages(): PagePrerendue[] {
+  const prix = (globalThis as unknown as { __TARIFS__?: Prix }).__TARIFS__ ?? PRIX_SECOURS;
   return [
     {
       chemin: '/', titre: 'Constatio — l’état des lieux depuis votre téléphone',
@@ -30,7 +31,7 @@ export function pages(): PagePrerendue[] {
         { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Constatio', url: `${SITE}/`, inLanguage: 'fr-FR', publisher: editeur },
         { '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'Constatio', applicationCategory: 'BusinessApplication', operatingSystem: 'Web (téléphone, tablette, ordinateur)', inLanguage: 'fr-FR', url: `${SITE}/`,
           description: 'Application en ligne pour réaliser un état des lieux locatif (entrée, sortie, relevé d’état) depuis un téléphone, en France.',
-          offers: TARIFS.filter(([, , p]) => prix(p)).map(([nom, detail, p]) => ({ '@type': 'Offer', name: nom, description: detail, price: prix(p), priceCurrency: 'EUR', url: `${SITE}/#tarifs` })) },
+          offers: bareme(prix).map((t) => ({ '@type': 'Offer', name: t.nom, description: t.detail, price: (t.centimes / 100).toFixed(2), priceCurrency: 'EUR', url: `${SITE}/#tarifs` })) },
         { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: FAQ.map(([q, r]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: r } })) },
       ],
     },

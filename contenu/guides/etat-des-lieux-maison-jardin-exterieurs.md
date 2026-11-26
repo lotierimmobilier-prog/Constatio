@@ -1,7 +1,7 @@
 ---
 titre: "État des lieux d'une maison : que constater à l'extérieur ?"
 description: "Jardin, clôtures, portail, terrasse, piscine, garage et dépendances : ce qu'il faut décrire dehors dans l'état des lieux d'une maison, zone par zone."
-date: 2027-01-28
+date: 2026-12-24
 categorie: "Sur place"
 image_chiffre: "Extérieurs"
 image_legende: "chaque pièce et partie du logement est décrite précisément"

@@ -1,7 +1,7 @@
 ---
 titre: "Comment comparer l'état des lieux d'entrée et de sortie ?"
 description: "Même présentation ou document unique, évolutions pièce par pièce, date de l'entrée rappelée, vétusté : la méthode pour comparer deux états des lieux."
-date: 2027-02-22
+date: 2027-01-18
 categorie: "Sur place"
 resume: "L'état des lieux d'entrée et celui de sortie doivent pouvoir se comparer : le décret du 30 mars 2016 prévoit une présentation identique ou un document unique. À la sortie, on rappelle la date de l'état des lieux d'entrée et l'on peut noter les évolutions de chaque pièce. Chaque écart se lit ensuite à la lumière de la vétusté, c'est-à-dire de l'usure due au temps ou à l'usage normal."
 points_cles:

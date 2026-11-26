@@ -1,7 +1,7 @@
 ---
 titre: "Pré-état des lieux : faut-il faire une visite avant le départ ?"
 description: "La visite de pré-état des lieux n'est ni obligatoire ni prévue par les textes. Utile, elle prépare le départ sans remplacer l'état des lieux de sortie."
-date: 2027-01-11
+date: 2026-12-14
 categorie: "Cas particuliers"
 image_chiffre: "Avant-départ"
 image_legende: "une visite de conseil pour préparer l'état des lieux de sortie"
