@@ -4,6 +4,8 @@ export interface Boite { hote: string; utilisateur: string; motDePasse: string }
 export interface Message { a: string; sujet: string; texte: string; html: string }
 
 const NOM_EXPEDITEUR = 'Constatio';
+// Le logo et les liens du pied de message pointent toujours vers le site public.
+const SITE_PUBLIC = 'https://constatio.fr';
 const utf8 = new TextEncoder();
 const b64 = (s: string) => { let b = ''; for (const o of utf8.encode(s)) b += String.fromCharCode(o); return btoa(b); };
 const lignes76 = (s: string) => s.replace(/.{1,76}/g, '$&\r\n').trimEnd();
@@ -38,22 +40,38 @@ export function composer(de: string, m: Message, maintenant = new Date(), identi
   ].join('\r\n');
 }
 
-const echapper = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const echapper = (s: string) => s.replace(/ (?=[:;?!»])/g, '\u00a0').replace(/« /g, '«\u00a0').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** Mise en page commune : un titre, des paragraphes, un bouton, et la mention de bas de message. */
 export function habiller(m: { a: string; sujet: string; titre: string; paragraphes: string[]; bouton?: { libelle: string; adresse: string }; apres?: string[] }): Message {
   const pied = 'Message automatique envoyé par Constatio (constatio.fr), service d’état des lieux édité par la SARL LOTIER, pour le compte de la personne qui a réalisé l’état des lieux. Si vous n’êtes pas concerné, ignorez-le.';
   const texte = [m.titre, '', ...m.paragraphes, ...(m.bouton ? ['', `${m.bouton.libelle} : ${m.bouton.adresse}`] : []), ...(m.apres?.length ? ['', ...m.apres] : []), '', '--', pied].join('\n');
-  const p = (s: string) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.55;color:#0f2f2e">${echapper(s)}</p>`;
-  const html = `<!doctype html><html lang="fr"><body style="margin:0;padding:24px 12px;background:#f3f6f5;font-family:Arial,Helvetica,sans-serif">
-<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #cfdad7;border-radius:14px;padding:28px 24px">
-<p style="margin:0 0 20px;font-size:22px;font-weight:bold;color:#0f4c4a">constatio.fr</p>
-<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:#0f2f2e">${echapper(m.titre)}</h1>
+  // Mise en page en tableaux et styles en ligne : c'est ce que toutes les messageries affichent de la même façon.
+  const POLICE = "font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const p = (s: string) => /^«/.test(s)
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px"><tr><td style="border-left:4px solid #f2b61b;background:#f3f6f5;border-radius:0 8px 8px 0;padding:12px 16px;${POLICE};font-size:16px;line-height:1.55;color:#0f2f2e;font-style:italic">${echapper(s)}</td></tr></table>`
+    : `<p style="margin:0 0 16px;${POLICE};font-size:16px;line-height:1.6;color:#0f2f2e">${echapper(s)}</p>`;
+  const note = (s: string) => `<p style="margin:0 0 12px;${POLICE};font-size:14px;line-height:1.55;color:#566b69">${echapper(s)}</p>`;
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><title>${echapper(m.sujet)}</title></head>
+<body style="margin:0;padding:0;background:#f3f6f5">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f3f6f5">${echapper(m.paragraphes.filter((x) => !/^Bonjour/.test(x))[0] ?? m.titre)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f3f6f5" style="background:#f3f6f5"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px">
+<tr><td align="left" style="padding:0 6px 18px"><a href="${SITE_PUBLIC}" style="text-decoration:none"><img src="${SITE_PUBLIC}/courriel/logo.png" width="170" height="37" alt="Constatio" style="display:block;border:0;outline:none;${POLICE};font-size:22px;font-weight:bold;color:#0f4c4a"></a></td></tr>
+<tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #cfdad7;border-radius:16px;overflow:hidden">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td bgcolor="#0f4c4a" style="background:#0f4c4a;padding:26px 30px;border-radius:15px 15px 0 0"><h1 style="margin:0;${POLICE};font-size:24px;line-height:1.25;font-weight:700;color:#ffffff">${echapper(m.titre)}</h1></td></tr>
+<tr><td style="padding:28px 30px 10px">
 ${m.paragraphes.map(p).join('\n')}
-${m.bouton ? `<p style="margin:22px 0"><a href="${echapper(m.bouton.adresse)}" style="display:inline-block;background:#f2b61b;color:#2b2000;font-weight:bold;font-size:16px;text-decoration:none;padding:13px 22px;border-radius:10px">${echapper(m.bouton.libelle)}</a></p>
-<p style="margin:0 0 14px;font-size:13px;line-height:1.5;color:#566b69;word-break:break-all">Si le bouton ne s’ouvre pas, copiez cette adresse dans votre navigateur : ${echapper(m.bouton.adresse)}</p>` : ''}
-${(m.apres ?? []).map(p).join('\n')}
-<p style="margin:22px 0 0;padding-top:14px;border-top:1px solid #cfdad7;font-size:12px;line-height:1.5;color:#566b69">${echapper(pied)}</p>
-</div></body></html>`;
+${m.bouton ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px"><tr><td bgcolor="#f2b61b" style="background:#f2b61b;border-radius:12px"><a href="${echapper(m.bouton.adresse)}" style="display:inline-block;padding:15px 28px;${POLICE};font-size:17px;font-weight:700;color:#2b2000;text-decoration:none;border-radius:12px">${echapper(m.bouton.libelle)}</a></td></tr></table>` : ''}
+${(m.apres ?? []).map(note).join('\n')}
+</td></tr>
+${m.bouton ? `<tr><td style="padding:0 30px 24px"><p style="margin:0;padding-top:14px;border-top:1px solid #e7edeb;${POLICE};font-size:12px;line-height:1.5;color:#566b69">Le bouton ne s’ouvre pas ? Copiez cette adresse dans votre navigateur :<br><a href="${echapper(m.bouton.adresse)}" style="color:#0f4c4a;word-break:break-all">${echapper(m.bouton.adresse)}</a></p></td></tr>` : '<tr><td style="padding:0 0 14px"></td></tr>'}
+</table></td></tr>
+<tr><td align="center" style="padding:20px 14px 0;${POLICE};font-size:12px;line-height:1.6;color:#566b69">
+${echapper(pied)}<br>
+<a href="${SITE_PUBLIC}" style="color:#0f4c4a;font-weight:600">constatio.fr</a> &nbsp;·&nbsp; <a href="${SITE_PUBLIC}/mentions-legales/" style="color:#566b69">Mentions légales</a> &nbsp;·&nbsp; <a href="${SITE_PUBLIC}/confidentialite/" style="color:#566b69">Confidentialité</a>
+</td></tr>
+</table></td></tr></table></body></html>`;
   return { a: m.a, sujet: m.sujet, texte, html };
 }
 
