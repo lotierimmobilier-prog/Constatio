@@ -7,6 +7,7 @@
 // ordre : type et date, logement, parties et mandataires, compteurs, clés, pièce
 // par pièce, puis inventaire du meublé, remarques, signatures, annexe photo.
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
+import { LOGO_CONSTATIO } from './logo-constatio.ts';
 
 type Etat = 'neuf' | 'bon' | 'usage' | 'mauvais' | 'hors_service' | 'sans_objet' | null;
 
@@ -409,6 +410,8 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   }
 
   // ── Pied de page et filigrane, sur toutes les pages ──────────────────────────────
+  let logoApercu: PDFImage | null = null;
+  if (d.apercu) { try { logoApercu = await pdf.embedPng(Uint8Array.from(atob(LOGO_CONSTATIO), (c) => c.charCodeAt(0))); } catch { logoApercu = null; } }
   const pages = pdf.getPages();
   pages.forEach((page, i) => {
     page.drawLine({ start: { x: MARGE, y: MARGE + 14 }, end: { x: A4.l - MARGE, y: MARGE + 14 }, thickness: 0.5, color: TRAIT });
@@ -422,9 +425,14 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
       page.drawText(bandeau, { x: A4.l - MARGE - f.gras.widthOfTextAtSize(bandeau, 8), y: A4.h - 26, size: 8, font: f.gras, color: rgb(0.75, 0.2, 0.15) });
     }
     if (d.apercu) {
-      // Filigrane au nom du service, et rappel de ce qui manque pour que le document vaille quelque chose.
-      page.drawText('CONSTATIO', { x: 118, y: 210, size: 74, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.13, rotate: degrees(52) });
-      page.drawText(net('APERÇU NON FINALISÉ'), { x: 250, y: 250, size: 30, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.13, rotate: degrees(52) });
+      // Filigrane : le logo de Constatio en travers de la page, et le rappel de ce qui manque pour que le document vaille quelque chose.
+      if (logoApercu) {
+        const l = 430, h = (logoApercu.height * l) / logoApercu.width, a = (35 * Math.PI) / 180;
+        // Le logo tourne autour de son coin bas gauche : on place ce coin pour que son centre tombe au milieu de la page.
+        const x = A4.l / 2 - ((l / 2) * Math.cos(a) - (h / 2) * Math.sin(a)), y = A4.h / 2 - ((l / 2) * Math.sin(a) + (h / 2) * Math.cos(a));
+        page.drawImage(logoApercu, { x, y, width: l, height: h, rotate: degrees(35), opacity: 0.14 });
+      } else page.drawText('CONSTATIO', { x: 118, y: 210, size: 74, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.13, rotate: degrees(52) });
+      page.drawText(net('APERÇU NON FINALISÉ'), { x: 150, y: 270, size: 24, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.16, rotate: degrees(35) });
       const rappel = net("Aperçu : ce document n'a aucune valeur. Un état des lieux ne fait foi qu'une fois finalisé et signé par les parties (loi du 6 juillet 1989, art. 3-2).");
       page.drawText(rappel, { x: (A4.l - f.gras.widthOfTextAtSize(rappel, 6.6)) / 2, y: MARGE + 18, size: 6.6, font: f.gras, color: rgb(0.75, 0.2, 0.15) });
     }
