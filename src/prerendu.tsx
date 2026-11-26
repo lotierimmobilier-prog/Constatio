@@ -9,7 +9,7 @@ import { Accueil, FAQ, TARIFS } from './pages/Accueil';
 import { Cgv, Confidentialite, MentionsLegales } from './pages/Legal';
 
 const SITE = 'https://constatio.fr';
-const visiteur = { session: null, chargement: false, profil: null, organisation: null, role: null, recharger: async () => {}, deconnecter: async () => {} };
+const visiteur = { session: null, chargement: false, profil: null, organisation: null, role: null, estAdmin: false, recharger: async () => {}, deconnecter: async () => {} };
 const rendre = (chemin: string, page: JSX.Element) =>
   renderToString(<StaticRouter location={chemin}><Contexte.Provider value={visiteur}>{page}</Contexte.Provider></StaticRouter>);
 

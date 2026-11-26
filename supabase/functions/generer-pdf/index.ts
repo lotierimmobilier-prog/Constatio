@@ -78,6 +78,7 @@ Deno.serve(async (requete) => {
       if (fin.error) {
         if (fin.error.code === 'P0002') throw new Refus(402, 'credit');
         if (fin.error.code === '42501') throw new Refus(403, 'interdit');
+        if (fin.error.code === 'P0001' && /droit de générer/.test(fin.error.message)) throw new Refus(403, 'droit');
         throw new Error(fin.error.message);
       }
       // Désormais figé : c'est cette lecture-là qui fait le document.

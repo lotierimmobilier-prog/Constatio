@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { BandeauModeTest } from './BandeauModeTest';
 import { BandeauSync } from './BandeauSync';
+import { CLE_INVITATION } from '../pages/Rejoindre';
 import { Logo } from './ui';
 
 const ONGLETS = [
@@ -15,6 +16,10 @@ export function CoquilleApp() {
   const ici = useLocation();
   if (chargement) return <p className="p-8 text-center text-discret">Chargement…</p>;
   if (!session) return <Navigate to="/connexion" replace state={{ retour: ici.pathname }} />;
+  // Une invitation d'agence attend : le compte tout juste créé (ou connecté) y est ramené pour la confirmer.
+  let invitation: string | null = null;
+  try { invitation = localStorage.getItem(CLE_INVITATION); } catch { invitation = null; }
+  if (invitation) return <Navigate to={`/rejoindre/${invitation}`} replace />;
   return (
     <div className="flex min-h-full flex-col">
       <BandeauModeTest />

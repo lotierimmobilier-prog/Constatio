@@ -82,6 +82,7 @@ export function Cgv() {
       <p>L’assistant du site et les guides donnent une information générale, à jour à la date indiquée ; ils ne remplacent pas le conseil d’un professionnel du droit sur une situation particulière.</p>
       <h2>3. Compte</h2>
       <p>Le compte est personnel. L’utilisateur garde ses identifiants confidentiels et répond de l’usage fait de son compte. Il garantit être en droit de saisir les informations relatives aux autres parties (locataire, bailleur, mandataire) et les en informe.</p>
+      <p>Le titulaire d’un compte professionnel peut inviter des collaborateurs, qui disposent chacun de leur propre identifiant. Il décide de leurs droits et répond de l’usage qu’ils font du compte ; les collaborateurs n’ont pas accès à la facturation. Les états des lieux réalisés par un collaborateur appartiennent au compte de l’agence.</p>
       <h2>4. Crédits</h2>
       <ul>
         <li>La saisie, les brouillons et l’aperçu sont gratuits. <strong>Un crédit</strong> est consommé à la génération du document définitif d’un état des lieux.</li>

@@ -29,6 +29,7 @@ export function Compte() {
       {admin && <Link to="/admin" className="font-semibold text-marque underline underline-offset-4">Ouvrir l’administration de Constatio</Link>}
       <FormulaireProfil key={profil.id} recharger={recharger} />
       <FormulaireOrganisation key={organisation.id} lectureSeule={!peutGerer} recharger={recharger} />
+      {peutGerer && organisation.type === 'pro' && <Equipe />}
       <Presentation key={`p-${organisation.id}`} lectureSeule={!peutGerer} recharger={recharger} />
       <FormulaireMotDePasse />
       {!enLigne && <Alerte ton="info">Hors connexion : les modifications du compte seront possibles au retour du réseau.</Alerte>}
@@ -472,6 +473,104 @@ function Presentation({ lectureSeule, recharger }: { lectureSeule: boolean; rech
           </>
         ) : <p className="text-sm text-discret">Réservé aux comptes professionnels. Choisissez « Professionnel » dans « Bailleur ou société » ci-dessus pour l’activer.</p>}
       </div>
+    </Carte>
+  );
+}
+
+interface Membre { id: string; email: string; nom: string; role: 'proprietaire' | 'admin' | 'agent'; droits: { generer: boolean; voir_tous: boolean; supprimer: boolean }; depuis: string; edl: number }
+const DROITS: { cle: keyof Membre['droits']; libelle: string; aide: string }[] = [
+  { cle: 'generer', libelle: 'Générer les documents', aide: 'Chaque document définitif utilise un crédit du compte.' },
+  { cle: 'voir_tous', libelle: 'Voir tous les états des lieux', aide: 'Sinon, seulement ceux qu’il réalise.' },
+  { cle: 'supprimer', libelle: 'Supprimer un brouillon', aide: '' },
+];
+
+/** L'équipe d'un compte professionnel : collaborateurs invités par lien, droits accordés un par un. Jamais d'accès à la facturation. */
+function Equipe() {
+  const [membres, setMembres] = useState<Membre[] | null>(null);
+  const [retour, setRetour] = useState<Retour>(null);
+  const [nom, setNom] = useState('');
+  const [droits, setDroits] = useState({ generer: true, voir_tous: false, supprimer: false });
+  const [lien, setLien] = useState<{ adresse: string; pour: string; copie?: boolean } | null>(null);
+  const charger = async () => {
+    const { data, error } = await supabase.rpc('equipe_membres');
+    if (error) return setRetour({ ton: 'erreur', texte: traduireErreur(error) });
+    setMembres(data as Membre[]);
+  };
+  useEffect(() => { void charger(); }, []);
+  const agir = async (action: PromiseLike<{ error: { message: string; code?: string } | null }>, succes?: string) => {
+    const { error } = await action;
+    setRetour(error ? { ton: 'erreur', texte: error.code === 'P0001' || error.code === '42501' ? error.message : traduireErreur(error) } : succes ? { ton: 'succes', texte: succes } : null);
+    await charger();
+  };
+  async function inviter(e: FormEvent) {
+    e.preventDefault();
+    if (!nom.trim()) return setRetour({ ton: 'erreur', texte: 'Indiquez le nom du collaborateur.' });
+    // Le jeton est tiré au hasard ici ; la base n'en reçoit que l'empreinte.
+    const jeton = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const empreinte = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(jeton)))].map((o) => o.toString(16).padStart(2, '0')).join('');
+    const { error } = await supabase.rpc('equipe_inviter', { p_nom: nom.trim(), p_jeton_hash: empreinte, p_droits: droits });
+    if (error) return setRetour({ ton: 'erreur', texte: error.code === 'P0001' || error.code === '42501' ? error.message : traduireErreur(error) });
+    setLien({ adresse: `${window.location.origin}/rejoindre/${jeton}`, pour: nom.trim() });
+    setNom(''); setRetour(null);
+  }
+  async function partager() {
+    if (!lien) return;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Invitation Constatio', text: `Bonjour, voici votre accès à Constatio : ${lien.adresse}` });
+      else { await navigator.clipboard.writeText(lien.adresse); setLien({ ...lien, copie: true }); }
+    } catch { /* partage annulé */ }
+  }
+
+  return (
+    <Carte>
+      <h2 className="text-lg font-bold">Équipe</h2>
+      <p className="text-sm text-discret">Vos collaborateurs ont leur propre identifiant et saisissent des états des lieux. Ils n’ont jamais accès aux crédits, à l’abonnement ni aux factures.</p>
+      {retour && <Alerte ton={retour.ton}>{retour.texte}</Alerte>}
+      <ul className="flex flex-col gap-3">
+        {membres?.map((m) => (
+          <li key={m.id} className="flex flex-col gap-2 rounded-xl border border-trait p-3" data-testid={`membre-${m.role}`}>
+            <div className="flex items-start justify-between gap-3">
+              <span className="min-w-0"><span className="block font-semibold">{m.nom || m.email}</span><span className="block truncate text-sm text-discret">{m.email} · {m.edl} état{m.edl > 1 ? 's' : ''} des lieux</span></span>
+              <span className="whitespace-nowrap text-sm font-semibold text-discret">{ROLES[m.role]}</span>
+            </div>
+            {m.role === 'agent' && (
+              <>
+                {DROITS.map((d) => (
+                  <label key={d.cle} className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-0.5 h-5 w-5" checked={m.droits[d.cle]} onChange={(e) => void agir(supabase.rpc('equipe_regler', { p_membre: m.id, p_droits: { ...m.droits, [d.cle]: e.target.checked } }))} />
+                    <span>{d.libelle}{d.aide && <span className="block text-discret">{d.aide}</span>}</span>
+                  </label>
+                ))}
+                <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-semibold">
+                  <button type="button" className="text-marque underline underline-offset-4" onClick={() => void agir(supabase.rpc('equipe_regler', { p_membre: m.id, p_droits: m.droits, p_admin: true }), `${m.nom || m.email} est maintenant administrateur.`)}>Nommer administrateur</button>
+                  <button type="button" className="text-hs underline underline-offset-4" onClick={() => void agir(supabase.rpc('equipe_retirer', { p_membre: m.id }), `${m.nom || m.email} n’a plus accès au compte. Ses états des lieux restent à l’agence.`)}>Retirer de l’équipe</button>
+                </div>
+              </>
+            )}
+            {m.role === 'admin' && (
+              <button type="button" className="self-start text-sm font-semibold text-marque underline underline-offset-4" onClick={() => void agir(supabase.rpc('equipe_regler', { p_membre: m.id, p_droits: m.droits, p_admin: false }))}>Repasser en collaborateur</button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={inviter} className="flex flex-col gap-3 border-t border-trait pt-3" noValidate>
+        <p className="font-semibold">Inviter un collaborateur</p>
+        <Champ id="invite-nom" libelle="Prénom et nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Paul Durand" />
+        {DROITS.map((d) => (
+          <label key={d.cle} className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-0.5 h-5 w-5" checked={droits[d.cle]} onChange={(e) => setDroits({ ...droits, [d.cle]: e.target.checked })} />
+            <span>{d.libelle}{d.aide && <span className="block text-discret">{d.aide}</span>}</span>
+          </label>
+        ))}
+        <Bouton type="submit" variante="contour">Créer le lien d’invitation</Bouton>
+      </form>
+      {lien && (
+        <div className="flex flex-col gap-2 rounded-lg bg-creux p-3">
+          <p className="text-sm">Lien pour {lien.pour}, valable sept jours et une seule fois. Il y crée son identifiant et rejoint votre équipe.</p>
+          <p className="break-all text-xs" data-testid="lien-invitation">{lien.adresse}</p>
+          <Bouton variante="contour" onClick={partager}>{lien.copie ? 'Lien copié' : 'Partager le lien'}</Bouton>
+        </div>
+      )}
     </Carte>
   );
 }

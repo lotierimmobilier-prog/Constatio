@@ -57,6 +57,7 @@ export function EdlApercu() {
         incomplet: 'Des mentions obligatoires manquent : corrigez-les dans les contrôles.',
         signe: 'Cet état des lieux est déjà signé.',
         session: 'Votre session a expiré : reconnectez-vous.',
+        droit: 'Votre administrateur ne vous a pas donné le droit de générer le document définitif. Demandez-lui de le faire, ou de vous y autoriser.',
       };
       setMessage({ ton: 'erreur', texte: textes[r.motif] ?? 'La génération a échoué. Rien n’est perdu : réessayez dans un instant.', versCompte: r.motif === 'credit' });
     }

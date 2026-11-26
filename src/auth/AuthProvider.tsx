@@ -34,7 +34,11 @@ export interface Organisation {
   couleur_documents: string | null;
 }
 
+export interface Droits { generer: boolean; voir_tous: boolean; supprimer: boolean }
+
 export interface Etat {
+  /** Vrai pour le titulaire et les administrateurs du compte : facturation, réglages, équipe. */
+  estAdmin: boolean;
   session: Session | null;
   /** Vrai tant que la session ou le compte ne sont pas chargés. */
   chargement: boolean;
@@ -77,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (garde) setCompte(garde.compte);
     const BASE = 'id, type, nom, siret, adresse, code_postal, ville, carte_pro_numero, carte_pro_cci, est_test';
     const lireMembre = (colonnes: string) =>
-      supabase.from('organisation_membres').select(`role, organisations(${colonnes})` as '*').eq('user_id', userId).order('created_at').limit(1).single() as unknown as Promise<{ data: { role: Role; organisations: unknown } | null; error: { message: string } | null }>;
+      supabase.from('organisation_membres').select(`role, droits, organisations(${colonnes})` as '*').eq('user_id', userId).order('created_at').limit(1).single() as unknown as Promise<{ data: { role: Role; droits?: Droits; organisations: unknown } | null; error: { message: string } | null }>;
     const [{ data: profil }, complet] = await Promise.all([
       supabase.from('profils').select('id, prenom, nom, telephone').eq('id', userId).single(),
       lireMembre(`${BASE}, logo_path, filigrane_photos, filigrane_texte, filigrane_image_path, photos_colonnes, couleur_documents`),
@@ -106,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profil: compte?.profil ?? null,
       organisation: compte?.organisation ?? null,
       role: compte?.role ?? null,
+      estAdmin: compte?.role === 'proprietaire' || compte?.role === 'admin',
       recharger,
       deconnecter: async () => {
         await local.effacerTout();

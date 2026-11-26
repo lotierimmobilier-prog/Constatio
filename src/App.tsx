@@ -10,6 +10,7 @@ import { MotDePasseOublie } from './pages/MotDePasseOublie';
 import { NouveauMotDePasse } from './pages/NouveauMotDePasse';
 import { Cgv, Confidentialite, MentionsLegales } from './pages/Legal';
 import { Passage } from './pages/Passage';
+import { Rejoindre } from './pages/Rejoindre';
 import { Signer } from './pages/Signer';
 import { CoquilleAdmin } from './pages/admin/CoquilleAdmin';
 import { AdminAccueil } from './pages/admin/AdminAccueil';
@@ -72,6 +73,7 @@ export function App() {
       <Route path="/nouveau-mot-de-passe" element={<NouveauMotDePasse />} />
       <Route path="/passage" element={<Passage />} />
       <Route path="/signer/:jeton" element={<Signer />} />
+      <Route path="/rejoindre/:jeton" element={<Rejoindre />} />
       <Route path="/app" element={<CoquilleApp />}>
         <Route index element={<TableauDeBord />} />
         <Route path="compte" element={<Compte />} />

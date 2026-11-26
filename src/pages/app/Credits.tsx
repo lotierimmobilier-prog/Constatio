@@ -22,7 +22,7 @@ const MOTIFS: Record<string, string> = {
 
 /** Solde de crédits, abonnement, et achat par carte bancaire sur la page de paiement Stripe. */
 export function Credits() {
-  const { organisation } = useAuth();
+  const { organisation, estAdmin } = useAuth();
   const [params, setParams] = useSearchParams();
   const [tarifs, setTarifs] = useState<Tarif[]>([]);
   const [lots, setLots] = useState<Lot[] | null>(null);
@@ -66,6 +66,7 @@ export function Credits() {
     setErreur(MOTIFS[reponse?.motif ?? ''] ?? 'Le paiement n’a pas pu être préparé. Rien n’a été débité : réessayez dans un instant.');
   }
 
+  if (!estAdmin) return <Alerte ton="info">Les crédits, l’abonnement et les factures sont gérés par l’administrateur de votre compte.</Alerte>;
   const solde = lots?.reduce((s, l) => s + l.restant, 0) ?? 0;
   const libelle = (code: string) => tarifs.find((t) => t.code === code)?.libelle ?? code;
   const achats = tarifs.filter((t) => t.periodicite === 'unique');

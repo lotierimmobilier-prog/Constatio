@@ -516,6 +516,47 @@ begin
   perform t.role('service_role');
   perform t.egal('clé DocuSeal pour le serveur, adresse européenne par défaut', public.cles_docuseal() ->> 'cle' || ' ' || (public.cles_docuseal() ->> 'url'), 'abcdefghijklmnopqrstuvwxyz012345 https://api.docuseal.eu');
 
+  -- Équipe d'agence : commerciaux sans facturation, droits réglés par l'administrateur ----
+  perform t.connecter(b);
+  perform t.refuse('un compte non professionnel invite', format('select public.equipe_inviter(''ZZREC Paul'', %L, ''{}'')', encode(sha256('jeton-0'), 'hex')));
+  perform t.connecter(a);
+  perform t.lignes('A passe en compte professionnel', format('update public.organisations set type = ''pro'' where id = %L', org_a), 1);
+  perform public.equipe_inviter('ZZREC Paul Commercial', encode(sha256('jeton-1'), 'hex'), '{"generer": false, "voir_tous": false, "supprimer": false}');
+  perform t.role('anon');
+  perform t.egal('l''invité voit seulement le nom de l''agence', (public.equipe_invitation('jeton-1') ->> 'pour'), 'ZZREC Paul Commercial');
+  perform t.egal('jeton inconnu : rien', coalesce(public.equipe_invitation('jeton-faux')::text, 'rien'), 'rien');
+  perform t.refuse('un visiteur lit les invitations', 'select * from public.organisation_invitations');
+  perform t.connecter(c);
+  perform t.egal('C rejoint l''équipe de A', public.equipe_rejoindre('jeton-1')::text, org_a::text);
+  perform t.refuse('l''invitation ne sert qu''une fois', 'select public.equipe_rejoindre(''jeton-1'')');
+  perform t.egal('C n''a plus que ce compte', (select count(*)::text from public.organisation_membres where user_id = c), '1');
+  -- (C reste partie, comme locataire, à un état des lieux signé : il le voit à ce titre, pas comme collègue)
+  perform t.lignes('C ne voit pas les états des lieux de ses collègues', 'select 1 from public.edl where statut <> ''signe''', 0);
+  perform t.lignes('C ne voit pas les crédits de l''agence', 'select 1 from public.credit_lots', 0);
+  perform t.lignes('C ne voit pas l''abonnement', 'select 1 from public.abonnements', 0);
+  perform t.refuse('C gère l''équipe', 'select public.equipe_membres()');
+  perform t.refuse('C se donne des droits', format('select public.equipe_regler(%L, ''{"generer": true}'')', c));
+  perform t.refuse('C invite quelqu''un', format('select public.equipe_inviter(''ZZREC X'', %L, ''{}'')', encode(sha256('jeton-2'), 'hex')));
+  insert into public.edl (id, organisation_id, logement_id, type, realise_par) values ('00000000-0000-4000-a000-0000000000e9', org_a, log, 'entrant', c);
+  perform t.lignes('C voit l''état des lieux qu''il réalise', 'select 1 from public.edl where statut <> ''signe''', 1);
+  perform t.refuse('C génère sans en avoir le droit', 'select public.edl_finaliser(''00000000-0000-4000-a000-0000000000e9'')');
+  perform t.refuse('C supprime sans en avoir le droit', 'delete from public.edl where id = ''00000000-0000-4000-a000-0000000000e9''');
+  perform t.connecter(b);
+  perform t.refuse('un autre compte règle les droits de C', format('select public.equipe_regler(%L, ''{"generer": true}'')', c));
+  perform t.connecter(a);
+  perform t.egal('A voit son équipe', jsonb_array_length(public.equipe_membres())::text, '2');
+  perform t.refuse('A se retire lui-même', format('select public.equipe_retirer(%L)', a));
+  perform public.equipe_regler(c, '{"generer": true, "voir_tous": true, "supprimer": true}');
+  perform t.connecter(c);
+  perform t.egal('droit accordé : C voit tous les états des lieux', ((select count(*) from public.edl where statut <> 'signe') > 1)::text, 'true');
+  perform t.lignes('droit accordé : C supprime son brouillon', 'delete from public.edl where id = ''00000000-0000-4000-a000-0000000000e9''', 1);
+  perform t.lignes('même avec tous les droits, pas de facturation', 'select 1 from public.credit_lots', 0);
+  perform t.connecter(a);
+  perform public.equipe_retirer(c);
+  perform t.connecter(c);
+  perform t.lignes('retiré : C ne voit plus rien de l''agence', 'select 1 from public.edl where statut <> ''signe'' and organisation_id = ' || quote_literal(org_a), 0);
+  perform t.egal('retiré : C retrouve un compte personnel', (select role::text from public.organisation_membres where user_id = c), 'proprietaire');
+
   -- Visiteur non connecté -------------------------------------------------------------
   perform t.role('anon');
   perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 9);

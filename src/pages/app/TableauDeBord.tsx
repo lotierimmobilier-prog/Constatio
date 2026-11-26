@@ -23,7 +23,7 @@ const STATUTS = {
 } as const;
 
 export function TableauDeBord() {
-  const { profil, organisation } = useAuth();
+  const { profil, organisation, estAdmin } = useAuth();
   const [edl, setEdl] = useState<LigneEdl[] | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
 
@@ -55,9 +55,10 @@ export function TableauDeBord() {
     <>
       <div className="flex items-end justify-between gap-3">
         <h1 className="text-2xl font-bold">Bonjour{profil?.prenom ? ` ${profil.prenom}` : ''}</h1>
-        <Link to="/app/credits" className="text-sm font-semibold text-marque underline underline-offset-4" data-testid="credits">
+{/* La facturation ne concerne que le titulaire et les administrateurs du compte. */}
+        {estAdmin &&         <Link to="/app/credits" className="text-sm font-semibold text-marque underline underline-offset-4" data-testid="credits">
           {credits === null ? 'Crédits' : `${credits} crédit${credits > 1 ? 's' : ''}`}
-        </Link>
+        </Link>}
       </div>
       <Link to="/app/edl/nouveau" className={classesBouton('plein')}>
         Nouvel état des lieux

@@ -54,8 +54,10 @@ Deno.serve(async (requete) => {
     if (admise !== 'ok') { console.error('paiement : clé Stripe refusée —', admise); throw new Refus(503, 'ferme'); }
 
     // Le compte de la personne connectée, lu avec ses propres droits.
-    const membre = lu(await client.from('organisation_membres').select('organisation_id').eq('user_id', qui.user.id).limit(1).maybeSingle());
+    const membre = lu(await client.from('organisation_membres').select('organisation_id, role').eq('user_id', qui.user.id).limit(1).maybeSingle());
     if (!membre) throw new Refus(403, 'compte');
+    // La facturation est réservée au titulaire et aux administrateurs du compte : un collaborateur n'achète rien.
+    if (!['proprietaire', 'admin'].includes(membre.role)) throw new Refus(403, 'reserve_admin');
     const org = membre.organisation_id as string;
     const corps = await requete.json().catch(() => ({}));
     const connu = lu(await service.rpc('stripe_client', { p_org: org })) as string | null;
