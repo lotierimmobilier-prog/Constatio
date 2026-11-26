@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { local } from '../lib/local';
 import { supabase } from '../lib/supabase';
@@ -31,7 +31,7 @@ export interface Organisation {
   filigrane_texte: string | null;
 }
 
-interface Etat {
+export interface Etat {
   session: Session | null;
   /** Vrai tant que la session ou le compte ne sont pas chargés. */
   chargement: boolean;
@@ -42,7 +42,9 @@ interface Etat {
   deconnecter: () => Promise<void>;
 }
 
-const Contexte = createContext<Etat | null>(null);
+// Le contexte vit à part (contexte.ts) : les pages publiques le lisent sans charger le stockage local de l'application.
+export { Contexte, useAuth } from './contexte';
+import { Contexte } from './contexte';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -114,8 +116,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <Contexte.Provider value={valeur}>{children}</Contexte.Provider>;
 }
 
-export function useAuth(): Etat {
-  const c = useContext(Contexte);
-  if (!c) throw new Error('useAuth doit être utilisé dans AuthProvider');
-  return c;
-}

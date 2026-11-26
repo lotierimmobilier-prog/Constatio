@@ -4,9 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0f4c4a" />
-    <meta name="description" content="Un état des lieux incontestable en 20 minutes, depuis votre téléphone." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--tete:debut-->
     <title>Constatio — l'état des lieux depuis votre téléphone</title>
+    <meta name="description" content="Réalisez vous-même votre état des lieux d'entrée ou de sortie sur téléphone : pièce par pièce, photos datées, contrôle des mentions obligatoires, signature et PDF." />
+    <!--tete:fin-->
+    <!-- Pages publiques écrites dans le HTML à la construction (scripts/prerendre.mjs) : elles se lisent sans JavaScript.
+         Si l'adresse demandée n'est pas celle de la page écrite (espace client…), elle est masquée avant le premier affichage. -->
+    <script>(function(){var c=function(s){return s.replace(/\/+$/,'')||'/'};var d=document.documentElement;d.setAttribute('data-js','');if(c(location.pathname)!==c(d.getAttribute('data-chemin')||'/'))d.setAttribute('data-autre','')})()</script>
+    <style>html[data-autre] #root>[data-prerendu]{display:none}</style>
   </head>
   <body>
     <div id="root"></div>

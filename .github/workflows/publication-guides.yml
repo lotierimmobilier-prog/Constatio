@@ -1,0 +1,29 @@
+# Les guides paraissent à leur date, mais le site n'est reconstruit que lorsqu'un envoi arrive sur la branche.
+# Chaque matin, si un guide est daté d'aujourd'hui, ce travail enregistre la date du jour : Hostinger voit
+# l'envoi et republie le site, guide compris. Les jours sans guide, il ne fait rien.
+name: Publication des guides
+on:
+  schedule:
+    - cron: '17 4 * * *'   # 5 h 17 ou 6 h 17 à Paris, selon la saison
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Un guide paraît-il aujourd'hui ?
+        id: jour
+        run: |
+          jour=$(TZ=Europe/Paris date +%F)
+          if grep -lqE "^date: ['\"]?$jour" contenu/guides/*.md; then echo "paru=oui" >> "$GITHUB_OUTPUT"; fi
+          echo "jour=$jour" >> "$GITHUB_OUTPUT"
+      - name: Déclencher la republication
+        if: steps.jour.outputs.paru == 'oui'
+        run: |
+          echo "${{ steps.jour.outputs.jour }}" > contenu/derniere-publication.txt
+          git config user.name "Publication des guides"
+          git config user.email "actions@users.noreply.github.com"
+          git add contenu/derniere-publication.txt
+          git diff --cached --quiet || { git commit -m "Guides : parution du ${{ steps.jour.outputs.jour }}"; git push; }

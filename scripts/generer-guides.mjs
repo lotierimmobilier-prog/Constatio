@@ -8,10 +8,11 @@
 // Publication programmée : seuls les guides dont la date est atteinte sont
 // générés. Un guide daté dans l'avenir paraît donc au premier déploiement qui
 // suit sa date. GUIDES_TOUS=1 les génère tous (aperçu).
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { marked } from 'marked';
 import { CATEGORIES, controler, lireGuides } from './guides.mjs';
 
+const INDEXNOW = '2deb548270bedf2788f1e54f917fab25';
 const SITE = (process.env.SITE_URL ?? 'https://constatio.fr').replace(/\/+$/, '');
 const DIST = new URL('../dist/', import.meta.url).pathname;
 const aujourdhui = new Date().toISOString().slice(0, 10);
@@ -90,6 +91,9 @@ function page({ chemin, titre, description, tete = '', corps }) {
 <meta property="og:title" content="${e(titre)}">
 <meta property="og:description" content="${e(description)}">
 <meta property="og:url" content="${url}">
+<meta property="og:image" content="${SITE}/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="Résumé pour les assistants IA">
 <meta name="theme-color" content="#0f4c4a">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/assets/${css}">
@@ -99,7 +103,7 @@ ${tete}
 <body>
 <header class="g-entete"><div><a class="g-logo" href="/">Constatio</a><nav class="g-nav" aria-label="Navigation"><a href="/guides/">Guides</a><a href="/#tarifs">Tarifs</a><a href="/connexion">Connexion</a></nav></div></header>
 ${corps}
-<footer class="g-pied">Service partenaire de Signabail, conçu par LOTIER, 40 rue Française, 34500 Béziers.</footer>
+<footer class="g-pied">Service partenaire de Signabail, conçu par LOTIER, 40 rue Française, 34500 Béziers.<br><a href="/guides/">Guides</a> · <a href="/#tarifs">Tarifs</a> · <a href="/cgv/">Conditions générales</a> · <a href="/mentions-legales/">Mentions légales</a> · <a href="/confidentialite/">Confidentialité</a></footer>
 </body>
 </html>
 `;
@@ -171,9 +175,12 @@ ${publies.length ? CATEGORIES.filter((c) => publies.some((g) => g.categorie === 
 }));
 
 // Plan du site, robots, et fichiers destinés aux assistants IA
-const pages = [{ loc: '/', maj: aujourdhui }, { loc: '/guides/', maj: publies.at(-1)?.date ?? aujourdhui }, ...publies.map((g) => ({ loc: `/guides/${g.slug}/`, maj: g.maj ?? g.date }))];
+const pages = [{ loc: '/', maj: aujourdhui }, { loc: '/guides/', maj: publies.at(-1)?.date ?? aujourdhui }, ...['/mentions-legales/', '/cgv/', '/confidentialite/'].map((loc) => ({ loc, maj: aujourdhui })), ...publies.map((g) => ({ loc: `/guides/${g.slug}/`, maj: g.maj ?? g.date }))];
 writeFileSync(`${DIST}sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${SITE}${p.loc}</loc><lastmod>${p.maj}</lastmod></url>`).join('\n')}\n</urlset>\n`);
-writeFileSync(`${DIST}robots.txt`, `# Le site public est ouvert à tous les robots, y compris ceux des assistants IA.\n# L'application (comptes, états des lieux) n'a rien à indexer.\nUser-agent: *\nAllow: /\nDisallow: /app\nDisallow: /admin\nDisallow: /passage\nDisallow: /connexion\nDisallow: /inscription\nDisallow: /mot-de-passe-oublie\nDisallow: /nouveau-mot-de-passe\n\nSitemap: ${SITE}/sitemap.xml\n`);
+// Les robots des assistants IA sont nommés un par un : beaucoup d'éditeurs les bloquent par défaut, ici ils sont les bienvenus.
+const ROBOTS_IA = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User', 'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'MistralAI-User', 'CCBot', 'Bingbot', 'Googlebot'];
+const PRIVE = ['/app', '/admin', '/passage', '/signer', '/connexion', '/inscription', '/mot-de-passe-oublie', '/nouveau-mot-de-passe'].map((c) => `Disallow: ${c}`).join('\n');
+writeFileSync(`${DIST}robots.txt`, `# Le site public est ouvert à tous les robots, y compris ceux des assistants IA.\n# L'application (comptes, états des lieux, liens de signature) n'a rien à indexer.\nUser-agent: *\nAllow: /\n${PRIVE}\n\n${ROBOTS_IA.map((r) => `User-agent: ${r}`).join('\n')}\nAllow: /\n${PRIVE}\n\nSitemap: ${SITE}/sitemap.xml\n# Résumé du site pour les assistants IA : ${SITE}/llms.txt\n`);
 writeFileSync(`${DIST}llms.txt`, `# Constatio
 
 > Service en ligne pour réaliser un état des lieux locatif (entrée, sortie, relevé d'état) depuis un téléphone, en France. Pièce par pièce, avec contrôle des mentions obligatoires du décret n° 2016-382 du 30 mars 2016, photos datées et localisées, fonctionnement sans réseau et comparaison entre l'entrée et la sortie. Service partenaire de Signabail (rédaction de baux), conçu par LOTIER, agence immobilière à Béziers.
@@ -191,8 +198,22 @@ ${publies.map((g) => `- [${g.titre}](${SITE}/guides/${g.slug}/) : ${g.resume}`).
 
 - [Accueil](${SITE}/) : présentation, fonctionnement, tarifs, questions fréquentes
 - [Tous les guides](${SITE}/guides/)
+- [Conditions générales](${SITE}/cgv/) : crédits, abonnements, rétractation, signature électronique
+- [Mentions légales](${SITE}/mentions-legales/)
+- [Confidentialité](${SITE}/confidentialite/)
 - [Texte complet des guides](${SITE}/llms-full.txt)
 `);
 writeFileSync(`${DIST}llms-full.txt`, `# Constatio — texte complet des guides\n\n${publies.map((g) => `## ${g.titre}\n\nAdresse : ${SITE}/guides/${g.slug}/\nPublié le ${g.date}. Catégorie : ${g.categorie}.\n\n${g.resume}\n\n${g.points_cles.map((p) => `- ${p}`).join('\n')}\n\n${g.corps.replace(/^## /gm, '### ')}\n\n### Questions fréquentes\n\n${g.questions.map((x) => `**${x.q}** ${x.r}`).join('\n\n')}\n\nTextes cités : ${g.sources.join(' ; ')}.`).join('\n\n---\n\n')}\n`);
+
+// IndexNow (Bing, et par lui plusieurs assistants IA) : le jour où un guide paraît, on le signale tout de suite.
+// Jamais depuis un poste de développement ; un échec n'empêche pas la publication.
+const parusAujourdhui = publies.filter((g) => g.date === aujourdhui);
+if (parusAujourdhui.length && !process.env.GUIDES_TOUS && !existsSync('.env.production.local')) {
+  try {
+    const r = await fetch('https://api.indexnow.org/indexnow', { method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8' }, signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({ host: 'constatio.fr', key: INDEXNOW, keyLocation: `${SITE}/${INDEXNOW}.txt`, urlList: [`${SITE}/`, `${SITE}/guides/`, ...parusAujourdhui.map((g) => `${SITE}/guides/${g.slug}/`)] }) });
+    console.log(`IndexNow : ${r.status}`);
+  } catch (err) { console.log(`IndexNow : non joint (${err.message})`); }
+}
 
 console.log(`guides : ${publies.length} publié(s) sur ${tous.length}${publies.length < tous.length ? ` (prochain le ${tous.find((g) => !publiesSlugs.has(g.slug)).date})` : ''}`);

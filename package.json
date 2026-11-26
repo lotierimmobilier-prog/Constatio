@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/generer-guides.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/prerendre.mjs && node scripts/generer-guides.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

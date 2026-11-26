@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../auth/contexte';
 import { BandeauModeTest } from '../components/BandeauModeTest';
 import { CarrouselEcrans } from '../components/site/CarrouselEcrans';
 import { DemoVisite } from '../components/site/DemoVisite';
@@ -77,7 +77,7 @@ const RISQUES = [
     reference: 'Pratique des tribunaux', parade: 'Photos horodatées et géolocalisées, rattachées à chaque élément, figées à la signature.' },
 ];
 
-const TARIFS: [string, string, string][] = [
+export const TARIFS: [string, string, string][] = [
   ['État des lieux à l’unité', 'Entrée, sortie ou relevé d’état', '14,90 €'],
   ['Pack entrée + sortie', 'Les deux états des lieux d’une même location', '24,90 €'],
   ['Pack 5 crédits', 'Valables 24 mois', '59 €'],
@@ -87,7 +87,7 @@ const TARIFS: [string, string, string][] = [
   ['Premium Pro', 'Plusieurs utilisateurs, documents à votre en-tête, export vers votre logiciel', '39,90 € / mois'],
 ];
 
-const FAQ = [
+export const FAQ = [
   ['Un état des lieux fait sur téléphone a-t-il la même valeur qu’un état des lieux papier ?', 'Oui. La loi autorise expressément la forme électronique. Ce qui compte, c’est qu’il soit établi contradictoirement, qu’il contienne les mentions du décret du 30 mars 2016 et que chaque partie en reçoive un exemplaire signé.'],
   ['Que se passe-t-il s’il n’y a pas de réseau dans le logement ?', 'Vous continuez. Tout ce que vous saisissez est gardé sur le téléphone et envoyé dès que le réseau revient. Vous pouvez faire une visite entière dans une cave.'],
   ['Le locataire doit-il créer un compte ?', 'Non. Il signe sur votre écran, ou depuis un lien reçu par e-mail. Il reçoit ensuite son exemplaire en PDF.'],
