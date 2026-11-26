@@ -71,7 +71,7 @@ export function Reserves({ edl, logement, signeLe }: { edl: EdlLigne; logement: 
   return (
     <Carte>
       <h2 className="text-lg font-bold">Remettre le document signé</h2>
-      <p className="text-sm text-discret">Chaque partie reçoit son lien personnel, valable un an : elle y retrouve l’état des lieux signé{entrant ? ' et l’annexe des réserves' : ''}, sans créer de compte. Vous pouvez le renvoyer à tout moment ; un nouveau lien remplace le précédent.</p>
+      <p className="text-sm text-discret">Chaque partie reçoit son lien personnel, valable un an : elle y retrouve l’état des lieux signé{entrant ? ' et l’annexe des réserves' : ''}, sans créer de compte. Si son adresse e-mail est renseignée, elle l’a reçu automatiquement à la signature ; vous pouvez en créer un autre à tout moment, les précédents restent valables.</p>
       {erreur && <Alerte>{erreur}</Alerte>}
       {parties.map((p) => (
         <div key={p.id} className="flex flex-col gap-2 rounded-xl border border-trait p-3" data-testid="partie-lien">

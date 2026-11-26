@@ -20,13 +20,19 @@ const CLES_DOCUSEAL = [
   { nom: 'docuseal_url', libelle: 'Adresse de l’API (facultatif)', exemple: 'https://api.docuseal.eu' },
 ];
 
+const CLES_COURRIEL = [
+  { nom: 'smtp_utilisateur', libelle: 'Adresse de la boîte d’envoi', exemple: 'bonjour@constatio.fr', lisible: true },
+  { nom: 'smtp_mot_de_passe', libelle: 'Mot de passe de cette boîte', exemple: 'Mot de passe' },
+  { nom: 'smtp_hote', libelle: 'Serveur d’envoi (facultatif)', exemple: 'smtp.hostinger.com:465', lisible: true },
+];
+
 /** Une clé en écriture seule : on la colle, on l'enregistre, on n'en revoit que la fin. */
-function ChampCle({ cle, connue, enregistrer }: { cle: (typeof CLES)[number]; connue?: { fin: string; updated_at: string }; enregistrer: (valeur: string) => Promise<void> }) {
+function ChampCle({ cle, connue, enregistrer }: { cle: (typeof CLES)[number] & { lisible?: boolean }; connue?: { fin: string; updated_at: string }; enregistrer: (valeur: string) => Promise<void> }) {
   const [valeur, setValeur] = useState('');
   return (
     <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void enregistrer(valeur.trim()).then(() => setValeur('')); }} data-testid={`cle-${cle.nom}`}>
-      <Champ id={cle.nom} libelle={cle.libelle} type="password" autoComplete="off" value={valeur} onChange={(e) => setValeur(e.target.value)} placeholder={cle.exemple}
-        aide={connue ? `Enregistrée le ${jour(connue.updated_at)} · se termine par ${connue.fin}` : 'Non renseignée'} />
+      <Champ id={cle.nom} libelle={cle.libelle} type={cle.lisible ? 'text' : 'password'} autoComplete="off" value={valeur} onChange={(e) => setValeur(e.target.value)} placeholder={cle.exemple}
+        aide={connue ? `Enregistrée le ${jour(connue.updated_at)} · ${cle.lisible ? connue.fin : `se termine par ${connue.fin}`}` : 'Non renseignée'} />
       <div className="flex gap-3">
         <Bouton type="submit" className="!w-auto px-5" disabled={!valeur.trim()}>Enregistrer</Bouton>
         {connue && <button type="button" className="font-semibold text-hs underline underline-offset-4" onClick={() => void enregistrer('')}>Effacer</button>}
@@ -101,6 +107,14 @@ export function AdminReglages() {
         <p className="max-w-[65ch] text-sm">La même clé que Signabail (DocuSeal → Paramètres → API). Laissez l’adresse vide pour le nuage européen de DocuSeal. En mode test, aucune demande ne part.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {CLES_DOCUSEAL.map((c) => <ChampCle key={c.nom} cle={c} connue={cles.donnee?.find((x) => x.nom === c.nom)} enregistrer={(valeur) => agir(() => appel('admin_definir_cle', { p_nom: c.nom, p_valeur: valeur }), valeur ? `${c.libelle} : enregistrée.` : `${c.libelle} : effacée.`)} />)}
+        </div>
+      </Carte>
+
+      <Carte>
+        <h2 className="text-lg font-bold">Envoi des e-mails</h2>
+        <p className="max-w-[65ch] text-sm">La boîte du domaine (Hostinger → E-mails). Elle envoie l’exemplaire signé à chaque partie, prévient d’une réserve à valider et de sa réponse. Le mot de passe n’est jamais réaffiché. En mode test, aucun message ne part. Tant que la boîte n’est pas réglée, les messages attendent (sept jours au plus).</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {CLES_COURRIEL.map((c) => <ChampCle key={c.nom} cle={c} connue={cles.donnee?.find((x) => x.nom === c.nom)} enregistrer={(valeur) => agir(() => appel('admin_definir_cle', { p_nom: c.nom, p_valeur: valeur }), valeur ? `${c.libelle} : enregistré.` : `${c.libelle} : effacé.`)} />)}
         </div>
       </Carte>
 

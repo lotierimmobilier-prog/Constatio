@@ -28,7 +28,7 @@ start() {
   attendre "base de données" psql "$DBURL" -qc "select 1"
   # L'image ne fixe pas de mot de passe aux rôles de service.
   psql "${DBURL/postgres:/supabase_admin:}" -q -c "alter role supabase_auth_admin with password '$PW'" -c "alter role authenticator with password '$PW'" -c "alter role supabase_storage_admin with password '$PW'"
-  docker run -d --name cst-mail --network $NET -p 54324:8025 axllent/mailpit:v1.31.3 >/dev/null
+  docker run -d --name cst-mail --network $NET -p 54324:8025 -p 54329:1025 axllent/mailpit:v1.31.3 --smtp-auth-accept-any --smtp-auth-allow-insecure >/dev/null
   docker run -d --name cst-auth --network $NET -p 54325:9999 \
     -e GOTRUE_API_HOST=0.0.0.0 -e GOTRUE_API_PORT=9999 -e API_EXTERNAL_URL=http://127.0.0.1:5173/auth/v1 \
     -e GOTRUE_DB_DRIVER=postgres -e "GOTRUE_DB_DATABASE_URL=postgres://supabase_auth_admin:$PW@cst-db:5432/postgres" \

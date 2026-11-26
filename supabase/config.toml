@@ -440,3 +440,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.webhook-stripe]
 verify_jwt = false
+[functions.courriel]
+verify_jwt = false

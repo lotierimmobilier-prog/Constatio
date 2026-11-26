@@ -47,6 +47,7 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   sql(`update public.edl_parties set adresse = '1 rue des Tests, 34500 Béziers' where edl_id = '${edl}' and role = 'bailleur';
        update public.edl_elements set etat = 'bon' where edl_id = '${edl}';
        insert into public.edl_parties (edl_id, role, civilite, prenom, nom, ordre) values ('${edl}', 'locataire', 'M.', 'Hugo', 'ZZREC Marty', 1);
+       update public.edl_parties set email = case role when 'locataire' then 'hugo.marty@constatio.test' else 'bailleur.vidal@constatio.test' end where edl_id = '${edl}';
        insert into public.edl_cles (edl_id, nature, nombre, destination) values ('${edl}', 'cle', 1, 'Porte du garage');
        delete from public.credit_lots where organisation_id = '${org}';
        insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le) values ('${org}', 'geste_commercial', 1, 1, now() + interval '1 year');`);
@@ -121,6 +122,48 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   expect(sql(`select count(*) from public.edl_jetons where edl_id = '${edl}' and utilise_le is null`)).toBe('0');
   if (captures) await page.screenshot({ path: `${captures}/29-document-signe.png`, fullPage: true });
 
+  // ── E-mails : à la signature, chaque partie reçoit le lien de son exemplaire ─────────────
+  expect(sql(`select type || ' ' || (envoye_le is null) from public.courriels where edl_id = '${edl}'`)).toBe('document_signe true');
+  await fetch('http://127.0.0.1:54324/api/v1/messages', { method: 'DELETE' });
+  const expedier = async () => (await fetch('http://127.0.0.1:54321/functions/v1/courriel', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-releve': sql('select public.cle_releve()') }, body: '{"action":"expedier"}' })).json();
+  const boite = async (destinataire: string) => {
+    const liste = (await (await fetch('http://127.0.0.1:54324/api/v1/messages')).json()).messages as { ID: string; To: { Address: string }[]; Subject: string }[];
+    const m = liste.find((x) => x.To[0].Address === destinataire);
+    return m ? { sujet: m.Subject, ...((await (await fetch(`http://127.0.0.1:54324/api/v1/message/${m.ID}`)).json()) as { Text: string; HTML: string; From: { Address: string; Name: string } }) } : null;
+  };
+  expect((await fetch('http://127.0.0.1:54321/functions/v1/courriel', { method: 'POST', headers: { 'x-releve': 'faux' }, body: '{}' })).status).toBe(401);
+  // Mode test : rien ne part.
+  expect(await expedier()).toMatchObject({ statut: 'ok', envoyes: 0 });
+  expect(sql(`select note from public.courriels where edl_id = '${edl}'`)).toBe('retenu : mode test');
+  expect(await boite('hugo.marty@constatio.test')).toBeNull();
+  // Mode réel, boîte réglée : les deux parties reçoivent leur lien personnel.
+  sql(`update public.parametres set valeur = 'false' where cle = 'mode_test';
+       insert into private.cles_service (nom, valeur) values ('smtp_utilisateur', 'bonjour@constatio.test'), ('smtp_mot_de_passe', 'zzrec-boite-1'), ('smtp_hote', '127.0.0.1:54329') on conflict (nom) do update set valeur = excluded.valeur;
+       update public.courriels set envoye_le = null, tentatives = 0, note = null where edl_id = '${edl}';`);
+  try {
+    expect(await expedier()).toMatchObject({ statut: 'ok', envoyes: 2, echecs: 0 });
+    const recu = (await boite('hugo.marty@constatio.test'))!;
+    expect(recu.sujet).toBe('Votre état des lieux d’entrée signé — 8 rue de la Signature, 34500 Béziers');
+    expect(recu.From).toMatchObject({ Address: 'bonjour@constatio.test', Name: 'Constatio' });
+    expect(recu.Text).toContain('Bonjour M. Hugo ZZREC Marty,');
+    expect(recu.Text).toContain('Vous avez dix jours');
+    const lienRecu = /http:\/\/127\.0\.0\.1:5173\/reserves\/[A-Za-z0-9_-]{40,}/.exec(recu.Text)![0];
+    expect(recu.HTML).toContain(lienRecu);
+    expect((await boite('bailleur.vidal@constatio.test'))!.Text).not.toContain('Vous avez dix jours');
+    // Le lien reçu ouvre bien l'exemplaire signé, sans compte.
+    const parMail = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const p4 = await parMail.newPage();
+    await p4.goto(lienRecu);
+    await expect(p4.getByTestId('locataire')).toHaveText('M. Hugo ZZREC Marty');
+    await expect(p4.getByTestId('document-signe')).toBeVisible();
+    await expect(p4.getByLabel('Votre réserve')).toBeVisible();
+    await parMail.close();
+    // Rien ne repart une seconde fois.
+    expect(await expedier()).toMatchObject({ traites: 0, envoyes: 0 });
+  } finally {
+    sql(`update public.parametres set valeur = 'true' where cle = 'mode_test'`);
+  }
+
   // ── Réserves du locataire : dix jours pour compléter l'état des lieux d'entrée ────────
   await expect(page.getByTestId('delai-reserves')).toContainText('dix jours');
   await page.getByTestId('partie-lien').filter({ hasText: 'Marty' }).getByTestId('creer-lien-reserves').click();
@@ -169,6 +212,23 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   for (const attendu of ['Annexe — réserves du locataire', '8 rue de la Signature, 34500 Béziers', 'Fissure au plafond du garage', pieceChoisie, '1 photo jointe par le locataire', 'acceptée — Constaté sur place le lendemain.', empreinteSigne]) expect(ta, attendu).toContain(attendu);
   expect(execFileSync('pdfimages', ['-list', fichierAnnexe], { encoding: 'utf8' }).trim().split('\n').length).toBe(3);
   if (captures) writeFileSync(`${captures}/annexe-reserves.pdf`, execFileSync('cat', [fichierAnnexe]));
+  // E-mails de la réserve : le bailleur est prévenu du dépôt, le locataire de la réponse.
+  expect(sql(`select string_agg(type, ',' order by cree_le) from public.courriels where edl_id = '${edl}' and envoye_le is null`)).toBe('reserve_deposee,reserve_repondue');
+  sql(`update public.parametres set valeur = 'false' where cle = 'mode_test'`);
+  try {
+    await fetch('http://127.0.0.1:54324/api/v1/messages', { method: 'DELETE' });
+    expect(await expedier()).toMatchObject({ statut: 'ok', envoyes: 2, echecs: 0 });
+    const alerte = (await boite(email))!;
+    expect(alerte.sujet).toBe('Réserve à valider — 8 rue de la Signature, 34500 Béziers');
+    expect(alerte.Text).toContain('Fissure au plafond du garage');
+    expect(alerte.Text).toContain(`/app/edl/${edl}/apercu`);
+    const reponse = (await boite('hugo.marty@constatio.test'))!;
+    expect(reponse.sujet).toContain('Réponse à votre réserve');
+    expect(reponse.Text).toContain('acceptée');
+    expect(reponse.Text).toContain('Constaté sur place le lendemain.');
+  } finally {
+    sql(`update public.parametres set valeur = 'true' where cle = 'mode_test'; delete from private.cles_service where nom like 'smtp_%'`);
+  }
   // Le locataire lit la décision par son lien.
   await p3.reload();
   await expect(p3.getByTestId('ma-reserve')).toContainText('Acceptée');
