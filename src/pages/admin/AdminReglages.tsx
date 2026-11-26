@@ -15,6 +15,11 @@ const CLES = [
   { nom: 'stripe_webhook_reel', libelle: 'Secret du webhook réel', exemple: 'whsec_…' },
 ];
 
+const CLES_DOCUSEAL = [
+  { nom: 'docuseal_cle', libelle: 'Clé API DocuSeal', exemple: 'Clé de l’API' },
+  { nom: 'docuseal_url', libelle: 'Adresse de l’API (facultatif)', exemple: 'https://api.docuseal.eu' },
+];
+
 /** Une clé en écriture seule : on la colle, on l'enregistre, on n'en revoit que la fin. */
 function ChampCle({ cle, connue, enregistrer }: { cle: (typeof CLES)[number]; connue?: { fin: string; updated_at: string }; enregistrer: (valeur: string) => Promise<void> }) {
   const [valeur, setValeur] = useState('');
@@ -88,6 +93,14 @@ export function AdminReglages() {
           <p className="font-semibold">Adresse à déclarer chez Stripe (Développeurs → Webhooks → Ajouter un point de terminaison)</p>
           <p className="break-all rounded-lg bg-creux px-2 py-1 font-mono text-xs" data-testid="adresse-webhook">{ADRESSE_WEBHOOK}</p>
           <p className="text-discret">Événements à cocher : {EVENEMENTS.join(', ')}. Stripe affiche ensuite le « secret de signature » (whsec_…) à coller ci-dessus. À faire une fois en mode test, une fois en mode réel.</p>
+        </div>
+      </Carte>
+
+      <Carte>
+        <h2 className="text-lg font-bold">Signature électronique DocuSeal</h2>
+        <p className="max-w-[65ch] text-sm">La même clé que Signabail (DocuSeal → Paramètres → API). Laissez l’adresse vide pour le nuage européen de DocuSeal. En mode test, aucune demande ne part.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {CLES_DOCUSEAL.map((c) => <ChampCle key={c.nom} cle={c} connue={cles.donnee?.find((x) => x.nom === c.nom)} enregistrer={(valeur) => agir(() => appel('admin_definir_cle', { p_nom: c.nom, p_valeur: valeur }), valeur ? `${c.libelle} : enregistrée.` : `${c.libelle} : effacée.`)} />)}
         </div>
       </Carte>
 

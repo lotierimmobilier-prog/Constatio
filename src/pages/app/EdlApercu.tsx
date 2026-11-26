@@ -5,6 +5,7 @@ import { Signatures } from '../../components/Signatures';
 import { Alerte, Bouton, Carte, classesBouton } from '../../components/ui';
 import { adresseDocument, construireApercu, genererDocument, rouvrir, type Apercu } from '../../lib/document';
 import { chargerEdl, controlerEdl, type EdlLigne } from '../../lib/edl';
+import { local } from '../../lib/local';
 
 const poids = (octets: number) => (octets > 900_000 ? `${(octets / 1_000_000).toFixed(1).replace('.', ',')} Mo` : `${Math.max(1, Math.round(octets / 1000))} ko`);
 
@@ -35,6 +36,11 @@ export function EdlApercu() {
     setEtat('pret');
   }, [id]);
   useEffect(() => { void charger(); }, [charger]);
+  // Retour du paiement de la signature électronique : le message de Stripe arrive en quelques secondes.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('signature')) return;
+    setMessage({ ton: 'succes', texte: 'Paiement reçu. La signature électronique s’active ci-dessous sous quelques instants.' });
+  }, []);
 
   async function generer() {
     setConfirmer(false);
@@ -152,7 +158,7 @@ export function EdlApercu() {
             <p className="text-sm text-discret">Une erreur ? Tant que personne n’a signé, rouvrez l’état des lieux : le document actuel est retiré, et le nouveau ne coûte rien.</p>
             <Bouton variante="contour" onClick={corriger} data-testid="rouvrir">Rouvrir pour corriger</Bouton>
           </Carte>
-          {edl.pdf_path && <Signatures edlId={id} documentAdresse={definitif} onSigne={() => { setMessage({ ton: 'succes', texte: 'Toutes les parties ont signé : l’exemplaire signé est prêt.' }); void charger(); }} />}
+          {edl.pdf_path && <Signatures edlId={id} documentAdresse={definitif} onSigne={() => { setMessage({ ton: 'succes', texte: 'Toutes les parties ont signé : l’exemplaire signé est prêt.' }); void local.tirerEdl(id, true).then(charger); }} />}
         </>
       )}
     </>

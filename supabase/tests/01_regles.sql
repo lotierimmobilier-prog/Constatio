@@ -491,9 +491,34 @@ begin
   perform t.role('service_role');
   perform t.egal('clé effacée : paiement fermé', coalesce(public.cles_stripe() ->> 'cle', 'aucune'), 'aucune');
 
+  -- Signature électronique (DocuSeal) : payée, envoyée, close par le serveur -----------
+  perform t.role('service_role');
+  perform t.egal('5 € par état des lieux', (select montant_cents::text from public.tarifs where code = 'signature_electronique'), '500');
+  perform t.refuse('envoi sans paiement', format('select public.edl_signature_demandee(%L, ''ds-1'', ''[]'', %L)', e2, a));
+  perform t.egal('paiement de la signature d''un autre compte : en erreur', public.stripe_recevoir(jsonb_build_object('id', 'evt_sig_x', 'type', 'checkout.session.completed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_sx', 'mode', 'payment', 'payment_status', 'paid', 'payment_intent', 'pi_sx',
+      'metadata', jsonb_build_object('organisation_id', org_b, 'tarif_code', 'signature_electronique', 'edl_id', e2))))), 'erreur');
+  perform t.egal('paiement de la signature', public.stripe_recevoir(jsonb_build_object('id', 'evt_sig', 'type', 'checkout.session.completed', 'livemode', false,
+    'data', jsonb_build_object('object', jsonb_build_object('id', 'cs_s', 'mode', 'payment', 'payment_status', 'paid', 'payment_intent', 'pi_s',
+      'metadata', jsonb_build_object('organisation_id', org_a, 'tarif_code', 'signature_electronique', 'edl_id', e2))))), 'traite');
+  perform t.egal('aucun crédit versé pour ce paiement', (select count(*)::text from public.credit_lots where reference = 'stripe:pi_s'), '0');
+  perform t.egal('signature réglée', (select statut from public.edl_signature_electronique where edl_id = e2), 'payee');
+  perform t.refuse('clôture sans demande en cours', format('select public.edl_clore_electronique(%L, %L, %L)', e2, org_a || '/' || e2 || '/pdf/ds.pdf', repeat('e', 64)));
+  perform t.connecter(a);
+  perform t.lignes('A voit le suivi de sa signature', format('select 1 from public.edl_signature_electronique where edl_id = %L', e2), 1);
+  perform t.refuse('A marque lui-même la signature envoyée', format('select public.edl_signature_demandee(%L, ''ds-1'', ''[]'', %L)', e2, a));
+  perform t.refuse('A écrit dans le suivi', format('update public.edl_signature_electronique set statut = ''signee'' where edl_id = %L', e2));
+  perform t.connecter(b);
+  perform t.lignes('B ne voit pas le suivi de A', 'select 1 from public.edl_signature_electronique', 0);
+  perform t.connecter(b);
+  perform t.refuse('adresse DocuSeal mal formée', $q$select public.admin_definir_cle('docuseal_url', 'pas une adresse')$q$);
+  perform public.admin_definir_cle('docuseal_cle', 'abcdefghijklmnopqrstuvwxyz012345');
+  perform t.role('service_role');
+  perform t.egal('clé DocuSeal pour le serveur, adresse européenne par défaut', public.cles_docuseal() ->> 'cle' || ' ' || (public.cles_docuseal() ->> 'url'), 'abcdefghijklmnopqrstuvwxyz012345 https://api.docuseal.eu');
+
   -- Visiteur non connecté -------------------------------------------------------------
   perform t.role('anon');
-  perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 8);
+  perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 9);
   perform t.refuse('visiteur lit les EDL', 'select 1 from public.edl');
   perform t.refuse('visiteur lit les identifiants Stripe des tarifs', 'select stripe_price_id from public.tarifs');
 

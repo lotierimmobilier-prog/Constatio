@@ -1,6 +1,7 @@
 // Ouvre une page de paiement Stripe, ou l'espace de facturation, pour le compte connecté.
 //   POST { action: 'commander', tarif }   → { url } : page de paiement
 //   POST { action: 'portail' }            → { url } : gestion de l'abonnement et factures
+//   POST { action: 'commander_signature', edl_id } → { url } : les 5 € de la signature électronique d'un état des lieux
 // Le prix est lu dans la table des tarifs : le navigateur ne donne qu'un code.
 // Rien n'est crédité ici : les crédits arrivent par le message de Stripe (webhook-stripe).
 //
@@ -73,6 +74,20 @@ Deno.serve(async (requete) => {
         if (enCours?.length) throw new Refus(409, 'deja_abonne');
       }
       const s = await stripe(cle!, '/v1/checkout/sessions', corpsCommande({ tarif, organisationId: org, email: qui.user.email ?? null, client: connu, origine: ORIGINE }));
+      if (!s.url) throw new Error('Stripe : page de paiement sans adresse');
+      return json(200, { statut: 'ok', url: s.url, essai: modeTest });
+    }
+    if (corps.action === 'commander_signature') {
+      // Les 5 € de la signature électronique d'un état des lieux : il doit être à ce compte, généré, et pas encore signé.
+      if (typeof corps.edl_id !== 'string' || !/^[0-9a-f-]{36}$/i.test(corps.edl_id)) throw new Refus(400, 'demande');
+      const edl = lu(await client.from('edl').select('id, organisation_id, statut, pdf_path').eq('id', corps.edl_id).maybeSingle());
+      if (!edl || edl.organisation_id !== org) throw new Refus(404, 'introuvable');
+      if (edl.statut !== 'termine' || !edl.pdf_path) throw new Refus(409, 'document');
+      if (lu(await service.from('edl_signature_electronique').select('edl_id').eq('edl_id', edl.id).maybeSingle())) throw new Refus(409, 'deja_paye');
+      if ((lu(await service.from('edl_signatures').select('id').eq('edl_id', edl.id).limit(1)) ?? []).length) throw new Refus(409, 'deja_signe');
+      const tarif = lu(await service.from('tarifs').select('code, libelle, montant_cents, periodicite, credits, actif').eq('code', 'signature_electronique').maybeSingle()) as (Tarif & { actif: boolean }) | null;
+      if (!tarif?.actif || tarif.montant_cents <= 0) throw new Refus(400, 'tarif');
+      const s = await stripe(cle!, '/v1/checkout/sessions', corpsCommande({ tarif, organisationId: org, email: qui.user.email ?? null, client: connu, origine: ORIGINE, edlId: edl.id }));
       if (!s.url) throw new Error('Stripe : page de paiement sans adresse');
       return json(200, { statut: 'ok', url: s.url, essai: modeTest });
     }

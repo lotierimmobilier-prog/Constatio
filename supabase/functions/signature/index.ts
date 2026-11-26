@@ -3,6 +3,8 @@
 //     { action: 'signer',   edl_id, partie_id, image }  signature sur place, sur cet appareil
 //     { action: 'lien',     edl_id, partie_id }         lien personnel de signature à distance
 //     { action: 'cloturer', edl_id }                    reprise si le dépôt de l'exemplaire signé a échoué
+//     { action: 'electronique_envoyer', edl_id }        signature électronique DocuSeal : envoi aux parties (après paiement)
+//     { action: 'electronique_relever', edl_id }        où en est la demande ; rapatrie le document signé
 //   Sans session, avec le jeton du lien (seule son empreinte est en base) :
 //     { action: 'consulter',   jeton }                  ce que la personne va signer
 //     { action: 'signer_lien', jeton, image }           sa signature
@@ -17,6 +19,7 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { empreintePdf, type CaseSignature } from '../_partage/pdf.ts';
 import { signerPdf, type SignaturePosee } from '../_partage/pdf-signe.ts';
+import { creerDemande, etatDemande, statutDepuisPrestataire, telechargerSigne, type Signataire } from '../_partage/docuseal.ts';
 
 const ORIGINE = Deno.env.get('SITE_URL') ?? 'https://constatio.fr';
 const ENTETES = {
@@ -155,9 +158,67 @@ Deno.serve(async (requete) => {
     const edl = lu(await client.from('edl').select('id, organisation_id, statut').eq('id', corps.edl_id).maybeSingle());
     if (!edl) throw new Refus(404, 'introuvable');
     if (corps.action === 'cloturer') return json(200, { statut: 'ok', edl: await cloturer(service, edl.id) });
+
+    // ── Signature électronique par DocuSeal (5 € par état des lieux, réglés avant) ─────
+    if (corps.action === 'electronique_envoyer' || corps.action === 'electronique_relever') {
+      const suivi = lu(await service.from('edl_signature_electronique').select('statut, demande_id').eq('edl_id', edl.id).maybeSingle());
+      if (!suivi) throw new Refus(402, 'non_payee');
+      if (edl.statut === 'signe' || suivi.statut === 'signee') return json(200, { statut: 'ok', edl: 'signe' });
+      const cles = lu(await service.rpc('cles_docuseal')) as { mode_test: boolean; cle: string | null; url: string };
+      const complet = lu(await service.from('edl').select('id, organisation_id, type, date_edl, pdf_path, pdf_sha256, logement_id').eq('id', edl.id).single());
+
+      if (corps.action === 'electronique_envoyer') {
+        if (suivi.demande_id) throw new Refus(409, 'deja_envoyee');
+        const parties = (lu(await service.from('edl_parties').select('id, role, civilite, prenom, nom, email, doit_signer, ordre').eq('edl_id', edl.id).order('ordre')) ?? []).filter((p) => p.doit_signer);
+        // Chaque signataire reçoit son lien par e-mail : il lui faut une adresse, et elles doivent être distinctes.
+        const adresses = parties.map((p) => String(p.email ?? '').trim().toLowerCase());
+        if (!parties.length || adresses.some((a) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) || new Set(adresses).size !== adresses.length) throw new Refus(422, 'emails');
+        const signataires: Signataire[] = parties.map((p, i) => ({ partie_id: p.id, role: `${ROLES[p.role] ?? p.role} ${i + 1}`, nom: nom(p), email: adresses[i] }));
+        if (cles.mode_test) {
+          // Coupe-circuit : en mode test, rien ne part chez le prestataire ni dans les boîtes des parties.
+          lu(await service.rpc('edl_signature_demandee', { p_edl: edl.id, p_demande: `test-${Date.now()}`, p_liens: [], p_acteur: qui.user.id }));
+          return json(200, { statut: 'ok', edl: 'en_signature', retenue: true });
+        }
+        if (!cles.cle) throw new Refus(503, 'ferme');
+        const fichier = await service.storage.from('edl').download(complet.pdf_path);
+        if (!fichier.data) throw new Error(`document illisible : ${fichier.error?.message}`);
+        const pdf = new Uint8Array(await fichier.data.arrayBuffer());
+        if ((await empreintePdf(pdf)) !== complet.pdf_sha256) throw new Error('le document déposé ne correspond plus à son empreinte');
+        const journal = lu(await service.from('edl_journal').select('details').eq('edl_id', edl.id).eq('evenement', 'pdf_genere').order('id', { ascending: false }).limit(5)) ?? [];
+        const cases = (journal.find((j) => j.details?.pdf_sha256 === complet.pdf_sha256)?.details?.cases ?? []) as CaseSignature[];
+        const logement = lu(await service.from('logements').select('adresse, code_postal, ville').eq('id', complet.logement_id).single());
+        const quoi = `${complet.type === 'sortant' ? 'État des lieux de sortie' : complet.type === 'entrant' ? 'État des lieux d’entrée' : 'Relevé d’état'} — ${logement.adresse}, ${logement.code_postal} ${logement.ville}`;
+        const demande = await creerDemande({ cle: cles.cle, url: cles.url }, { nom: quoi, pdf, signataires, cases, message: {
+          subject: `${quoi} : votre signature`,
+          body: `Bonjour,\n\nVous êtes invité(e) à lire et signer le document suivant : ${quoi}.\n\nLisez-le en entier avant de signer. Si un point ne correspond pas à ce que vous avez constaté, ne signez pas et demandez sa correction.\n\n{{submitter.link}}\n\nCe message vous est envoyé par Constatio pour le compte de la personne qui a réalisé l’état des lieux.` } });
+        lu(await service.rpc('edl_signature_demandee', { p_edl: edl.id, p_demande: demande.id, p_liens: demande.liens, p_acteur: qui.user.id }));
+        return json(200, { statut: 'ok', edl: 'en_signature', liens: demande.liens });
+      }
+
+      // Relève : où en est la demande chez le prestataire ?
+      if (!suivi.demande_id) return json(200, { statut: 'ok', edl: 'payee' });
+      if (suivi.demande_id.startsWith('test-')) return json(200, { statut: 'ok', edl: 'en_signature', retenue: true });
+      if (!cles.cle) throw new Refus(503, 'ferme');
+      const cfg = { cle: cles.cle, url: cles.url };
+      const etat = await etatDemande(cfg, suivi.demande_id);
+      const ou = statutDepuisPrestataire(etat.statut);
+      if (ou === 'annulee') { lu(await service.rpc('edl_signature_annulee', { p_edl: edl.id })); return json(200, { statut: 'ok', edl: 'payee', annulee: true }); }
+      if (ou === 'en_signature') return json(200, { statut: 'ok', edl: 'en_signature', signataires: etat.signataires });
+      const signe = await telechargerSigne(cfg, suivi.demande_id);
+      const sha = await empreintePdf(signe);
+      const chemin = `${complet.organisation_id}/${edl.id}/pdf/signe-docuseal-${sha.slice(0, 16)}.pdf`;
+      const depot = await service.storage.from('edl').upload(chemin, signe, { contentType: 'application/pdf', upsert: true });
+      if (depot.error) throw new Error(`dépôt : ${depot.error.message}`);
+      lu(await service.rpc('edl_clore_electronique', { p_edl: edl.id, p_chemin: chemin, p_sha256: sha }));
+      return json(200, { statut: 'ok', edl: 'signe' });
+    }
     if (edl.statut !== 'termine') throw new Refus(409, edl.statut === 'signe' ? 'signe' : 'document');
     if (typeof corps.partie_id !== 'string' || !UUID.test(corps.partie_id)) throw new Refus(400, 'demande');
 
+    if (corps.action === 'signer' || corps.action === 'lien') {
+      const enCours = lu(await service.from('edl_signature_electronique').select('demande_id').eq('edl_id', edl.id).maybeSingle());
+      if (enCours?.demande_id) throw new Refus(409, 'electronique_en_cours');
+    }
     if (corps.action === 'signer') {
       if (corps.lu !== true) throw new Refus(400, 'lecture');
       return json(200, await poser(service, requete, { edl: edl.id, organisation: edl.organisation_id, partie: corps.partie_id, mode: 'sur_place', trace: image(corps.image), acteur: qui.user.id, jetonHash: null }));

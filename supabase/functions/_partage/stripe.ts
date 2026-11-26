@@ -49,15 +49,15 @@ export interface Tarif { code: string; libelle: string; montant_cents: number; p
 /** Ce qui se vend en ligne. L'offre groupée se vend chez Signabail ; la prestation sur place, sur rendez-vous. */
 export const TARIFS_EN_LIGNE = ['edl_unite', 'pack_entree_sortie', 'pack_5', 'pack_10', 'premium_investisseur', 'premium_pro'];
 
-export interface Commande { tarif: Tarif; organisationId: string; email: string | null; client: string | null; origine: string }
+export interface Commande { tarif: Tarif; organisationId: string; email: string | null; client: string | null; origine: string; /** Achat rattaché à un état des lieux (signature électronique) : on y revient après le paiement. */ edlId?: string }
 /** Le formulaire de création d'une page de paiement Stripe. Le prix vient de la table des tarifs, jamais du navigateur. */
 export function corpsCommande(c: Commande): URLSearchParams {
   const abonnement = c.tarif.periodicite === 'mensuel';
   const f = new URLSearchParams({
     mode: abonnement ? 'subscription' : 'payment',
     locale: 'fr',
-    success_url: `${c.origine}/app/credits?paiement=ok`,
-    cancel_url: `${c.origine}/app/credits?paiement=annule`,
+    success_url: c.edlId ? `${c.origine}/app/edl/${c.edlId}/apercu?signature=payee` : `${c.origine}/app/credits?paiement=ok`,
+    cancel_url: c.edlId ? `${c.origine}/app/edl/${c.edlId}/apercu` : `${c.origine}/app/credits?paiement=annule`,
     client_reference_id: c.organisationId,
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': 'eur',
@@ -76,6 +76,7 @@ export function corpsCommande(c: Commande): URLSearchParams {
     f.set('payment_intent_data[metadata][tarif_code]', c.tarif.code);
     if (!c.client) f.set('customer_creation', 'always');
   }
+  if (c.edlId) { f.set('metadata[edl_id]', c.edlId); f.set('payment_intent_data[metadata][edl_id]', c.edlId); }
   if (c.client) f.set('customer', c.client);
   else if (c.email) f.set('customer_email', c.email);
   return f;

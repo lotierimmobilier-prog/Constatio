@@ -20,6 +20,9 @@ export const MOTIFS: Record<string, string> = {
   session: 'Votre session a expiré : reconnectez-vous.',
   image: 'La signature n’a pas pu être lue : recommencez le tracé.',
   lecture: 'Confirmez d’abord avoir lu le document.',
+  electronique_en_cours: 'Une signature électronique est en cours pour ce document : on ne peut plus signer à la main.',
+  non_payee: 'La signature électronique de cet état des lieux n’est pas réglée.',
+  deja_envoyee: 'La demande a déjà été envoyée aux signataires.',
 };
 export const messageSignature = (r: ReponseSignature) =>
   r.statut === 'reseau' ? 'Pas de réseau : la signature a besoin d’une connexion. Rien n’est perdu, réessayez dans un instant.' : MOTIFS[r.motif ?? ''] ?? 'La signature n’a pas pu être enregistrée. Réessayez dans un instant.';

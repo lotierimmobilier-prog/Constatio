@@ -99,8 +99,10 @@ export function Cgv() {
       <p>Le consommateur dispose d’un délai de quatorze jours à compter de l’achat pour se rétracter, sans motif, d’un achat de crédits ou d’un abonnement. Il lui suffit d’écrire à {ecrire}, ou d’envoyer le formulaire ci-dessous à {e.nom}, {e.adresse}. Les crédits non utilisés sont alors remboursés par le moyen de paiement utilisé, dans les quatorze jours.</p>
       <p>La génération d’un document définitif est la fourniture immédiate d’un contenu numérique : avant de la lancer, l’utilisateur la demande expressément et reconnaît qu’il perd son droit de rétractation pour le crédit ainsi utilisé (article L.221-28 du Code de la consommation).</p>
       <p className="rounded-xl border border-trait bg-surface p-3 text-sm"><strong>Formulaire de rétractation</strong><br />À l’attention de {e.nom}, {e.adresse} — {e.email}.<br />Je vous notifie par la présente ma rétractation du contrat portant sur l’achat ci-dessous : offre commandée le … ; nom et adresse e-mail du compte : … ; date : … ; signature (si le formulaire est envoyé sur papier) : …</p>
-      <h2>8. Signature électronique</h2>
-      <p>Les parties signent sur l’appareil de la personne qui réalise l’état des lieux, ou à distance par un lien personnel à usage unique. Il s’agit d’une signature électronique simple au sens du règlement (UE) n° 910/2014 (eIDAS). Celui qui transmet un lien de signature s’assure qu’il le remet à la bonne personne. Un dossier de preuve (date, mode de signature, adresse IP, appareil, empreinte numérique du document) est joint à l’exemplaire signé.</p>
+      <h2>8. Signature</h2>
+      <p>Deux modes de signature sont proposés une fois le document généré ; l’un exclut l’autre pour un même état des lieux.</p>
+      <p><strong>Signature à la main sur l’écran</strong>, comprise dans le crédit : les parties signent sur l’appareil de la personne qui réalise l’état des lieux, ou à distance par un lien personnel à usage unique. Il s’agit d’une signature électronique simple au sens du règlement (UE) n° 910/2014 (eIDAS). Celui qui transmet un lien de signature s’assure qu’il le remet à la bonne personne. Un dossier de preuve (date, mode de signature, adresse IP, appareil, empreinte numérique du document) est joint à l’exemplaire signé.</p>
+      <p><strong>Signature électronique par DocuSeal</strong>, en option payante par état des lieux, au prix affiché avant le paiement : chaque partie reçoit un e-mail de DocuSeal et signe depuis son propre appareil. Le document signé, accompagné du certificat du prestataire, est conservé dans l’espace client. L’option réglée reste acquise si la demande doit être renvoyée ; elle n’est plus remboursable une fois la demande envoyée aux signataires.</p>
       <h2>9. Remise des exemplaires</h2>
       <p>L’état des lieux est remis à chaque partie au moment de sa signature. L’exemplaire signé est mis à la disposition de l’utilisateur dans son espace ; il lui appartient d’en remettre un à chaque partie, sur papier ou par voie électronique. La partie qui a signé à distance retrouve en outre son exemplaire par son lien personnel pendant trente jours.</p>
       <h2>10. Présentation des documents</h2>
@@ -153,7 +155,8 @@ export function Confidentialite() {
       <ul>
         <li><strong>Supabase</strong> : base de données, comptes et fichiers (photos, documents), dans l’Union européenne ;</li>
         <li><strong>Hostinger</strong> : hébergement du site ;</li>
-        <li><strong>Stripe</strong> : paiement en ligne, reçus et factures.</li>
+        <li><strong>Stripe</strong> : paiement en ligne, reçus et factures ;</li>
+        <li><strong>DocuSeal</strong> : signature électronique, uniquement si vous choisissez cette option — nom, adresse e-mail des signataires et document à signer lui sont alors transmis.</li>
       </ul>
       <p>Nous ne vendons ni ne louons vos données à des tiers.</p>
 
