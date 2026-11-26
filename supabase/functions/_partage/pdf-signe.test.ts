@@ -17,7 +17,7 @@ const texte = (octets: Uint8Array) => {
 const dossier = (empreinte: string, essai = false): DossierPreuve => ({
   empreinte, genere_le: '2026-11-15T10:40:00Z', essai,
   signatures: [
-    { partie_id: 'b', qualite: 'Bailleur', nom: 'Mme Claire Vidal', mode: 'sur_place', signe_le: '2026-11-15T10:45:12Z', ip: '203.0.113.7', appareil: 'Mozilla/5.0 (Linux; Android 14)', image: TRACE },
+    { partie_id: 'm', qualite: 'Bailleur', nom: 'Mme Claire Vidal', mode: 'sur_place', signe_le: '2026-11-15T10:45:12Z', ip: '203.0.113.7', appareil: 'Mozilla/5.0 (Linux; Android 14)', image: TRACE },
     { partie_id: 'l', qualite: 'Locataire', nom: 'M. Hugo Marty', mode: 'a_distance', signe_le: '2026-11-16T08:02:00Z', ip: null, appareil: null, image: null },
   ],
 });
@@ -25,7 +25,7 @@ const dossier = (empreinte: string, essai = false): DossierPreuve => ({
 describe('exemplaire signé', () => {
   it('reprend le document, pose les signatures dans leurs cases et ajoute le dossier de preuve', async () => {
     const { octets, cases } = await construireDocument(exemple());
-    expect(cases.map((c) => c.partie_id)).toEqual(['b', 'l']); // le mandataire absent n'a pas de case
+    expect(cases.map((c) => c.partie_id)).toEqual(['l', 'm']); // la bailleresse, représentée, n'a pas de case : son mandataire signe
     const empreinte = await empreintePdf(octets);
     const signe = await signerPdf(octets, cases, dossier(empreinte));
     expect((await PDFDocument.load(signe)).getPageCount()).toBe((await PDFDocument.load(octets)).getPageCount() + 1);

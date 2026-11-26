@@ -236,7 +236,9 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     centre(libelle, yc, 9, f.gras, DISCRET);
     yc = centre(valeur, yc - 22, 12.5, f.normal) - 24;
   };
-  const noms = (role: string) => d.parties.filter((p) => p.role === role).map(personne).join(', ');
+  /** Le mandataire d'une partie représentée. */
+  const mandataireDe = (p: DonneesPdf['parties'][number]) => d.parties.find((x) => x.represente_id === p.id);
+  const noms = (role: string) => d.parties.filter((p) => p.role === role).map((p) => { const m = mandataireDe(p); return m ? `${personne(p)}, représenté(e) par ${personne(m)}` : personne(p); }).join(' ; ');
   bloc('DATE', new Date(d.edl.date_edl).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }));
   bloc(d.parties.filter((p) => p.role === 'locataire').length > 1 ? 'LOCATAIRES' : 'LOCATAIRE', noms('locataire'));
   bloc('ADRESSE DU BIEN', [d.logement.adresse, d.logement.complement, `${d.logement.code_postal} ${d.logement.ville}`].filter(Boolean).join(', '));
@@ -263,7 +265,7 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     d.parties.map((p) => {
       const represente = d.parties.find((x) => x.id === p.represente_id);
       return [ROLES[p.role] ?? p.role,
-        `${personne(p)}${represente ? ` (représente ${personne(represente)})` : ''}${p.doit_signer ? '' : " — absent(e) le jour de l'état des lieux"}`,
+        `${personne(p)}${represente ? ` (représente ${personne(represente)})` : ''}${mandataireDe(p) ? ` — représenté(e) par ${personne(mandataireDe(p)!)}` : p.doit_signer ? '' : " — absent(e) le jour de l'état des lieux"}`,
         [p.adresse, p.email, p.telephone, sortie && p.role === 'locataire' ? `Nouvelle adresse : ${p.nouvelle_adresse ?? 'non renseignée'}` : null].filter(Boolean).join(' · ')];
     }));
 
@@ -327,7 +329,7 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     f.espace(3);
     f.texte("Le locataire peut demander au bailleur ou à son représentant de compléter le présent état des lieux dans un délai de dix jours à compter de son établissement et, pour l'état des éléments de chauffage, pendant le premier mois de la période de chauffe (loi du 6 juillet 1989, article 3-2).", { taille: 8.8 });
   }
-  const signataires = d.parties.filter((p) => p.doit_signer);
+  const signataires = d.parties.filter((p) => p.doit_signer && !d.parties.some((x) => x.represente_id === p.id));
   // Le titre, la phrase et la première rangée de cases restent sur la même page.
   f.place(176);
   f.titre('Signatures');
@@ -339,7 +341,10 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     signataires.slice(i, i + 2).forEach((p, j) => {
       const x = MARGE + j * (largeurCase + 12);
       f.page.drawRectangle({ x, y: f.y - 84, width: largeurCase, height: 84, borderColor: TRAIT, borderWidth: 1 });
-      f.page.drawText(net(ROLES[p.role] ?? p.role), { x: x + 6, y: f.y - 14, size: 8, font: f.normal, color: DISCRET });
+      // Un mandataire signe pour la partie qu'il représente : la case le dit (« Bailleur Mme X, représenté par »).
+      const mandant = d.parties.find((x) => x.id === p.represente_id);
+      const qualite = mandant ? `${ROLES[mandant.role] ?? mandant.role} ${personne(mandant)}, représenté(e) par` : ROLES[p.role] ?? p.role;
+      f.page.drawText(couper(qualite, f.normal, 8, largeurCase - 12)[0], { x: x + 6, y: f.y - 14, size: 8, font: f.normal, color: DISCRET });
       f.page.drawText(net(personne(p)).slice(0, 48), { x: x + 6, y: f.y - 27, size: 9.5, font: f.gras, color: ENCRE });
       cases.push({ partie_id: p.id, page: pdf.getPageCount() - 1, x: x + 6, y: f.y - 80, largeur: largeurCase - 12, hauteur: 48 });
     });

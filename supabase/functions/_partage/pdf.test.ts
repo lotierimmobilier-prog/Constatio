@@ -18,9 +18,9 @@ export const exemple = (type: DonneesPdf['edl']['type'] = 'entrant'): DonneesPdf
   edl: { id: 'e1', type, date_edl: '2026-11-15T10:00:00Z', bail_type: 'meuble', bail_date_entree: '2026-11-15', depot_garantie_cents: 104000, realise_par_nom: 'Claire Vidal', remarques_generales: 'Logement repeint avant l’entrée.', date_edl_entree: type === 'sortant' ? '2022-11-02' : null },
   logement: { adresse: '12 rue des Balances', complement: '2e étage', code_postal: '34500', ville: 'Béziers', type_bien: 'appartement', surface_m2: 28.4, meuble: true },
   parties: [
-    { id: 'b', role: 'bailleur', represente_id: null, civilite: 'Mme', prenom: 'Claire', nom: 'Vidal', email: 'claire@exemple.fr', telephone: null, adresse: '1 rue A, 34500 Béziers', nouvelle_adresse: null, doit_signer: true },
+    { id: 'b', role: 'bailleur', represente_id: null, civilite: 'Mme', prenom: 'Claire', nom: 'Vidal', email: 'claire@exemple.fr', telephone: null, adresse: '1 rue A, 34500 Béziers', nouvelle_adresse: null, doit_signer: false },
     { id: 'l', role: 'locataire', represente_id: null, civilite: 'M.', prenom: 'Hugo', nom: 'Marty', email: null, telephone: '0600000000', adresse: null, nouvelle_adresse: type === 'sortant' ? '3 impasse des Lilas, 11800 Trèbes' : null, doit_signer: true },
-    { id: 'm', role: 'mandataire_bailleur', represente_id: 'b', civilite: null, prenom: '', nom: 'LOTIER', email: null, telephone: null, adresse: '40 rue Française, 34500 Béziers', nouvelle_adresse: null, doit_signer: false },
+    { id: 'm', role: 'mandataire_bailleur', represente_id: 'b', civilite: null, prenom: '', nom: 'LOTIER', email: null, telephone: null, adresse: '40 rue Française, 34500 Béziers', nouvelle_adresse: null, doit_signer: true },
   ],
   pieces: [{ id: 'p1', nom: 'Séjour', observations: 'Pièce lumineuse.' }, { id: 'p2', nom: 'Cuisine', observations: null }],
   elements: [
@@ -57,7 +57,7 @@ describe('PDF de l’état des lieux', () => {
       'ÉTAT DES LIEUX D\'ENTRÉE', 'Établi le 15/11/2026 par Claire Vidal',          // type et date
       '12 rue des Balances, 2e étage, 34500 Béziers', '28,4 m² habitables',          // logement
       'Bailleur', 'Mme Claire Vidal', 'Locataire', 'M. Hugo Marty',                  // parties
-      'Mandataire du bailleur', 'LOTIER (représente Mme Claire Vidal)',              // mandataires
+      'Mandataire du bailleur', 'LOTIER (représente Mme Claire Vidal)', 'représenté(e) par LOTIER', // mandataires
       'HP 18432 · HC 9877 kWh', '214,5 m³', 'Pas de compteur individuel', 'Non relevé', // compteurs
       'Porte d\'entrée du logement', 'Total remis : 4',                              // clés
       'Séjour', 'parquet stratifié', 'Bon état', 'Rayure de 10 cm', 'Hors service', 'Ne fonctionne pas.', // pièce par pièce
@@ -88,10 +88,20 @@ describe('PDF de l’état des lieux', () => {
   it('marque blanche : pas de mention Constatio', async () => {
     expect(texte(await construirePdf({ ...exemple(), mention: null }))).not.toContain('Constatio');
   });
-  it('une partie absente ne signe pas, et son absence est écrite', async () => {
+  it('une partie représentée ne signe pas : son mandataire signe pour elle, et le document le dit', async () => {
     const t = texte(await construirePdf(exemple()));
-    expect(t).toContain('absent(e) le jour de l\'état des lieux');
-    expect(t.slice(t.indexOf('SIGNATURES'))).not.toContain('LOTIER');
+    expect(t).toContain('Mme Claire Vidal, représenté(e) par LOTIER'); // page de garde
+    const signatures = t.slice(t.indexOf('SIGNATURES'));
+    expect(signatures).toContain('Bailleur Mme Claire Vidal, représenté(e) par');
+    expect(signatures).toContain('LOTIER');
+    expect(signatures).toContain('M. Hugo Marty');
+  });
+  it('une partie absente et non représentée ne signe pas, et son absence est écrite', async () => {
+    const d = exemple();
+    d.parties = d.parties.filter((p) => p.id !== 'm').map((p) => (p.id === 'l' ? { ...p, doit_signer: false } : { ...p, doit_signer: true }));
+    const t = texte(await construirePdf(d));
+    expect(t).toContain('absent(e) le jour');
+    expect(t.slice(t.indexOf('SIGNATURES'))).not.toContain('Hugo Marty');
   });
   it('tient un grand logement : plusieurs pages, tableau jamais coupé au milieu d’une ligne', async () => {
     const d = exemple();

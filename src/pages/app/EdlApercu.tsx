@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
+import { Reserves } from '../../components/Reserves';
 import { Signatures } from '../../components/Signatures';
 import { Alerte, Bouton, Carte, classesBouton } from '../../components/ui';
 import { adresseDocument, construireApercu, genererDocument, rouvrir, type Apercu } from '../../lib/document';
-import { chargerEdl, controlerEdl, type EdlLigne } from '../../lib/edl';
+import { chargerEdl, controlerEdl, type EdlLigne, type Logement } from '../../lib/edl';
 import { local } from '../../lib/local';
 
 const poids = (octets: number) => (octets > 900_000 ? `${(octets / 1_000_000).toFixed(1).replace('.', ',')} Mo` : `${Math.max(1, Math.round(octets / 1000))} ko`);
@@ -13,6 +14,7 @@ const poids = (octets: number) => (octets > 900_000 ? `${(octets / 1_000_000).to
 export function EdlApercu() {
   const { id } = useVerrou();
   const [edl, setEdl] = useState<EdlLigne | null>(null);
+  const [logement, setLogement] = useState<Logement | null>(null);
   const [bloquants, setBloquants] = useState(0);
   const [apercu, setApercu] = useState<(Apercu & { adresse: string }) | null>(null);
   const [definitif, setDefinitif] = useState<string | null>(null);
@@ -26,6 +28,7 @@ export function EdlApercu() {
     const fiche = await chargerEdl(id);
     if (!fiche) return setEtat('introuvable');
     setEdl(fiche.edl);
+    setLogement(fiche.logement);
     setBloquants((await controlerEdl(id))?.alertes.filter((a) => a.niveau === 'bloquant').length ?? 0);
     setDefinitif(fiche.edl.pdf_path ? await adresseDocument(fiche.edl.pdf_path) : null);
     setExemplaireSigne(fiche.edl.pdf_signe_path ? await adresseDocument(fiche.edl.pdf_signe_path) : null);
@@ -138,6 +141,8 @@ export function EdlApercu() {
           ) : <p className="text-sm">Le document est conservé sur le serveur : il s’ouvre dès que le réseau revient.</p>}
         </Carte>
       )}
+
+      {edl.statut === 'signe' && edl.type === 'entrant' && logement && <Reserves edl={edl} logement={logement} signeLe={(edl as EdlLigne & { signe_le?: string | null }).signe_le ?? null} />}
 
       {edl.statut === 'termine' && (
         <>

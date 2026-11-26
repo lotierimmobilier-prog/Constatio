@@ -179,7 +179,7 @@ const pages = [{ loc: '/', maj: aujourdhui }, { loc: '/guides/', maj: publies.at
 writeFileSync(`${DIST}sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${SITE}${p.loc}</loc><lastmod>${p.maj}</lastmod></url>`).join('\n')}\n</urlset>\n`);
 // Les robots des assistants IA sont nommés un par un : beaucoup d'éditeurs les bloquent par défaut, ici ils sont les bienvenus.
 const ROBOTS_IA = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User', 'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'MistralAI-User', 'CCBot', 'Bingbot', 'Googlebot'];
-const PRIVE = ['/app', '/admin', '/passage', '/signer', '/connexion', '/inscription', '/mot-de-passe-oublie', '/nouveau-mot-de-passe'].map((c) => `Disallow: ${c}`).join('\n');
+const PRIVE = ['/app', '/admin', '/passage', '/signer', '/reserves', '/rejoindre', '/connexion', '/inscription', '/mot-de-passe-oublie', '/nouveau-mot-de-passe'].map((c) => `Disallow: ${c}`).join('\n');
 writeFileSync(`${DIST}robots.txt`, `# Le site public est ouvert à tous les robots, y compris ceux des assistants IA.\n# L'application (comptes, états des lieux, liens de signature) n'a rien à indexer.\nUser-agent: *\nAllow: /\n${PRIVE}\n\n${ROBOTS_IA.map((r) => `User-agent: ${r}`).join('\n')}\nAllow: /\n${PRIVE}\n\nSitemap: ${SITE}/sitemap.xml\n# Résumé du site pour les assistants IA : ${SITE}/llms.txt\n`);
 writeFileSync(`${DIST}llms.txt`, `# Constatio
 

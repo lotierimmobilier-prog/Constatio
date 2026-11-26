@@ -48,7 +48,7 @@ export function Assistant() {
 
   // Uniquement sur le site public (accueil, pages légales, connexion) : jamais dans l'espace client,
   // l'administration, ni sur la page où une partie signe.
-  if (/^\/(app|signer|admin|passage)(\/|$)/.test(pathname)) return null;
+  if (/^\/(app|signer|reserves|rejoindre|admin|passage)(\/|$)/.test(pathname)) return null;
 
   function demander(question: string) {
     const q = question.trim();

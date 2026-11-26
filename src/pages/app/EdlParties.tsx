@@ -38,6 +38,8 @@ export function EdlParties() {
       id: crypto.randomUUID(), edl_id: id!, role, prenom: '', nom: '', represente_id: represente?.id ?? null, doit_signer: true,
       ordre: parties.length ? Math.max(...parties.map((p) => p.ordre)) + 1 : 0,
     }, ROLES[role]);
+    // Une partie représentée ne signe pas : c'est son mandataire qui signe pour elle.
+    if (represente) await local.modifier('edl_parties', represente.id, { doit_signer: false }, ROLES[represente.role]);
     await charger();
   }
 
@@ -82,16 +84,23 @@ function FichePartie({ partie: p, parties, sortie, verrouille, recharger }: { pa
   const mandataire = p.role === 'mandataire_bailleur' || p.role === 'mandataire_locataire';
   const representables = parties.filter((x) => x.role === (p.role === 'mandataire_bailleur' ? 'bailleur' : 'locataire'));
   const k = p.id;
+  /** Le mandataire de cette partie, si elle est représentée. */
+  const parParQui = parties.find((x) => x.represente_id === p.id);
 
   async function envoyer(e: FormEvent) {
     e.preventDefault();
     if (!nom.trim()) return setRetour({ ton: 'erreur', texte: 'Indiquez le nom, ou la dénomination de la société.' });
     if (email.trim() && !emailValide(email)) return setRetour({ ton: 'erreur', texte: 'Cette adresse e-mail n’est pas valide.' });
     setOccupe(true);
+    if (mandataire && represente !== p.represente_id) {
+      // Le mandataire change de mandant : l'ancien signe de nouveau lui-même, le nouveau ne signe plus.
+      if (p.represente_id && !parties.some((x) => x.id !== p.id && x.represente_id === p.represente_id)) await local.modifier('edl_parties', p.represente_id, { doit_signer: true }, 'Partie');
+      if (represente) await local.modifier('edl_parties', represente, { doit_signer: false }, 'Partie');
+    }
     await local.modifier('edl_parties', p.id, {
       prenom: prenom.trim(), nom: nom.trim(), email: email.trim() || null, telephone: telephone.trim() || null,
       adresse: adresse.trim() || null, nouvelle_adresse: nouvelleAdresse.trim() || null,
-      doit_signer: present, ...(mandataire ? { represente_id: represente } : {}),
+      doit_signer: parParQui ? false : present, ...(mandataire ? { represente_id: represente } : {}),
     }, ROLES[p.role]);
     setOccupe(false);
     setRetour({ ton: 'succes', texte: 'Enregistré.' });
@@ -118,14 +127,21 @@ function FichePartie({ partie: p, parties, sortie, verrouille, recharger }: { pa
           {p.role === 'locataire' && sortie && (
             <Champ id={`nouvelle-${k}`} libelle="Nouvelle adresse du locataire" value={nouvelleAdresse} onChange={(e) => setNouvelleAdresse(e.target.value)} aide="Mention obligatoire de l’état des lieux de sortie." />
           )}
+          {parParQui ? (
+            <p className="rounded-xl bg-creux px-3 py-2 text-sm" data-testid="represente">Représenté(e) par <span className="font-semibold">{nomComplet(parParQui) || ROLES[parParQui.role]}</span> : c’est son mandataire qui signe, pas {p.role === 'bailleur' ? 'le bailleur' : 'le locataire'}.</p>
+          ) : (
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" checked={present} onChange={(e) => setPresent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--marque))]" />
             <span>Présent le jour de l’état des lieux : sa signature sera demandée.</span>
           </label>
+          )}
           {retour && <Alerte ton={retour.ton}>{retour.texte}</Alerte>}
           {!verrouille && (
             <div className="grid grid-cols-2 gap-3">
-              <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => { await local.supprimer('edl_parties', p.id, ROLES[p.role]); await recharger(); }}>Retirer</Bouton>
+              <Bouton variante="contour" className="!border-hs !text-hs" onClick={async () => {
+                // Sans mandataire, la partie qu'il représentait signe de nouveau elle-même.
+                if (p.represente_id && !parties.some((x) => x.id !== p.id && x.represente_id === p.represente_id)) await local.modifier('edl_parties', p.represente_id, { doit_signer: true }, 'Partie');
+                await local.supprimer('edl_parties', p.id, ROLES[p.role]); await recharger(); }}>Retirer</Bouton>
               <Bouton type="submit" occupe={occupe}>Enregistrer</Bouton>
             </div>
           )}

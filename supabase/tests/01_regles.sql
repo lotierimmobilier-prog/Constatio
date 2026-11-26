@@ -180,6 +180,40 @@ begin
   perform t.egal('journal : deux signatures', (select count(*)::text from public.edl_journal where edl_id = e1 and evenement = 'signature'), '2');
   perform t.egal('statut après signatures', (select statut::text from public.edl where id = e1), 'signe');
 
+  -- Réserves du locataire (dix jours après l'état des lieux d'entrée signé) ---------------
+  perform t.connecter(b);
+  perform t.refuse('un autre compte crée un lien de réserves', format('select public.reserves_lien(%L, %L, %L)', e1, p_loc, encode(sha256('res-1'), 'hex')));
+  perform t.connecter(a);
+  perform t.refuse('lien de réserves pour le bailleur', format('select public.reserves_lien(%L, %L, %L)', e1, p_bail, encode(sha256('res-0'), 'hex')));
+  perform t.refuse('lien de réserves sur un brouillon', format('select public.reserves_lien(%L, %L, %L)', e2, p_loc, encode(sha256('res-0'), 'hex')));
+  perform public.reserves_lien(e1, p_loc, encode(sha256('res-1'), 'hex'));
+  perform t.role('anon');
+  perform t.egal('le locataire voit de quel logement il s''agit', (public.reserves_consulter('res-1') ->> 'ouvert'), 'true');
+  perform t.egal('lien inconnu : rien', coalesce(public.reserves_consulter('res-faux')::text, 'rien'), 'rien');
+  perform t.refuse('réserve vide', $q$select public.reserves_deposer('res-1', '  ')$q$);
+  perform t.refuse('réserve avec un faux lien', $q$select public.reserves_deposer('res-faux', 'Fissure au plafond du séjour')$q$);
+  perform public.reserves_deposer('res-1', 'Fissure au plafond du séjour, non notée.');
+  perform t.egal('la réserve attend la réponse du bailleur', (public.reserves_consulter('res-1') #>> '{reserves,0,statut}'), 'demande');
+  perform t.connecter(a);
+  perform set_config('t.reserve', (select id::text from public.edl_complements where edl_id = e1 limit 1), true);
+  perform t.role('anon');
+  perform t.refuse('le locataire répond à sa propre réserve', format('select public.reserves_repondre(%L, true, ''ok'')', current_setting('t.reserve')));
+  perform t.connecter(b);
+  perform t.lignes('un autre compte ne voit pas la réserve', 'select 1 from public.edl_complements', 0);
+  perform t.refuse('un autre compte y répond', format('select public.reserves_repondre(%L, true, ''ok'')', current_setting('t.reserve')));
+  perform t.connecter(a);
+  perform public.reserves_repondre(current_setting('t.reserve')::uuid, true, 'Constaté lors de ma visite du lendemain.');
+  perform t.role('anon');
+  perform t.egal('le locataire lit la décision', (public.reserves_consulter('res-1') #>> '{reserves,0,statut}') || ' ' || (public.reserves_consulter('res-1') #>> '{reserves,0,reponse}'), 'accepte Constaté lors de ma visite du lendemain.');
+  -- Onzième jour : plus de réserve possible.
+  perform t.role('postgres');
+  update public.edl_jetons set expire_le = now() - interval '1 minute' where usage = 'complement';
+  perform t.role('anon');
+  perform t.refuse('réserve après le dixième jour', $q$select public.reserves_deposer('res-1', 'Trop tard, robinet qui goutte')$q$);
+  perform t.egal('le lien reste lisible, mais fermé', (public.reserves_consulter('res-1') ->> 'ouvert'), 'false');
+  perform t.role('service_role');
+
+
   -- Verrou après signature : vaut pour tout le monde, serveur compris -------------
   perform t.refuse('serveur modifie un élément signé', format('update public.edl_elements set etat = ''neuf'' where id = %L', elem));
   perform t.refuse('serveur modifie l''EDL signé', format('update public.edl set remarques_generales = ''x'' where id = %L', e1));

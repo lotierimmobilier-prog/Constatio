@@ -119,4 +119,40 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   // Le lien a servi : il ne signe plus rien.
   expect(sql(`select count(*) from public.edl_jetons where edl_id = '${edl}' and utilise_le is null`)).toBe('0');
   if (captures) await page.screenshot({ path: `${captures}/29-document-signe.png`, fullPage: true });
+
+  // ── Réserves du locataire : dix jours pour compléter l'état des lieux d'entrée ────────
+  await expect(page.getByTestId('delai-reserves')).toContainText('dix jours');
+  await page.getByTestId('creer-lien-reserves').click();
+  const lienReserves = (await page.getByTestId('lien-reserves').innerText()).trim();
+  expect(lienReserves).toMatch(/\/reserves\/[A-Za-z0-9_-]{40,}$/);
+  const chezLui = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p3 = await chezLui.newPage();
+  await p3.goto('/reserves/' + 'x'.repeat(43));
+  await expect(p3.getByText(/Ce lien n’est pas valable/)).toBeVisible();
+  await p3.goto(lienReserves);
+  await expect(p3.getByTestId('locataire')).toHaveText('M. Hugo ZZREC Marty');
+  await p3.getByLabel('Votre réserve').fill('Fissure au plafond du garage, côté porte, non relevée.');
+  await p3.getByRole('button', { name: 'Déposer cette réserve' }).click();
+  await expect(p3.getByText(/Réserve enregistrée/)).toBeVisible();
+  await expect(p3.getByTestId('ma-reserve')).toContainText('En attente de réponse');
+
+  // Le bailleur la retrouve, y répond, et édite l'annexe.
+  await page.reload();
+  const reserve = page.getByTestId('reserve');
+  await expect(reserve).toContainText('Fissure au plafond du garage');
+  await reserve.getByLabel('Votre réponse').fill('Constaté sur place le lendemain.');
+  await reserve.getByRole('button', { name: 'Accepter' }).click();
+  await expect(reserve.getByText('Acceptée')).toBeVisible();
+  const annexe = page.waitForEvent('download');
+  await page.getByTestId('annexe-reserves').click();
+  const fichierAnnexe = join(dossier, 'annexe.pdf');
+  await (await annexe).saveAs(fichierAnnexe);
+  const ta = texte(fichierAnnexe);
+  for (const attendu of ['Annexe — réserves du locataire', '8 rue de la Signature, 34500 Béziers', 'Fissure au plafond du garage', 'acceptée — Constaté sur place le lendemain.', empreinteSigne]) expect(ta, attendu).toContain(attendu);
+  // Le locataire lit la décision par son lien.
+  await p3.reload();
+  await expect(p3.getByTestId('ma-reserve')).toContainText('Acceptée');
+  await expect(p3.getByTestId('ma-reserve')).toContainText('Constaté sur place le lendemain.');
+  await chezLui.close();
+  expect(sql(`select string_agg(evenement, ',' order by id) from public.edl_journal where edl_id = '${edl}' and evenement like 'reserve%'`)).toBe('reserves_lien_cree,reserve_deposee,reserve_repondue');
 });
