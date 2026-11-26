@@ -107,12 +107,19 @@ Deno.serve(async (requete) => {
       const refus = (code: number, message: string) => json(code, { error: { http_code: code, message } });
       const corps = await requete.text();
       const c = lu(await service.rpc('cles_courriel')) as { utilisateur: string | null; mot_de_passe: string | null; hote: string; comptes_secret: string | null };
-      if (!c.comptes_secret || !(await appelSigne(c.comptes_secret, { id: requete.headers.get('webhook-id'), date: requete.headers.get('webhook-timestamp'), signature: requete.headers.get('webhook-signature') }, corps))) return refus(401, 'Appel non reconnu.');
+      if (!c.comptes_secret || !(await appelSigne(c.comptes_secret, { id: requete.headers.get('webhook-id'), date: requete.headers.get('webhook-timestamp'), signature: requete.headers.get('webhook-signature') }, corps))) { console.error('courriel de compte : signature refusée'); return refus(401, 'Appel non reconnu.'); }
       if (!c.utilisateur || !c.mot_de_passe) return refus(503, 'L’envoi des e-mails n’est pas encore réglé. Réessayez dans quelques minutes.');
       const message = messageDeCompte(JSON.parse(corps) as DemandeCompte, `${Deno.env.get('SUPABASE_URL')!.replace(/\/+$/, '')}/auth/v1`, SITE);
       if (!message) return refus(400, 'Demande non reconnue.');
-      try { await envoyer({ hote: c.hote, utilisateur: c.utilisateur, motDePasse: c.mot_de_passe }, message); }
-      catch (e) { console.error('courriel de compte', e instanceof Error ? e.message : e); return refus(502, 'Le message n’a pas pu être envoyé. Réessayez dans quelques minutes.'); }
+      // Le service de comptes n'attend que cinq secondes : on lui répond tout de suite, et le message part dans la foulée
+      // (un second essai si le serveur de messagerie refuse le premier). Un échec est consigné dans le journal de la fonction.
+      const boite = { hote: c.hote, utilisateur: c.utilisateur, motDePasse: c.mot_de_passe };
+      const depart = envoyer(boite, message).catch(() => envoyer(boite, message)).then(
+        () => console.log('courriel de compte : parti'),
+        (e) => console.error('courriel de compte : échec', e instanceof Error ? e.message : e));
+      // deno-lint-ignore no-explicit-any
+      const moteur = (globalThis as any).EdgeRuntime;
+      if (moteur?.waitUntil) moteur.waitUntil(depart); else await depart;
       return json(200, {});
     }
     const attendu = lu(await service.rpc('cle_releve')) as string | null;
