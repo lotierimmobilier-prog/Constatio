@@ -5,6 +5,8 @@
 //     { action: 'cloturer', edl_id }                    reprise si le dépôt de l'exemplaire signé a échoué
 //     { action: 'electronique_envoyer', edl_id }        signature électronique DocuSeal : envoi aux parties (après paiement)
 //     { action: 'electronique_relever', edl_id }        où en est la demande ; rapatrie le document signé
+//   Tâche planifiée (secret de la base) :
+//     { action: 'electronique_relever_tout' }           relève toutes les demandes DocuSeal en cours
 //   Sans session, avec le jeton du lien (seule son empreinte est en base) :
 //     { action: 'consulter',   jeton }                  ce que la personne va signer
 //     { action: 'signer_lien', jeton, image }           sa signature
@@ -110,6 +112,25 @@ async function poser(service: SupabaseClient, requete: Request, o: { edl: string
   return { statut: 'ok', reste: r.data as number, edl: statut };
 }
 
+/** Où en est une demande chez DocuSeal ? Signée partout : le document est rapatrié et l'état des lieux clos. */
+async function releverDemande(service: SupabaseClient, cles: { cle: string | null; url: string }, edl: { id: string; organisation_id: string }, demande: string | null) {
+  if (!demande) return { statut: 'ok', edl: 'payee' };
+  if (demande.startsWith('test-')) return { statut: 'ok', edl: 'en_signature', retenue: true };
+  if (!cles.cle) throw new Refus(503, 'ferme');
+  const cfg = { cle: cles.cle, url: cles.url };
+  const etat = await etatDemande(cfg, demande);
+  const ou = statutDepuisPrestataire(etat.statut);
+  if (ou === 'annulee') { lu(await service.rpc('edl_signature_annulee', { p_edl: edl.id })); return { statut: 'ok', edl: 'payee', annulee: true }; }
+  if (ou === 'en_signature') return { statut: 'ok', edl: 'en_signature', signataires: etat.signataires };
+  const signe = await telechargerSigne(cfg, demande);
+  const sha = await empreintePdf(signe);
+  const chemin = `${edl.organisation_id}/${edl.id}/pdf/signe-docuseal-${sha.slice(0, 16)}.pdf`;
+  const depot = await service.storage.from('edl').upload(chemin, signe, { contentType: 'application/pdf', upsert: true });
+  if (depot.error) throw new Error(`dépôt : ${depot.error.message}`);
+  lu(await service.rpc('edl_clore_electronique', { p_edl: edl.id, p_chemin: chemin, p_sha256: sha }));
+  return { statut: 'ok', edl: 'signe' };
+}
+
 Deno.serve(async (requete) => {
   if (requete.method === 'OPTIONS') return new Response(null, { headers: ENTETES });
   if (requete.method !== 'POST') return json(405, { statut: 'refuse', motif: 'methode' });
@@ -117,6 +138,23 @@ Deno.serve(async (requete) => {
     const url = Deno.env.get('SUPABASE_URL')!;
     const service = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
     const corps = await requete.json().catch(() => ({}));
+
+    // ── Tâche planifiée : relève de toutes les demandes DocuSeal en cours ────────────
+    // Appelée par la base toutes les dix minutes, avec un secret qu'elle seule connaît.
+    if (corps.action === 'electronique_relever_tout') {
+      const attendu = lu(await service.rpc('cle_releve')) as string | null;
+      if (!attendu || requete.headers.get('x-releve') !== attendu) throw new Refus(401, 'session');
+      const cles = lu(await service.rpc('cles_docuseal')) as { mode_test: boolean; cle: string | null; url: string };
+      if (cles.mode_test || !cles.cle) return json(200, { statut: 'ok', relevees: 0, signees: 0, echecs: 0 });
+      const enCours = lu(await service.from('edl_signature_electronique').select('edl_id, demande_id, edl:edl_id(organisation_id)').eq('statut', 'en_signature').not('demande_id', 'is', null).order('updated_at').limit(50)) ?? [];
+      let signees = 0, echecs = 0;
+      for (const s of enCours) {
+        // Une demande en échec n'arrête pas les suivantes.
+        try { if ((await releverDemande(service, cles, { id: s.edl_id, organisation_id: (s.edl as unknown as { organisation_id: string }).organisation_id }, s.demande_id)).edl === 'signe') signees++; }
+        catch (e) { echecs++; console.error('signature : relève en échec', s.edl_id, e instanceof Error ? e.message : e); }
+      }
+      return json(200, { statut: 'ok', relevees: enCours.length, signees, echecs });
+    }
 
     // ── Avec le jeton d'un lien ────────────────────────────────────────────────
     if (corps.action === 'consulter' || corps.action === 'signer_lien') {
@@ -195,22 +233,7 @@ Deno.serve(async (requete) => {
         return json(200, { statut: 'ok', edl: 'en_signature', liens: demande.liens });
       }
 
-      // Relève : où en est la demande chez le prestataire ?
-      if (!suivi.demande_id) return json(200, { statut: 'ok', edl: 'payee' });
-      if (suivi.demande_id.startsWith('test-')) return json(200, { statut: 'ok', edl: 'en_signature', retenue: true });
-      if (!cles.cle) throw new Refus(503, 'ferme');
-      const cfg = { cle: cles.cle, url: cles.url };
-      const etat = await etatDemande(cfg, suivi.demande_id);
-      const ou = statutDepuisPrestataire(etat.statut);
-      if (ou === 'annulee') { lu(await service.rpc('edl_signature_annulee', { p_edl: edl.id })); return json(200, { statut: 'ok', edl: 'payee', annulee: true }); }
-      if (ou === 'en_signature') return json(200, { statut: 'ok', edl: 'en_signature', signataires: etat.signataires });
-      const signe = await telechargerSigne(cfg, suivi.demande_id);
-      const sha = await empreintePdf(signe);
-      const chemin = `${complet.organisation_id}/${edl.id}/pdf/signe-docuseal-${sha.slice(0, 16)}.pdf`;
-      const depot = await service.storage.from('edl').upload(chemin, signe, { contentType: 'application/pdf', upsert: true });
-      if (depot.error) throw new Error(`dépôt : ${depot.error.message}`);
-      lu(await service.rpc('edl_clore_electronique', { p_edl: edl.id, p_chemin: chemin, p_sha256: sha }));
-      return json(200, { statut: 'ok', edl: 'signe' });
+      return json(200, await releverDemande(service, cles, { id: edl.id, organisation_id: complet.organisation_id }, suivi.demande_id));
     }
     if (edl.statut !== 'termine') throw new Refus(409, edl.statut === 'signe' ? 'signe' : 'document');
     if (typeof corps.partie_id !== 'string' || !UUID.test(corps.partie_id)) throw new Refus(400, 'demande');

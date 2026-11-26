@@ -23,6 +23,7 @@ export function Signatures({ edlId, documentAdresse, onSigne }: { edlId: string;
   const [suivi, setSuivi] = useState<{ statut: 'payee' | 'en_signature' | 'signee'; demande_id: string | null; demandee_le: string | null; liens: { partie_id: string; url: string }[] } | null>(null);
   const [prix, setPrix] = useState<number | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [renonce, setRenonce] = useState(false);
   async function payerElectronique() {
     setOccupe(true); setErreur(null);
     const { data, error } = await supabase.functions.invoke('paiement', { body: { action: 'commander_signature', edl_id: edlId } });
@@ -56,6 +57,17 @@ export function Signatures({ edlId, documentAdresse, onSigne }: { edlId: string;
     setPrix(tarif.data?.montant_cents ?? null);
   }, [edlId]);
   useEffect(() => { void charger(); }, [charger]);
+  // Relève sans clic : dès que l'écran s'ouvre sur une demande en cours, puis toutes les trente secondes tant qu'il reste ouvert.
+  const enSignature = suivi?.statut === 'en_signature' && !!suivi.demande_id && !suivi.demande_id.startsWith('test-');
+  useEffect(() => {
+    if (!enSignature) return;
+    const relever = async () => { const r = await demander({ action: 'electronique_relever', edl_id: edlId }); if (r.statut === 'ok' && r.edl === 'signe') onSigne(); else if (r.statut === 'ok' && r.annulee) await charger(); };
+    void relever();
+    const rythme = setInterval(() => void relever(), 30_000);
+    return () => clearInterval(rythme);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enSignature, edlId]);
+
   // Au retour du paiement, le suivi apparaît dès que le message de Stripe est traité : on regarde à nouveau quelques fois.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('signature')) return;
@@ -112,7 +124,7 @@ export function Signatures({ edlId, documentAdresse, onSigne }: { edlId: string;
           <p className="font-semibold">Signature électronique DocuSeal — {(prix / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € par état des lieux</p>
           {!suivi && (
             <>
-              <p className="text-sm text-discret">Chaque partie reçoit un e-mail et signe depuis son propre appareil ; DocuSeal certifie la signature et joint son certificat au document. Sinon, la signature à la main ci-dessous est comprise, horodatée.</p>
+              <p className="text-sm text-discret">Chaque partie reçoit un e-mail et signe depuis son propre appareil ; DocuSeal certifie la signature et joint son certificat au document. Sinon, la signature à la main ci-dessous est comprise, horodatée. Option non remboursable une fois la demande envoyée aux signataires.</p>
               {sansEmail.length > 0
                 ? <p className="text-sm">Il manque l’adresse e-mail de {sansEmail.map(nomDe).join(', ')} (ou deux signataires ont la même). Rouvrez l’état des lieux pour la compléter dans « Parties ».</p>
                 : <Bouton variante="contour" disabled={occupe} onClick={payerElectronique} data-testid="payer-electronique">Choisir la signature électronique</Bouton>}
@@ -121,14 +133,19 @@ export function Signatures({ edlId, documentAdresse, onSigne }: { edlId: string;
           {suivi?.statut === 'payee' && (
             <>
               <p className="text-sm">Réglée. Il reste à envoyer le document aux signataires.</p>
-              <Bouton disabled={occupe} onClick={() => electronique('electronique_envoyer')} data-testid="envoyer-electronique">{occupe ? 'Envoi…' : 'Envoyer aux signataires par e-mail'}</Bouton>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" className="mt-1 h-5 w-5" checked={renonce} onChange={(e) => setRenonce(e.target.checked)} data-testid="renonciation-electronique" />
+                <span>Je demande l’envoi immédiat aux signataires et je reconnais perdre mon droit de rétractation : une fois la demande envoyée, la signature électronique n’est plus remboursable.</span>
+              </label>
+              <Bouton disabled={occupe || !renonce} onClick={() => electronique('electronique_envoyer')} data-testid="envoyer-electronique">{occupe ? 'Envoi…' : 'Envoyer aux signataires par e-mail'}</Bouton>
             </>
           )}
           {suivi?.statut === 'en_signature' && (
             <>
               <p className="text-sm" data-testid="electronique-en-cours">En cours de signature depuis le {suivi.demandee_le ? quand(suivi.demandee_le) : '—'}. L’état des lieux sera clos dès que tout le monde aura signé.</p>
               {suivi.liens.map((l) => { const p = parties.find((x) => x.id === l.partie_id); return p ? <a key={l.partie_id} href={l.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-marque underline underline-offset-4">Lien de signature de {nomDe(p)}</a> : null; })}
-              <Bouton variante="contour" disabled={occupe} onClick={() => electronique('electronique_relever')} data-testid="relever-electronique">{occupe ? 'Vérification…' : 'Vérifier où en sont les signatures'}</Bouton>
+              <p className="text-sm text-discret">La vérification se fait toute seule ; vous pouvez aussi la lancer.</p>
+              <Bouton variante="contour" disabled={occupe} onClick={() => electronique('electronique_relever')} data-testid="relever-electronique">{occupe ? 'Vérification…' : 'Vérifier maintenant'}</Bouton>
             </>
           )}
         </div>

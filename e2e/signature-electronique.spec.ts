@@ -89,6 +89,8 @@ test('signature électronique : 5 € réglés, envoi par DocuSeal, document sig
   expect(sql(`select count(*) from public.credit_lots where reference = 'stripe:pi_ds_${edl}'`)).toBe('0');
 
   // ── Mode test : rien ne part chez le prestataire ────────────────────────────────
+  await expect(bloc.getByTestId('envoyer-electronique')).toBeDisabled(); // pas d'envoi sans renonciation expresse
+  await bloc.getByTestId('renonciation-electronique').check();
   await bloc.getByTestId('envoyer-electronique').click();
   await expect(page.getByText(/Mode test : la demande est enregistrée, mais rien n’est parti/)).toBeVisible({ timeout: 30_000 });
   expect(docuseal.length).toBe(0);
@@ -100,6 +102,7 @@ test('signature électronique : 5 € réglés, envoi par DocuSeal, document sig
        insert into private.cles_service (nom, valeur) values ('docuseal_cle', 'cle-docuseal-de-test-0123456789'), ('docuseal_url', 'http://127.0.0.1:54398');
        select public.edl_signature_annulee('${edl}');`);
   await page.reload();
+  await bloc.getByTestId('renonciation-electronique').check();
   await bloc.getByTestId('envoyer-electronique').click();
   await expect(bloc.getByTestId('electronique-en-cours')).toBeVisible({ timeout: 30_000 });
   const envoi = docuseal.find((d) => d.chemin === 'POST /submissions/pdf')!;
@@ -116,9 +119,14 @@ test('signature électronique : 5 € réglés, envoi par DocuSeal, document sig
   await expect(page.getByText('Toutes les parties n’ont pas encore signé.')).toBeVisible({ timeout: 30_000 });
   expect(sql(`select statut from public.edl where id = '${edl}'`)).toBe('termine');
 
-  // Tout le monde a signé chez DocuSeal : le document signé est rapatrié et l'état des lieux clos.
+  // Tout le monde a signé chez DocuSeal. La tâche planifiée relève sans que personne clique :
+  // refusée sans son secret, elle clôt l'état des lieux avec.
   etat = 'completed';
-  await bloc.getByTestId('relever-electronique').click();
+  const tache = (secret: string) => page.request.post('/functions/v1/signature', { headers: { 'Content-Type': 'application/json', 'x-releve': secret }, data: { action: 'electronique_relever_tout' } });
+  expect((await tache('faux-secret')).status()).toBe(401);
+  expect(await (await tache(sql(`select valeur from private.cles_service where nom = 'releve_secret'`))).json()).toMatchObject({ statut: 'ok', relevees: 1, signees: 1, echecs: 0 });
+  // À l'ouverture de l'écran, le document signé est là, sans clic.
+  await page.reload();
   await expect(page.getByRole('heading', { name: 'Document signé' })).toBeVisible({ timeout: 30_000 });
   expect(sql(`select statut || ' ' || pdf_signe_sha256 from public.edl where id = '${edl}'`)).toBe(`signe ${createHash('sha256').update(SIGNE).digest('hex')}`);
   expect(sql(`select count(*) || ' ' || min(mode) || ' ' || min(fournisseur) || ' ' || min(fournisseur_ref) from public.edl_signatures where edl_id = '${edl}'`)).toBe('2 electronique docuseal 77');
