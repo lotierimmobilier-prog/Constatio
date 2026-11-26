@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Photos } from '../../components/Photos';
 import { Alerte, Bouton, Carte, Champ } from '../../components/ui';
-import type { Photo } from '../../lib/photos';
+import { ajouterPhotos, type Photo } from '../../lib/photos';
 import { avancement, chargerEdl, type Element, type Piece } from '../../lib/edl';
 import { local } from '../../lib/local';
 import { ajouterPhrase, phrasesTypes } from '../../lib/phrases';
@@ -143,6 +143,19 @@ export function EdlPiece() {
                   );
                 })}
               </div>
+              {/* Détecteur de fumée, VMC : la photo se demande ici même, dès que l'état est noté. */}
+              {!verrouille && !estOuvert && ['daaf', 'vmc'].includes(el.categorie) && el.etat && el.etat !== 'sans_objet' && nbPhotos === 0 && (
+                <label className="flex min-h-[44px] cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-mauvais px-3 text-center text-sm font-semibold text-mauvais">
+                  {el.categorie === 'daaf' ? 'Photo obligatoire : prendre la photo' : 'Photo de la VMC (une au moins dans le logement) : prendre la photo'}
+                  <input type="file" accept="image/*" capture="environment" className="sr-only" data-testid="photo-obligatoire"
+                    onChange={async (e) => {
+                      const fichiers = e.target.files;
+                      if (!fichiers?.length) return;
+                      const r = await ajouterPhotos({ id: id!, organisation_id: organisationId }, { piece_id: piece.id, element_id: el.id }, [...fichiers], `${piece.nom}, ${el.libelle}`);
+                      setPhotos((toutes) => [...toutes, ...r.ajoutees]);
+                    }} />
+                </label>
+              )}
               {estOuvert && (
                 <fieldset disabled={verrouille} className="flex flex-col gap-3 border-t border-trait pt-3">
                   <Photos edl={{ id: id!, organisation_id: organisationId }} cible={{ piece_id: piece.id, element_id: el.id }} photos={sesPhotos} quoi={`${piece.nom}, ${el.libelle}`} verrouille={verrouille}

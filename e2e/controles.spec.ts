@@ -179,20 +179,24 @@ test('tout complété : plus aucun point bloquant, les conseils restent', async 
     if (piece === 5) {
       // Sécurité : photo obligatoire du détecteur de fumée et d'une VMC.
       const cliche = Buffer.from(await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 800; t.height = 600; const c = t.getContext('2d')!; c.fillStyle = '#999'; c.fillRect(0, 0, 800, 600); return t.toDataURL('image/jpeg', 0.8).split(',')[1]; }), 'base64');
-      for (const quoi of ['daaf', 'vmc']) {
-        const el = page.getByTestId(`element-${quoi}`).first();
-        await el.getByRole('button', { name: 'Détail' }).click();
-        await el.locator('input[type=file]').setInputFiles({ name: `${quoi}.jpg`, mimeType: 'image/jpeg', buffer: cliche });
-        await expect(el.getByTestId('nb-photos')).toHaveText('1 photo');
-      }
+      // (la photo de la VMC sera prise plus loin, depuis l'écran des contrôles)
+      // Le détecteur de fumée demande sa photo sur place, sans ouvrir le détail.
+      const daaf = page.getByTestId('element-daaf').first();
+      await daaf.getByTestId('photo-obligatoire').setInputFiles({ name: 'daaf.jpg', mimeType: 'image/jpeg', buffer: cliche });
+      await expect(daaf.getByTestId('nb-photos')).toHaveText('1 photo');
+      await expect(daaf.getByTestId('photo-obligatoire')).toHaveCount(0);
     }
     if (piece < 5) await page.getByRole('link', { name: /Pièce suivante/ }).click();
     else await page.getByRole('link', { name: /Dernière pièce/ }).click();
   }
   await page.getByLabel('Remarques générales').fill('Logement repeint avant l’entrée.');
   await page.getByRole('heading', { name: 'Pièces' }).click();
-  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : tout est complet');
+  // Il manque la photo de la VMC : l'écran des contrôles la demande et permet de la prendre sur place.
+  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 1 point à corriger');
   await page.getByTestId('lien-controles').click();
+  await expect(page.getByText('VMC / aération : au moins une photo est obligatoire.')).toBeVisible();
+  const vue = Buffer.from(await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 800; t.height = 600; const c = t.getContext('2d')!; c.fillStyle = '#888'; c.fillRect(0, 0, 800, 600); return t.toDataURL('image/jpeg', 0.8).split(',')[1]; }), 'base64');
+  await page.getByTestId('photo-demandee').setInputFiles({ name: 'vmc.jpg', mimeType: 'image/jpeg', buffer: vue });
   await expect(page.getByTestId('verdict')).toHaveText('Toutes les mentions obligatoires sont renseignées.');
   await expect(page.getByText(/Entrée : interphone \/ sonnette en mauvais état sans observation/)).toBeVisible();
   await photo(page, '15-controles-complets');

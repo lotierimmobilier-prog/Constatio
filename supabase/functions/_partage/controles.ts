@@ -55,6 +55,8 @@ export interface Alerte {
   /** Chemin de l'étape à corriger, relatif à l'état des lieux. */
   vers: string;
   action: string;
+  /** Il manque une photo : l'écran des contrôles propose de la prendre sur place, sans changer de page. */
+  photo?: { piece_id: string; element_id: string } | { compteur_type: TypeCompteur };
 }
 
 const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
@@ -106,7 +108,7 @@ export function controler(d: DonneesControle): Alerte[] {
         if (releve.double_tarif && releve.index_2 === null) bloquant(`${c.libelle} : l’index heures creuses manque.`, 'compteurs', 'Aller aux compteurs');
         if (!releve.numero?.trim()) conseil(`${c.libelle} : le numéro du compteur n’est pas noté.`, 'compteurs', 'Aller aux compteurs');
         // La photo fait foi de l'index : elle est exigée pour tout compteur relevé.
-        if (!d.photos.some((ph) => ph.compteur_type === c.type)) bloquant(`${c.libelle} : la photo du compteur est obligatoire.`, 'compteurs', 'Aller aux compteurs');
+        if (!d.photos.some((ph) => ph.compteur_type === c.type)) a.push({ niveau: 'bloquant', message: `${c.libelle} : la photo du compteur est obligatoire.`, vers: 'compteurs', action: 'Aller aux compteurs', photo: { compteur_type: c.type } });
       }
     }
   }
@@ -115,10 +117,10 @@ export function controler(d: DonneesControle): Alerte[] {
   // construction et de l'habitation — référence à vérifier) et la ventilation se prouvent par une photo.
   const present = (e: DonneesControle['elements'][number]) => e.etat !== null && e.etat !== 'sans_objet';
   for (const e of d.elements.filter((x) => x.categorie === 'daaf' && present(x)))
-    if (!d.photos.some((ph) => ph.element_id === e.id)) bloquant(`${e.libelle} : la photo est obligatoire.`, `pieces/${e.piece_id}`, 'Ajouter la photo');
+    if (!d.photos.some((ph) => ph.element_id === e.id)) a.push({ niveau: 'bloquant', message: `${e.libelle} : la photo est obligatoire.`, vers: `pieces/${e.piece_id}`, action: 'Voir dans la pièce', photo: { piece_id: e.piece_id, element_id: e.id } });
   const vmc = d.elements.filter((x) => x.categorie === 'vmc' && present(x));
   if (vmc.length && !vmc.some((e) => d.photos.some((ph) => ph.element_id === e.id)))
-    bloquant('VMC / aération : au moins une photo est obligatoire.', `pieces/${vmc[vmc.length - 1].piece_id}`, 'Ajouter la photo');
+    a.push({ niveau: 'bloquant', message: 'VMC / aération : au moins une photo est obligatoire.', vers: `pieces/${vmc[vmc.length - 1].piece_id}`, action: 'Voir dans la pièce', photo: { piece_id: vmc[vmc.length - 1].piece_id, element_id: vmc[vmc.length - 1].id } });
 
   // Clés
   if (!d.cles.length) bloquant('Aucune clé n’est décrite.', 'cles', 'Aller aux clés');
