@@ -73,7 +73,7 @@ export function TableauDeBord() {
         </Carte>
       )}
       {edl?.map((e) => (
-        <Link key={e.id} to={`/app/edl/${e.id}`} className="flex flex-col gap-1 rounded-2xl border border-trait bg-surface p-4">
+        <Link key={e.id} to={`/app/edl/${e.id}`} className="tuile flex flex-col gap-1 rounded-2xl border border-trait bg-surface p-4 hover:border-marque">
           <span className="flex items-center justify-between gap-3">
             <span className="min-w-0 truncate font-semibold">{e.logements?.libelle ?? 'Logement'}</span>
             <span className={`whitespace-nowrap rounded-full border border-current px-2 text-xs font-semibold ${STATUTS[e.statut].couleur}`}>

@@ -109,7 +109,7 @@ export function EdlPiece() {
       </div>
       {verrouille && <Alerte ton="info">Document généré : cet état des lieux ne se modifie plus. Tant que personne n’a signé, vous pouvez le rouvrir depuis « Aperçu et document ».</Alerte>}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start">
         {elements.map((el) => {
           const origine = el.origine_id ? origines.get(el.origine_id) : undefined;
           const precision = detailAttendu(piece.type_piece, el.categorie);

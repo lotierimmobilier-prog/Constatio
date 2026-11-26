@@ -23,3 +23,17 @@ html, body, #root { height: 100%; }
 body { @apply bg-fond font-sans text-encre antialiased; }
 h1, h2, h3 { @apply font-titre; text-wrap: balance; }
 :focus-visible { outline: 3px solid rgb(var(--repere)); outline-offset: 2px; }
+
+/* ── Écran d'ordinateur (1024 px et plus) ─────────────────────────────────────────────
+   Les pages de l'espace client sont écrites en une colonne, pour le téléphone. Sur grand
+   écran, leurs cartes se rangent côte à côte ; titres, messages et formulaires gardent
+   toute la largeur, et les boutons une largeur de bouton. Une page peut décider autrement
+   avec une classe utilitaire (lg:col-span-2, lg:max-w-none…). */
+@media (min-width: 1024px) {
+  .ecran { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; align-content: start; gap: 1.25rem; }
+  :where(.ecran > *) { grid-column: 1 / -1; }
+  :where(.ecran > .carte, .ecran > .tuile) { grid-column: auto; }
+  :where(.ecran > .bouton, .ecran > form, .ecran > .etroit) { max-width: 44rem; }
+  :where(.ecran > .bouton) { max-width: 24rem; }
+  :where(.ecran > h1) { font-size: 1.875rem; }
+}

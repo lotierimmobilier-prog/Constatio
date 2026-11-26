@@ -130,13 +130,13 @@ export function Edl() {
         ) : null;
       })()}
       <h2 className="mt-2 text-lg font-bold">Pièces</h2>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
         {pieces.map((p) => {
           const av = avancement(elements.filter((x) => x.piece_id === p.id));
           const finie = av.total > 0 && av.faits === av.total;
           return (
             <li key={p.id}>
-              <Link to={`pieces/${p.id}`} className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-trait bg-surface px-4 py-2">
+              <Link to={`pieces/${p.id}`} className="tuile flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-trait bg-surface px-4 py-2 hover:border-marque">
                 <span className="min-w-0 truncate font-semibold">{p.nom}</span>
                 <span className={`whitespace-nowrap text-sm font-semibold tabular-nums ${finie ? 'text-neuf' : 'text-discret'}`}>
                   {av.aSignaler > 0 && <span className="mr-2 text-hs">{av.aSignaler} à signaler</span>}
@@ -216,7 +216,7 @@ export function Edl() {
 
 function Etape({ vers, titre, detail, fait }: { vers: string; titre: string; detail: string; fait: boolean }) {
   return (
-    <Link to={vers} className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-trait bg-surface px-4 py-2">
+    <Link to={vers} className="tuile flex min-h-[56px] items-center justify-between gap-3 rounded-2xl border border-trait bg-surface px-4 py-2 hover:border-marque">
       <span className="min-w-0">
         <span className="block font-semibold">{titre}</span>
         <span className="block truncate text-sm text-discret">{detail}</span>

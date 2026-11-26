@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 import { Link } from 'react-router-dom';
 
 const BASE_BOUTON =
-  'inline-flex min-h-[48px] w-full items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
+  'bouton inline-flex min-h-[48px] w-full items-center justify-center rounded-xl px-4 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
 const VARIANTES = {
   plein: 'bg-marque text-sur-marque hover:opacity-90',
   contour: 'border-2 border-marque text-marque hover:bg-creux',
@@ -80,7 +80,7 @@ export function Alerte({ ton = 'erreur', children }: { ton?: 'erreur' | 'succes'
 }
 
 export function Carte({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`flex flex-col gap-4 rounded-2xl border border-trait bg-surface p-4 ${className}`}>{children}</section>;
+  return <section className={`carte flex flex-col gap-4 rounded-2xl border border-trait bg-surface p-4 ${className}`}>{children}</section>;
 }
 
 export function Logo({ vers = '/' }: { vers?: string }) {
