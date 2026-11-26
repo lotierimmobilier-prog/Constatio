@@ -25,7 +25,7 @@ function PageLegale({ titre, chapeau, children }: { titre: string; chapeau: stri
     <div className="min-h-dvh bg-fond">
       <header className="border-b border-trait bg-surface">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <Link to="/" aria-label="Accueil de Constatio"><Logo /></Link>
+          <Logo />
           <Link to="/" className="text-sm font-semibold text-marque">← Accueil</Link>
         </div>
       </header>

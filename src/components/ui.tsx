@@ -85,12 +85,8 @@ export function Carte({ children, className = '' }: { children: ReactNode; class
 
 export function Logo({ vers = '/' }: { vers?: string }) {
   return (
-    <Link to={vers} className="inline-flex items-center gap-2 font-titre text-xl font-bold text-marque">
-      <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden="true">
-        <rect width="32" height="32" rx="7" className="fill-marque" />
-        <path d="M9 16.5l5 5 9-11" fill="none" className="stroke-repere" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      Constatio
+    <Link to={vers} className="inline-flex items-center" aria-label="Constatio, accueil">
+      <img src="/logo-constatio.webp" alt="Constatio" width={840} height={183} className="h-8 w-auto sm:h-9" />
     </Link>
   );
 }

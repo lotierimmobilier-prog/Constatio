@@ -130,7 +130,7 @@ export function Accueil() {
                 Un état des lieux <span className="bg-[linear-gradient(transparent_62%,rgb(var(--repere))_62%,rgb(var(--repere))_92%,transparent_92%)]">complet</span> en 20 minutes, depuis votre téléphone.
               </h1>
               <p className="mt-8 max-w-[56ch] text-lg leading-relaxed text-discret">
-                Vous faites le tour du logement, un appui par élément. Constatio relève ce que le décret exige, horodate les photos, fait signer sur place et garde la preuve. À la sortie, il compare avec l’entrée et chiffre les retenues.
+                Vous faites le tour du logement, un appui par élément. Constatio relève ce que le décret exige, horodate les photos, fait signer sur place et garde la preuve. À la sortie, il compare avec l’entrée, élément par élément.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link to={commencer} className={`${classesBouton('repere')} whitespace-nowrap sm:!w-auto sm:px-6`}>Faire mon état des lieux gratuitement</Link>

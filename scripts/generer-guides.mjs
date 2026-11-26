@@ -101,7 +101,7 @@ function page({ chemin, titre, description, tete = '', corps }) {
 ${tete}
 </head>
 <body>
-<header class="g-entete"><div><a class="g-logo" href="/">Constatio</a><nav class="g-nav" aria-label="Navigation"><a href="/guides/">Guides</a><a href="/#tarifs">Tarifs</a><a href="/connexion">Connexion</a></nav></div></header>
+<header class="g-entete"><div><a class="g-logo" href="/" aria-label="Constatio, accueil"><img src="/logo-constatio.webp" alt="Constatio" width="840" height="183" style="height:2rem;width:auto;display:block"></a><nav class="g-nav" aria-label="Navigation"><a href="/guides/">Guides</a><a href="/#tarifs">Tarifs</a><a href="/connexion">Connexion</a></nav></div></header>
 ${corps}
 <footer class="g-pied">Service partenaire de Signabail, conçu par LOTIER, 40 rue Française, 34500 Béziers.<br><a href="/guides/">Guides</a> · <a href="/#tarifs">Tarifs</a> · <a href="/cgv/">Conditions générales</a> · <a href="/mentions-legales/">Mentions légales</a> · <a href="/confidentialite/">Confidentialité</a></footer>
 </body>
