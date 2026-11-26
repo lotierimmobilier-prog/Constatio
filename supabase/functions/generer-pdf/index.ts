@@ -99,7 +99,13 @@ Deno.serve(async (requete) => {
       if (fichier.data) logo = new Uint8Array(await fichier.data.arrayBuffer());
       else console.error('generer-pdf : logo illisible', fichier.error?.message);
     }
-    const { octets: pdf, cases } = await construireDocument(assembler(lignes, octets, false, logo));
+    let filigraneImage: Uint8Array | null = null;
+    if (org?.filigrane_photos && org.filigrane_image_path) {
+      const fichier = await client.storage.from('marque').download(org.filigrane_image_path);
+      if (fichier.data) filigraneImage = new Uint8Array(await fichier.data.arrayBuffer());
+      else console.error('generer-pdf : image de filigrane illisible', fichier.error?.message);
+    }
+    const { octets: pdf, cases } = await construireDocument(assembler(lignes, octets, false, logo, filigraneImage));
     const sha256 = await empreintePdf(pdf);
     const pages = (await PDFDocument.load(pdf)).getPageCount();
     const chemin = `${lignes.edl.organisation_id}/${edl_id}/pdf/${sha256.slice(0, 16)}.pdf`;

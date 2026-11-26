@@ -6,13 +6,17 @@
 // génère le document définitif (le serveur refait les contrôles, il ne croit pas le navigateur).
 export type Etat = 'neuf' | 'bon' | 'usage' | 'mauvais' | 'hors_service' | 'sans_objet';
 
-export type TypeCompteur = 'electricite' | 'gaz' | 'eau_froide' | 'eau_chaude';
+export type TypeCompteur = 'electricite' | 'gaz' | 'eau_froide' | 'eau_chaude' | 'chauffage';
 export const COMPTEURS: { type: TypeCompteur; libelle: string; unite: string }[] = [
   { type: 'electricite', libelle: 'Électricité', unite: 'kWh' },
   { type: 'eau_froide', libelle: 'Eau froide', unite: 'm³' },
   { type: 'eau_chaude', libelle: 'Eau chaude', unite: 'm³' },
   { type: 'gaz', libelle: 'Gaz', unite: 'm³' },
 ];
+
+/** Facultatif : seulement si l'immeuble a un chauffage collectif avec comptage. */
+export const CHAUFFAGE = { type: 'chauffage' as const, libelle: 'Chauffage collectif', unite: 'kWh ou unités' };
+export const EAU: TypeCompteur[] = ['eau_froide', 'eau_chaude'];
 
 /** Liste minimale du mobilier d'un meublé (décret n° 2015-981, art. 2). Mêmes codes que la table ref_mobilier_decret. */
 export const MOBILIER_DECRET: { code: string; libelle: string }[] = [
@@ -37,8 +41,8 @@ export interface DonneesControle {
   entreeConnue: boolean;
   parties: { role: string; nom: string; adresse?: string | null; nouvelle_adresse: string | null; represente_id: string | null }[];
   pieces: { id: string; nom: string }[];
-  elements: { id: string; piece_id: string; libelle: string; etat: Etat | null; observations: string | null }[];
-  compteurs: { type: TypeCompteur; absent: boolean; index_1: number | null; index_2: number | null; double_tarif: boolean; numero: string | null }[];
+  elements: { id: string; piece_id: string; libelle: string; categorie?: string; etat: Etat | null; observations: string | null }[];
+  compteurs: { type: TypeCompteur; absent: boolean; collectif?: boolean; verifie?: boolean; index_1: number | null; index_2: number | null; double_tarif: boolean; numero: string | null }[];
   cles: { nombre: number; destination: string }[];
   inventaire: { code_decret: string | null }[];
   photos: { element_id: string | null; compteur_type: string | null }[];
@@ -94,15 +98,27 @@ export function controler(d: DonneesControle): Alerte[] {
   if (!d.sansCompteurs) {
     for (const c of COMPTEURS) {
       const releve = d.compteurs.find((x) => x.type === c.type);
-      if (!releve || (!releve.absent && releve.index_1 === null))
+      // Un compteur collectif se déclare ; son index, quand il est accessible, reste facultatif.
+      if (!releve || (!releve.absent && !releve.collectif && releve.index_1 === null))
         bloquant(`${c.libelle} : compteur non relevé. Indiquez l’index, ou qu’il n’y a pas de compteur.`, 'compteurs', 'Aller aux compteurs');
-      else if (!releve.absent) {
+      else if (!releve.absent && !releve.collectif) {
+        if (EAU.includes(c.type) && !releve.verifie) conseil(`${c.libelle} : vérifiez que ce compteur est bien celui du logement (faites couler l’eau : il doit tourner).`, 'compteurs', 'Aller aux compteurs');
         if (releve.double_tarif && releve.index_2 === null) bloquant(`${c.libelle} : l’index heures creuses manque.`, 'compteurs', 'Aller aux compteurs');
         if (!releve.numero?.trim()) conseil(`${c.libelle} : le numéro du compteur n’est pas noté.`, 'compteurs', 'Aller aux compteurs');
-        if (!d.photos.some((ph) => ph.compteur_type === c.type)) conseil(`${c.libelle} : pas de photo du compteur. Elle évite toute contestation de l’index.`, 'compteurs', 'Aller aux compteurs');
+        // La photo fait foi de l'index : elle est exigée pour tout compteur relevé.
+        if (!d.photos.some((ph) => ph.compteur_type === c.type)) bloquant(`${c.libelle} : la photo du compteur est obligatoire.`, 'compteurs', 'Aller aux compteurs');
       }
     }
   }
+
+  // Sécurité : le détecteur de fumée (obligatoire dans tout logement, art. L.142-1 et R.142-2 du code de la
+  // construction et de l'habitation — référence à vérifier) et la ventilation se prouvent par une photo.
+  const present = (e: DonneesControle['elements'][number]) => e.etat !== null && e.etat !== 'sans_objet';
+  for (const e of d.elements.filter((x) => x.categorie === 'daaf' && present(x)))
+    if (!d.photos.some((ph) => ph.element_id === e.id)) bloquant(`${e.libelle} : la photo est obligatoire.`, `pieces/${e.piece_id}`, 'Ajouter la photo');
+  const vmc = d.elements.filter((x) => x.categorie === 'vmc' && present(x));
+  if (vmc.length && !vmc.some((e) => d.photos.some((ph) => ph.element_id === e.id)))
+    bloquant('VMC / aération : au moins une photo est obligatoire.', `pieces/${vmc[vmc.length - 1].piece_id}`, 'Ajouter la photo');
 
   // Clés
   if (!d.cles.length) bloquant('Aucune clé n’est décrite.', 'cles', 'Aller aux clés');

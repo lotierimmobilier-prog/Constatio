@@ -63,7 +63,8 @@ test('document : aperçu gratuit, génération payée par un crédit, verrou, r�
   const apercu = join(dossier, 'apercu.pdf');
   await (await telechargement).saveAs(apercu);
   const ta = texte(apercu);
-  for (const attendu of ['APERÇU SANS VALEUR', "ÉTAT DES LIEUX D'ENTRÉE", '3 quai Vallière, 11100 Narbonne', 'M. Hugo ZZREC Marty', 'Télécommande', 'Porte du garage', "Tache d'huile au centre", 'Photo 1 — Garage, Sol', '43.34420, 3.21580', 'Lu et approuvé'])
+  // (sur la couverture, le filigrane en biais se mêle au titre dans le texte extrait : on cherche les mots un à un)
+  for (const attendu of ['APERÇU SANS VALEUR', 'ÉTAT DES LIEUX', "D'ENTRÉE", '3 quai Vallière, 11100 Narbonne', 'M. Hugo ZZREC Marty', 'Télécommande', 'Porte du garage', "Tache d'huile au centre", 'Photo 1 — Garage, Sol', '43.34420, 3.21580', 'Lu et approuvé'])
     expect(ta, attendu).toContain(attendu);
   expect(sql(`select statut from public.edl where id = '${edl}'`)).toBe('brouillon');
   if (captures) await page.screenshot({ path: `${captures}/24-apercu.png`, fullPage: true });

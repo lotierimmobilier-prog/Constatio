@@ -31,6 +31,12 @@ export function EdlInventaire() {
     setLignes((l) => l!.map((x) => (x.id === ligneId ? { ...x, ...champs } : x)));
     await local.modifier('edl_inventaire', ligneId, champs, 'Inventaire');
   }
+  /** D'un geste : « bon état » pour tout ce qui n'a pas encore d'état. Ce qui a déjà été noté n'est pas touché. */
+  async function toutEnBonEtat() {
+    const sansEtat = lignes!.filter((l) => !l.etat);
+    setLignes((l) => l!.map((x) => (x.etat ? x : { ...x, etat: 'bon' })));
+    for (const l of sansEtat) await local.modifier('edl_inventaire', l.id, { etat: 'bon' }, 'Inventaire');
+  }
   async function retirer(ligneId: string) {
     await local.supprimer('edl_inventaire', ligneId, 'Inventaire');
     setLignes((l) => l!.filter((x) => x.id !== ligneId));
@@ -68,6 +74,9 @@ export function EdlInventaire() {
       <p className="text-sm" data-testid="decompte-decret">
         {manquants.length === 0 ? <span className="font-semibold text-neuf">Les 11 équipements sont présents.</span> : <span className="font-semibold text-mauvais">{MOBILIER_DECRET.length - manquants.length} sur 11 présents.</span>}
       </p>
+      {!verrouille && lignes.some((l) => !l.etat) && (
+        <Bouton variante="contour" onClick={toutEnBonEtat} data-testid="tout-bon-etat">Tout mettre en bon état (B) — {lignes.filter((l) => !l.etat).length} sans état</Bouton>
+      )}
       <ul className="flex flex-col gap-2">{lignes.filter((l) => l.code_decret).map(fiche)}</ul>
       {!verrouille && manquants.length > 0 && (
         <div className="flex flex-col gap-2">

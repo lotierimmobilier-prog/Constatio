@@ -74,7 +74,18 @@ test('compteurs : relevé, double tarif, absence déclarée, saisie refusée', a
   await eau.getByLabel('Index (m³)').click();
   await expect(page.getByTestId('etat-eau_froide')).toHaveText('Enregistré');
 
-  await page.locator('section', { has: page.getByRole('heading', { name: 'Eau chaude' }) }).getByRole('checkbox').check();
+  // Eau froide : compteur individuel, vérifié en faisant couler l'eau ; la photo de chaque compteur relevé est obligatoire.
+  await eau.getByLabel(/Compteur vérifié/).check();
+  const cliche = Buffer.from(await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 800; t.height = 600; const c = t.getContext('2d')!; c.fillStyle = '#777'; c.fillRect(0, 0, 800, 600); return t.toDataURL('image/jpeg', 0.8).split(',')[1]; }), 'base64');
+  for (const carte of [elec, eau]) {
+    await carte.locator('input[type=file]').setInputFiles({ name: 'compteur.jpg', mimeType: 'image/jpeg', buffer: cliche });
+    await expect(carte.getByTestId('photos').getByRole('button', { name: /^Photo du/ })).toHaveCount(1);
+  }
+  // Eau chaude : compteur de l'immeuble, déclaré collectif (l'index devient facultatif).
+  const chaude = page.locator('section', { has: page.getByRole('heading', { name: 'Eau chaude' }) });
+  await chaude.getByRole('radio', { name: 'Compteur collectif' }).click();
+  await expect(page.getByTestId('etat-eau_chaude')).toHaveText('Enregistré');
+  await expect(page.getByRole('heading', { name: 'Chauffage collectif' })).toBeVisible();
   await page.locator('section', { has: page.getByRole('heading', { name: 'Gaz' }) }).getByLabel('Pas de gaz dans le logement').check();
   await expect(page.getByTestId('etat-gaz')).toHaveText('Enregistré');
   await photo(page, '12-compteurs');
@@ -119,6 +130,12 @@ test('inventaire du meublé : les équipements du décret, un par un puis d’un
   await page.getByLabel('Ajouter').fill('Canapé convertible');
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
   await expect(page.getByTestId('mobilier-libre')).toContainText('Canapé convertible');
+  // D'un geste, « bon état » pour tout ce qui n'a pas d'état ; ce qui est déjà noté n'est pas touché.
+  await page.getByTestId('mobilier-libre').getByRole('button', { name: 'Mauvais état' }).click();
+  await page.getByTestId('tout-bon-etat').click();
+  await expect(page.getByTestId('tout-bon-etat')).toHaveCount(0);
+  await expect(page.getByTestId('mobilier-literie').getByRole('button', { name: 'Bon état' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('mobilier-libre').getByRole('button', { name: 'Mauvais état' })).toHaveAttribute('aria-pressed', 'true');
   await photo(page, '14-inventaire');
   // Retirer un équipement obligatoire fait revenir l'alerte.
   await page.getByTestId('mobilier-four').getByRole('button', { name: 'Absent du logement' }).click();
@@ -159,6 +176,16 @@ test('tout complété : plus aucun point bloquant, les conseils restent', async 
     for (let i = 0; i < n; i++) await boutons.nth(i).click();
     if (piece === 0) await page.getByTestId('element-interphone').getByRole('button', { name: 'Hors service' }).click();
     await expect(page.locator('button[aria-pressed="true"]')).toHaveCount(n);
+    if (piece === 5) {
+      // Sécurité : photo obligatoire du détecteur de fumée et d'une VMC.
+      const cliche = Buffer.from(await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 800; t.height = 600; const c = t.getContext('2d')!; c.fillStyle = '#999'; c.fillRect(0, 0, 800, 600); return t.toDataURL('image/jpeg', 0.8).split(',')[1]; }), 'base64');
+      for (const quoi of ['daaf', 'vmc']) {
+        const el = page.getByTestId(`element-${quoi}`).first();
+        await el.getByRole('button', { name: 'Détail' }).click();
+        await el.locator('input[type=file]').setInputFiles({ name: `${quoi}.jpg`, mimeType: 'image/jpeg', buffer: cliche });
+        await expect(el.getByTestId('nb-photos')).toHaveText('1 photo');
+      }
+    }
     if (piece < 5) await page.getByRole('link', { name: /Pièce suivante/ }).click();
     else await page.getByRole('link', { name: /Dernière pièce/ }).click();
   }

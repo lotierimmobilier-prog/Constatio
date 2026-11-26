@@ -165,7 +165,7 @@ export function Edl() {
         ))}
 
       <h2 className="mt-2 text-lg font-bold">Compteurs, clés et contrôles</h2>
-      <Etape vers="compteurs" titre="Compteurs" detail={sans ? 'Non concerné (garage)' : `${d.compteurs.filter((c) => c.absent || c.index_1 !== null).length} sur 4 relevés ou déclarés`} fait={sans || d.compteurs.filter((c) => c.absent || c.index_1 !== null).length === 4} />
+      <Etape vers="compteurs" titre="Compteurs" detail={sans ? 'Non concerné (garage)' : `${d.compteurs.filter((c) => c.type !== 'chauffage' && (c.absent || c.collectif || c.index_1 !== null)).length} sur 4 relevés ou déclarés`} fait={sans || d.compteurs.filter((c) => c.type !== 'chauffage' && (c.absent || c.collectif || c.index_1 !== null)).length === 4} />
       <Etape vers="cles" titre="Clés et accès" detail={d.cles.length ? `${d.cles.reduce((s, c) => s + c.nombre, 0)} remis` : 'Aucune clé décrite'} fait={d.cles.length > 0} />
       {d.meuble && !sans && (
         <Etape vers="inventaire" titre="Inventaire du mobilier" detail={`${new Set(d.inventaire.map((i) => i.code_decret).filter(Boolean)).size} équipements obligatoires sur 11`} fait={new Set(d.inventaire.map((i) => i.code_decret).filter(Boolean)).size === 11} />

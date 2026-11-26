@@ -46,10 +46,20 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
   // Réduit avant l'envoi, et rangé dans le dossier du compte.
   expect(sql(`select logo_path like '${org}/logo-%.png' from public.organisations where id = '${org}'`)).toBe('t');
   expect(Number(sql(`select (metadata->>'size')::int from storage.objects where bucket_id = 'marque' and name = (select logo_path from public.organisations where id = '${org}')`))).toBeLessThan(200_000);
+  await expect(page.getByTestId('logo-joint')).toContainText('Logo joint');
+  // Réglages enregistrés d'eux-mêmes, sans bouton.
   await page.getByLabel(/Filigrane sur les photos/).check();
   await page.getByLabel('Texte du filigrane').fill('Cabinet ZZREC');
-  await page.getByRole('button', { name: 'Enregistrer la présentation' }).click();
-  await expect(page.getByText(/Présentation enregistrée/)).toBeVisible();
+  await expect.poll(() => sql(`select filigrane_photos || ' ' || coalesce(filigrane_texte, '') from public.organisations where id = '${org}'`), { timeout: 10_000 }).toBe('true Cabinet ZZREC');
+  await expect(page.getByTestId('etat-presentation')).toContainText('Enregistré');
+  // Image de filigrane : un JPEG ou une image sans transparence sont refusés, avec l'explication.
+  const opaque = await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 800; t.height = 300; const c = t.getContext('2d')!; c.fillStyle = '#fff'; c.fillRect(0, 0, 800, 300); return t.toDataURL('image/png').split(',')[1]; });
+  await page.getByTestId('choisir-filigrane').setInputFiles({ name: 'opaque.png', mimeType: 'image/png', buffer: Buffer.from(opaque, 'base64') });
+  await expect(page.getByText(/n’a pas de fond transparent/)).toBeVisible();
+  const transparent = await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 1600; t.height = 500; const c = t.getContext('2d')!; c.fillStyle = '#0f2e2e'; c.font = 'bold 300px sans-serif'; c.fillText('ZZREC', 250, 360); return t.toDataURL('image/png').split(',')[1]; });
+  await page.getByTestId('choisir-filigrane').setInputFiles({ name: 'filigrane.png', mimeType: 'image/png', buffer: Buffer.from(transparent, 'base64') });
+  await expect(page.getByTestId('filigrane-image-joint')).toContainText('Image de filigrane jointe', { timeout: 20_000 });
+  expect(sql(`select filigrane_image_path like '${org}/filigrane-%.png' from public.organisations where id = '${org}'`)).toBe('t');
   if (captures) await page.screenshot({ path: `${captures}/32-presentation.png`, fullPage: true });
 
   // Un état des lieux avec une photo.
@@ -87,7 +97,7 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
   const apercu = join(dossier, 'apercu.pdf');
   await (await telechargement).saveAs(apercu);
   expect(texte(apercu)).toMatch(/Cabinet ZZREC · \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/);
-  expect(images(apercu), 'la photo et le logo').toBe(2);
+  expect(images(apercu), 'la photo, le logo, l’image de filigrane et sa transparence').toBe(4);
 
   // ── Document définitif, construit par le serveur ───────────────────────────────
   await page.getByTestId('generer').click();
@@ -99,5 +109,5 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
   if (captures) writeFileSync(`${captures}/presentation.pdf`, execFileSync('cat', [definitif]));
   expect(texte(definitif)).toMatch(/Cabinet ZZREC · \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/);
   expect(texte(definitif)).toContain('ZZREC Cabinet Vidal');
-  expect(images(definitif), 'la photo et le logo').toBe(2);
+  expect(images(definitif), 'la photo, le logo, l’image de filigrane et sa transparence').toBe(4);
 });

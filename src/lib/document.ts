@@ -11,7 +11,10 @@ async function organisation(id: string): Promise<Ligne | null> {
   const cle = `constatio.organisation.${id}`;
   try {
     const lire = (colonnes: string) => supabase.from('organisations').select(colonnes as '*').eq('id', id).maybeSingle() as unknown as Promise<{ data: Ligne | null }>;
-    let { data } = await lire('id, type, nom, entete, adresse, code_postal, ville, logo_path, filigrane_photos, filigrane_texte');
+    let { data } = await lire('id, type, nom, entete, adresse, code_postal, ville, logo_path, filigrane_photos, filigrane_texte, filigrane_image_path, photos_colonnes, couleur_documents');
+    if (!data) ({ data } = await lire('id, type, nom, entete, adresse, code_postal, ville, logo_path, filigrane_photos, filigrane_texte, filigrane_image_path'));
+    // Base sans l'image de filigrane : on se contente du reste.
+    if (!data) ({ data } = await lire('id, type, nom, entete, adresse, code_postal, ville, logo_path, filigrane_photos, filigrane_texte'));
     // Base pas encore à jour : on se passe des réglages de présentation.
     if (!data) ({ data } = await lire('id, type, nom, entete, adresse, code_postal, ville'));
     if (data) { try { localStorage.setItem(cle, JSON.stringify(data)); } catch { /* stockage refusé : sans gravité */ } return data as Ligne; }
@@ -19,12 +22,12 @@ async function organisation(id: string): Promise<Ligne | null> {
   try { return JSON.parse(localStorage.getItem(cle) ?? 'null'); } catch { return null; }
 }
 
-/** Le logo du compte, gardé sur l'appareil (il est petit) pour que l'aperçu le porte aussi sans réseau. */
-async function logo(org: Ligne | null): Promise<Uint8Array | null> {
-  if (!org || org.type !== 'pro' || typeof org.logo_path !== 'string') return null;
-  const cle = `constatio.logo.${org.logo_path}`;
+/** Une image de marque du compte (logo, filigrane), gardée sur l'appareil (il est petit) pour que l'aperçu le porte aussi sans réseau. */
+async function imageDeMarque(chemin: unknown): Promise<Uint8Array | null> {
+  if (typeof chemin !== 'string' || !chemin) return null;
+  const cle = `constatio.logo.${chemin}`;
   try {
-    const { data } = await supabase.storage.from('marque').download(org.logo_path);
+    const { data } = await supabase.storage.from('marque').download(chemin);
     if (data) {
       const octets = new Uint8Array(await data.arrayBuffer());
       try { let texte = ''; for (let i = 0; i < octets.length; i += 8192) texte += String.fromCharCode(...octets.subarray(i, i + 8192)); localStorage.setItem(cle, btoa(texte)); } catch { /* stockage refusé */ }
@@ -61,7 +64,7 @@ export async function construireApercu(edlId: string): Promise<Apercu | null> {
   };
   // Le moteur de mise en page (350 ko) n'est chargé qu'ici ; il est gardé sur l'appareil pour le hors connexion.
   const { assembler, construirePdf } = await import('../../supabase/functions/_partage/pdf');
-  return { pdf: await construirePdf(assembler(lignes, octets, true, await logo(org))), photos: photos.length, photosAbsentes: photos.length - octets.size };
+  return { pdf: await construirePdf(assembler(lignes, octets, true, org?.type === 'pro' ? await imageDeMarque(org.logo_path) : null, org?.filigrane_photos ? await imageDeMarque(org.filigrane_image_path) : null)), photos: photos.length, photosAbsentes: photos.length - octets.size };
 }
 
 export type Generation =

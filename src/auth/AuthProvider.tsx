@@ -29,6 +29,9 @@ export interface Organisation {
   logo_path: string | null;
   filigrane_photos: boolean;
   filigrane_texte: string | null;
+  filigrane_image_path: string | null;
+  photos_colonnes: 2 | 3;
+  couleur_documents: string | null;
 }
 
 export interface Etat {
@@ -77,12 +80,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from('organisation_membres').select(`role, organisations(${colonnes})` as '*').eq('user_id', userId).order('created_at').limit(1).single() as unknown as Promise<{ data: { role: Role; organisations: unknown } | null; error: { message: string } | null }>;
     const [{ data: profil }, complet] = await Promise.all([
       supabase.from('profils').select('id, prenom, nom, telephone').eq('id', userId).single(),
-      lireMembre(`${BASE}, logo_path, filigrane_photos, filigrane_texte`),
+      lireMembre(`${BASE}, logo_path, filigrane_photos, filigrane_texte, filigrane_image_path, photos_colonnes, couleur_documents`),
     ]);
     // Base pas encore à jour (réglages de présentation absents) : le compte s'ouvre quand même, sans eux.
-    const membre = complet.data ?? (complet.error && /column|colonne|schema/i.test(complet.error.message) ? (await lireMembre(BASE)).data : null);
+    const tolere = async () => (await lireMembre(`${BASE}, logo_path, filigrane_photos, filigrane_texte`)).data ?? (await lireMembre(`${BASE}, logo_path`)).data ?? (await lireMembre(BASE)).data;
+    const membre = complet.data ?? (complet.error && /column|colonne|schema/i.test(complet.error.message) ? await tolere() : null);
     const lue = membre?.organisations as unknown as Partial<Organisation> | undefined;
-    const organisation = lue ? ({ logo_path: null, filigrane_photos: false, filigrane_texte: null, ...lue } as Organisation) : undefined;
+    const organisation = lue ? ({ logo_path: null, filigrane_photos: false, filigrane_texte: null, filigrane_image_path: null, photos_colonnes: 2, couleur_documents: null, ...lue } as Organisation) : undefined;
     if (profil && membre && organisation) {
       const suivant = { profil, organisation, role: membre.role as Role };
       localStorage.setItem(CLE_COMPTE, JSON.stringify({ userId, compte: suivant }));

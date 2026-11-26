@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { adressePhoto, ajouterPhotos, heurePhoto, lieuPhoto, retirerPhoto, type Cible, type Photo } from '../lib/photos';
 import { local } from '../lib/local';
+import { Rafale } from './Rafale';
 import { Alerte } from './ui';
 
 function Vignette({ photo, onClick }: { photo: Photo; onClick: () => void }) {
@@ -38,6 +39,15 @@ export function Photos({ edl, cible, photos, quoi, verrouille, onChange }: {
   const [ouverte, setOuverte] = useState<Photo | null>(null);
   const [adresse, setAdresse] = useState<string | null>(null);
   const [aRetirer, setARetirer] = useState(false);
+  const [rafale, setRafale] = useState(false);
+  // En rafale, les photos arrivent une à une pendant que la liste change : on garde la dernière connue.
+  const courantes = useRef(photos);
+  courantes.current = photos;
+  async function ajouterUne(fichier: File) {
+    const r = await ajouterPhotos(edl, cible, [fichier], quoi);
+    courantes.current = [...courantes.current, ...r.ajoutees];
+    onChange(courantes.current);
+  }
 
   useEffect(() => {
     setAdresse(null);
@@ -67,6 +77,10 @@ export function Photos({ edl, cible, photos, quoi, verrouille, onChange }: {
           </label>
         )}
       </div>
+      {!verrouille && (
+        <button type="button" onClick={() => setRafale(true)} className="self-start text-sm font-semibold text-marque underline underline-offset-4" data-testid="ouvrir-rafale">Plusieurs photos à la suite (rafale)</button>
+      )}
+      {rafale && <Rafale titre={quoi} onPhoto={ajouterUne} onFermer={() => setRafale(false)} />}
       {illisibles > 0 && <Alerte>{illisibles > 1 ? `${illisibles} fichiers n’ont pas pu être lus` : 'Un fichier n’a pas pu être lu'} : ce n’est pas une image, ou son format n’est pas pris en charge par ce téléphone.</Alerte>}
 
       {ouverte && (

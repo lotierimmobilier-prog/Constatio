@@ -46,9 +46,9 @@ export function Assistant() {
     return () => window.removeEventListener('keydown', fermer);
   }, [ouvert]);
 
-  // Pas sur la page où une partie signe, ni dans l'administration ; pendant la visite d'une pièce, il gênerait la saisie.
-  if (/^\/(signer|admin|passage)/.test(pathname) || /^\/app\/edl\/[^/]+\/./.test(pathname)) return null;
-  const dansApp = pathname.startsWith('/app');
+  // Uniquement sur le site public (accueil, pages légales, connexion) : jamais dans l'espace client,
+  // l'administration, ni sur la page où une partie signe.
+  if (/^\/(app|signer|admin|passage)(\/|$)/.test(pathname)) return null;
 
   function demander(question: string) {
     const q = question.trim();
@@ -64,7 +64,7 @@ export function Assistant() {
   const versFiche = (f: Fiche) => (f.url?.startsWith('/guides') ? <a href={f.url} className={lien}>{f.source ?? 'Lire le guide'}</a> : f.url ? <Link to={f.url} className={lien} onClick={() => setOuvert(false)}>{f.source ?? 'Voir'}</Link> : null);
 
   return (
-    <div className={`fixed right-3 z-30 flex flex-col items-end gap-2 print:hidden ${dansApp ? 'bottom-20' : 'bottom-3'}`}>
+    <div className="fixed bottom-3 right-3 z-30 flex flex-col items-end gap-2 print:hidden">
       {ouvert && (
         <section role="dialog" aria-label="Assistant Constatio" className="flex max-h-[min(34rem,calc(100dvh-7rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-trait bg-surface shadow-2xl" data-testid="assistant">
           <header className="flex items-center gap-2 bg-marque px-3 py-2 text-sur-marque">

@@ -5,25 +5,30 @@ import { Photos } from '../../components/Photos';
 import { Alerte, Carte, Champ, classesBouton } from '../../components/ui';
 import { chargerEdl } from '../../lib/edl';
 import type { Photo } from '../../lib/photos';
-import { COMPTEURS, type TypeCompteur } from '../../lib/controles';
+import { CHAUFFAGE, COMPTEURS, EAU, type TypeCompteur } from '../../lib/controles';
 import { lireIndex } from '../../lib/edl';
 import { local } from '../../lib/local';
 
 interface Ligne {
   absent: boolean;
+  collectif: boolean;
+  verifie: boolean;
   numero: string;
   double_tarif: boolean;
   index_1: string;
   index_2: string;
   emplacement: string;
 }
-const vide = (): Ligne => ({ absent: false, numero: '', double_tarif: false, index_1: '', index_2: '', emplacement: '' });
+const vide = (): Ligne => ({ absent: false, collectif: false, verifie: false, numero: '', double_tarif: false, index_1: '', index_2: '', emplacement: '' });
 const ABSENCE: Record<TypeCompteur, string> = {
   electricite: 'Pas de compteur individuel',
   eau_froide: 'Pas de compteur individuel',
   eau_chaude: 'Pas de compteur d’eau chaude (ballon ou chaudière individuels, ou collectif sans comptage)',
   gaz: 'Pas de gaz dans le logement',
+  chauffage: 'Chauffage individuel : rien à relever ici',
 };
+/** Les quatre énergies du décret, puis le chauffage collectif, facultatif. */
+const CARTES = [...COMPTEURS, CHAUFFAGE];
 const fr = (n: number | null) => (n === null ? '' : String(n).replace('.', ','));
 
 /** Relevés des compteurs : chacun est relevé ou déclaré absent, jamais laissé vide. */
@@ -39,10 +44,10 @@ export function EdlCompteurs() {
       const fiche = await chargerEdl(id);
       setOrganisationId(fiche?.edl.organisation_id ?? '');
       setPhotos((await local.lister<Photo>('edl_photos', 'edl_id', id)).filter((p) => p.compteur_type));
-      const data = await local.lister<{ type: TypeCompteur; absent: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }>('edl_compteurs', 'edl_id', id);
-      const depart = Object.fromEntries(COMPTEURS.map((c) => [c.type, vide()])) as Record<TypeCompteur, Ligne>;
+      const data = await local.lister<{ type: TypeCompteur; absent: boolean; collectif?: boolean; verifie?: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }>('edl_compteurs', 'edl_id', id);
+      const depart = Object.fromEntries(CARTES.map((c) => [c.type, vide()])) as Record<TypeCompteur, Ligne>;
       for (const c of data)
-        depart[c.type] = { absent: c.absent, numero: c.numero ?? '', double_tarif: c.double_tarif, index_1: fr(c.index_1), index_2: fr(c.index_2), emplacement: c.emplacement ?? '' };
+        depart[c.type] = { absent: c.absent, collectif: !!c.collectif, verifie: !!c.verifie, numero: c.numero ?? '', double_tarif: c.double_tarif, index_1: fr(c.index_1), index_2: fr(c.index_2), emplacement: c.emplacement ?? '' };
       setLignes(depart);
     })();
   }, [id]);
@@ -57,8 +62,8 @@ export function EdlCompteurs() {
     await local.poser(
       'edl_compteurs',
       { edl_id: id, type },
-      { absent: l.absent, numero: l.absent ? null : l.numero.trim() || null, double_tarif: !l.absent && l.double_tarif, index_1: i1, index_2: i2, emplacement: l.emplacement.trim() || null },
-      `Compteur ${COMPTEURS.find((c) => c.type === type)!.libelle.toLowerCase()}`,
+      { absent: l.absent, collectif: !l.absent && l.collectif, verifie: !l.absent && !l.collectif && l.verifie, numero: l.absent ? null : l.numero.trim() || null, double_tarif: !l.absent && l.double_tarif, index_1: i1, index_2: i2, emplacement: l.emplacement.trim() || null },
+      `Compteur ${CARTES.find((c) => c.type === type)!.libelle.toLowerCase()}`,
     );
     setEtat((s) => ({ ...s, [type]: 'ok' }));
   }
@@ -71,7 +76,7 @@ export function EdlCompteurs() {
   return (
     <>
       <EnteteEdl id={id} titre="Compteurs" intro="Relevez l’index affiché, sans les chiffres après la virgule s’ils sont en rouge. Un compteur absent se déclare, il ne se laisse pas vide." verrouille={verrouille} />
-      {COMPTEURS.map((c) => {
+      {CARTES.map((c) => {
         const l = lignes[c.type];
         const k = c.type;
         return (
@@ -87,6 +92,18 @@ export function EdlCompteurs() {
                 <input type="checkbox" checked={l.absent} onChange={(e) => changer(k, { absent: e.target.checked }, true)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--marque))]" />
                 <span>{ABSENCE[k]}</span>
               </label>
+              {k === 'chauffage' && <p className="text-sm text-discret">Facultatif. À remplir si l’immeuble a un chauffage collectif avec un compteur de chaleur ou des répartiteurs sur les radiateurs.</p>}
+              {!l.absent && EAU.includes(k) && (
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={`Type de compteur : ${c.libelle}`}>
+                  {[false, true].map((collectif) => (
+                    <button key={String(collectif)} type="button" role="radio" aria-checked={l.collectif === collectif} onClick={() => changer(k, { collectif }, true)}
+                      className={`min-h-[44px] rounded-xl border-2 px-3 text-sm ${l.collectif === collectif ? 'border-marque bg-creux font-semibold' : 'border-trait'}`}>
+                      {collectif ? 'Compteur collectif' : 'Compteur individuel'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!l.absent && l.collectif && <p className="text-sm text-discret">Compteur de l’immeuble : l’index est facultatif. Relevez-le s’il est accessible.</p>}
               {!l.absent && (
                 <>
                   {k === 'electricite' && (
@@ -96,13 +113,19 @@ export function EdlCompteurs() {
                     </label>
                   )}
                   <div className={l.double_tarif ? 'grid grid-cols-2 gap-3' : ''}>
-                    <Champ id={`i1-${k}`} libelle={l.double_tarif ? `Heures pleines (${c.unite})` : `Index (${c.unite})`} inputMode="decimal" className="font-mono" value={l.index_1}
+                    <Champ id={`i1-${k}`} libelle={l.double_tarif ? `Heures pleines (${c.unite})` : k === 'chauffage' ? 'Relevé du compteur de chaleur ou des répartiteurs' : `Index (${c.unite})`} inputMode="decimal" className="font-mono" value={l.index_1}
                       onChange={(e) => changer(k, { index_1: e.target.value })} onBlur={() => enregistrer(k, l)} />
                     {l.double_tarif && (
                       <Champ id={`i2-${k}`} libelle={`Heures creuses (${c.unite})`} inputMode="decimal" value={l.index_2}
                         onChange={(e) => changer(k, { index_2: e.target.value })} onBlur={() => enregistrer(k, l)} />
                     )}
                   </div>
+                  {EAU.includes(k) && !l.collectif && (
+                    <label className="flex items-start gap-3 rounded-xl border border-trait p-3 text-sm">
+                      <input type="checkbox" checked={l.verifie} onChange={(e) => changer(k, { verifie: e.target.checked }, true)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--marque))]" />
+                      <span><span className="font-semibold">Compteur vérifié</span><span className="block text-discret">J’ai fait couler l’eau et ce compteur tourne : c’est bien celui du logement.</span></span>
+                    </label>
+                  )}
                   <Champ id={`num-${k}`} libelle="Numéro du compteur" value={l.numero} onChange={(e) => changer(k, { numero: e.target.value })} onBlur={() => enregistrer(k, l)}
                     aide={k === 'electricite' ? 'Ou le point de livraison (PDL, 14 chiffres).' : k === 'gaz' ? 'Ou le point de comptage (PCE).' : undefined} />
                   <div className="flex flex-col gap-1">

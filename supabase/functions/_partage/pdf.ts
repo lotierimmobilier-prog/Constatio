@@ -18,6 +18,12 @@ export interface DonneesPdf {
   emetteur: { nom: string; adresse: string | null; /** Logo du compte professionnel (PNG ou JPEG), posé en tête du document. */ logo?: Uint8Array | null };
   /** Texte posé en bandeau sur chaque photo du document, suivi de la date et de l'heure de la prise de vue. null : pas de filigrane. */
   filigrane?: string | null;
+  /** Photos de l'annexe sur deux ou trois colonnes. */
+  photosColonnes?: 2 | 3;
+  /** Couleur d'accent choisie par un compte professionnel (#rrggbb). null : couleurs de Constatio. */
+  couleur?: string | null;
+  /** Image à fond transparent (PNG) posée comme un tampon en bas à droite de chaque photo. */
+  filigraneImage?: Uint8Array | null;
   edl: {
     id: string; type: 'entrant' | 'sortant' | 'releve'; date_edl: string; bail_type: string; bail_date_entree: string | null;
     depot_garantie_cents: number | null; realise_par_nom: string; remarques_generales: string | null; date_edl_entree: string | null;
@@ -28,7 +34,7 @@ export interface DonneesPdf {
   elements: { id: string; piece_id: string; libelle: string; nature: string | null; etat: Etat; fonctionne?: boolean | null; observations: string | null; detail: string | null; origine_id: string | null }[];
   /** Sortie : l'état et la remarque d'entrée de chaque élément repris, par identifiant d'origine. */
   origines: Record<string, { etat: Etat; observations: string | null }>;
-  compteurs: { type: string; absent: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }[];
+  compteurs: { type: string; absent: boolean; collectif?: boolean; verifie?: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }[];
   cles: { nature: string; nombre: number; destination: string }[];
   inventaire: { libelle: string; quantite: number; etat: Etat }[];
   photos: { id: string; element_id: string | null; compteur_type: string | null; legende: string | null; pris_le: string; latitude: number | null; longitude: number | null; octets: Uint8Array | null }[];
@@ -51,6 +57,7 @@ const TRAIT = rgb(0.81, 0.85, 0.84);
 const MARQUE = rgb(0.06, 0.3, 0.29);
 const FOND = rgb(0.95, 0.96, 0.96);
 const ALERTE = rgb(0.99, 0.94, 0.9);
+const REPERE = rgb(0.957, 0.714, 0.102);
 
 /** Les polices standard d'un PDF ne connaissent que l'alphabet occidental (WinAnsi) : on y ramène le texte. */
 export function net(texte: string | number | null | undefined): string {
@@ -91,7 +98,20 @@ class Feuille {
   page!: PDFPage;
   y = 0;
   constructor(readonly pdf: PDFDocument, readonly normal: PDFFont, readonly gras: PDFFont) { this.nouvellePage(); }
-  nouvellePage() { this.page = this.pdf.addPage([A4.l, A4.h]); this.y = A4.h - MARGE; }
+  /** Rappel porté en haut de chaque page après la couverture (« État des lieux d'entrée »). */
+  /** Couleur d'accent du document (bandeaux, titres) et couleur des repères de section. */
+  accent = MARQUE;
+  repere = REPERE;
+  entete: string | null = null;
+  nouvellePage() {
+    this.page = this.pdf.addPage([A4.l, A4.h]);
+    this.y = A4.h - MARGE;
+    if (!this.entete) return;
+    this.page.drawRectangle({ x: 0, y: A4.h - 8, width: A4.l, height: 8, color: this.accent });
+    this.page.drawText(this.entete, { x: A4.l - MARGE - this.normal.widthOfTextAtSize(this.entete, 9), y: A4.h - 40, size: 9, font: this.normal, color: DISCRET });
+    this.page.drawLine({ start: { x: MARGE, y: A4.h - 52 }, end: { x: A4.l - MARGE, y: A4.h - 52 }, thickness: 0.6, color: TRAIT });
+    this.y = A4.h - 62;
+  }
   /** Garantit `hauteur` points sous le curseur, quitte à changer de page. */
   place(hauteur: number) { if (this.y - hauteur < MARGE + 26) this.nouvellePage(); }
   espace(h: number) { this.y -= h; }
@@ -107,12 +127,19 @@ class Feuille {
     }
   }
   titre(texte: string) {
-    this.place(46);
-    this.espace(12);
-    this.texte(texte, { taille: 12.5, gras: true, couleur: MARQUE });
-    this.espace(3);
-    this.page.drawLine({ start: { x: MARGE, y: this.y }, end: { x: A4.l - MARGE, y: this.y }, thickness: 1, color: MARQUE });
-    this.espace(5);
+    this.place(52);
+    this.espace(16);
+    this.page.drawRectangle({ x: MARGE, y: this.y - 17, width: 9, height: 17, color: this.repere });
+    this.page.drawText(net(texte).toUpperCase(), { x: MARGE + 17, y: this.y - 13.5, size: 12, font: this.gras, color: ENCRE });
+    this.espace(26);
+  }
+  /** Bandeau de couleur en tête d'une pièce. */
+  bandeau(texte: string) {
+    this.place(74);
+    this.espace(8);
+    this.page.drawRectangle({ x: MARGE, y: this.y - 19, width: LARGEUR, height: 19, color: this.accent });
+    this.page.drawText(net(texte).slice(0, 90), { x: MARGE + 7, y: this.y - 13.5, size: 10, font: this.gras, color: rgb(1, 1, 1) });
+    this.espace(19);
   }
   /** Tableau à largeurs fixes ; une ligne n'est jamais coupée entre deux pages, l'en-tête est répété. */
   tableau(colonnes: Colonne[], lignes: string[][], o: { surligner?: (i: number) => boolean; taille?: number } = {}) {
@@ -162,6 +189,15 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   pdf.setLanguage('fr-FR');
   const f = new Feuille(pdf, await pdf.embedFont(StandardFonts.Helvetica), await pdf.embedFont(StandardFonts.HelveticaBold));
   const sortie = d.edl.type === 'sortant';
+  const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(d.couleur ?? '');
+  if (hex) {
+    // Une couleur choisie remplace les deux teintes de Constatio. Trop claire, elle rendrait les bandeaux illisibles (texte blanc) : on la fonce.
+    let [r, v, b] = hex.slice(1).map((x) => parseInt(x, 16) / 255);
+    const clarte = 0.299 * r + 0.587 * v + 0.114 * b;
+    if (clarte > 0.62) { const k = 0.62 / clarte; r *= k; v *= k; b *= k; }
+    f.accent = rgb(r, v, b);
+    f.repere = rgb(r, v, b);
+  }
 
   // Les photos sont numérotées dans l'ordre du document : pièce par pièce, puis compteurs, puis le reste.
   const ordre = new Map<string, number>();
@@ -173,21 +209,45 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   photos.forEach((p, i) => ordre.set(p.id, i + 1));
   const numeros = (filtre: (p: DonneesPdf['photos'][number]) => boolean) => photos.filter(filtre).map((p) => ordre.get(p.id)).join(', ');
 
-  // ── En-tête ───────────────────────────────────────────────────────────────────
+  // ── Couverture (page 1) ──────────────────────────────────────────────────────────
+  const centre = (texte: string, y: number, taille: number, police: PDFFont, couleur = ENCRE) => {
+    const lignes = couper(texte, police, taille, LARGEUR - 40);
+    lignes.forEach((l, k) => f.page.drawText(l, { x: (A4.l - police.widthOfTextAtSize(l, taille)) / 2, y: y - k * taille * 1.3, size: taille, font: police, color: couleur }));
+    return y - lignes.length * taille * 1.3;
+  };
   if (d.emetteur.logo) {
     // PNG ou JPEG, reconnu à ses premiers octets. Un logo illisible ne fait pas échouer le document.
     let logo: PDFImage | null = null;
     try { logo = d.emetteur.logo[0] === 0x89 ? await pdf.embedPng(d.emetteur.logo) : await pdf.embedJpg(d.emetteur.logo); } catch { logo = null; }
     if (logo) {
-      const r = Math.min(150 / logo.width, 52 / logo.height, 1);
-      f.page.drawImage(logo, { x: MARGE, y: f.y - logo.height * r, width: logo.width * r, height: logo.height * r });
-      f.espace(logo.height * r + 8);
+      const r = Math.min(230 / logo.width, 95 / logo.height, 1);
+      f.page.drawImage(logo, { x: (A4.l - logo.width * r) / 2, y: 735 - logo.height * r, width: logo.width * r, height: logo.height * r });
     }
   }
-  f.texte(d.emetteur.nom, { taille: 10, gras: true });
-  if (d.emetteur.adresse) f.texte(d.emetteur.adresse, { taille: 8.5, couleur: DISCRET });
-  f.espace(10);
-  f.texte(TITRES[d.edl.type], { taille: 20, gras: true, couleur: MARQUE, interligne: 26 });
+  f.page.drawRectangle({ x: (A4.l - 250) / 2, y: 606, width: 250, height: 3, color: f.repere });
+  const [grand, petit] = d.edl.type === 'releve' ? ["RELEVÉ D'ÉTAT", 'DU LOGEMENT'] : ['ÉTAT DES LIEUX', d.edl.type === 'sortant' ? 'DE SORTIE' : "D'ENTRÉE"];
+  centre(grand, 556, 29, f.gras);
+  centre(petit, 522, 15, f.normal, f.accent);
+  f.page.drawLine({ start: { x: 110, y: 492 }, end: { x: A4.l - 110, y: 492 }, thickness: 0.6, color: TRAIT });
+  let yc = 446;
+  const bloc = (libelle: string, valeur: string) => {
+    if (!valeur.trim()) return;
+    centre(libelle, yc, 9, f.gras, DISCRET);
+    yc = centre(valeur, yc - 22, 12.5, f.normal) - 24;
+  };
+  const noms = (role: string) => d.parties.filter((p) => p.role === role).map(personne).join(', ');
+  bloc('DATE', new Date(d.edl.date_edl).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }));
+  bloc(d.parties.filter((p) => p.role === 'locataire').length > 1 ? 'LOCATAIRES' : 'LOCATAIRE', noms('locataire'));
+  bloc('ADRESSE DU BIEN', [d.logement.adresse, d.logement.complement, `${d.logement.code_postal} ${d.logement.ville}`].filter(Boolean).join(', '));
+  bloc('BAILLEUR', noms('bailleur'));
+  bloc('RÉALISÉ PAR', d.edl.realise_par_nom);
+  centre(d.emetteur.nom, 96, 9.5, f.gras);
+  if (d.emetteur.adresse) centre(d.emetteur.adresse, 83, 8.5, f.normal, DISCRET);
+
+  // ── Informations, compteurs et clés (page 2) ────────────────────────────────────
+  f.entete = `${TITRES[d.edl.type].charAt(0)}${TITRES[d.edl.type].slice(1).toLowerCase()}`;
+  f.nouvellePage();
+  f.titre('Informations');
   f.texte(`Établi le ${dateFr(d.edl.date_edl)}${d.edl.realise_par_nom ? ` par ${d.edl.realise_par_nom}` : ''}`, { taille: 10.5 });
   if (sortie) f.texte(d.edl.date_edl_entree ? `État des lieux d'entrée établi le ${dateFr(d.edl.date_edl_entree)}` : "Date de l'état des lieux d'entrée : non renseignée", { taille: 10.5 });
 
@@ -210,11 +270,13 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   if (d.logement.type_bien !== 'garage' || d.compteurs.length) {
     f.titre('Relevés des compteurs');
     f.tableau([{ titre: 'Énergie', largeur: 90 }, { titre: 'Index relevé', largeur: 175 }, { titre: 'N° de compteur', largeur: 110 }, { titre: 'Emplacement', largeur: LARGEUR - 425 }, { titre: 'Photos', largeur: 50 }],
-      COMPTEURS.map(([type, libelle, unite]) => {
+      // Les quatre énergies figurent toujours ; le chauffage collectif seulement s'il a été relevé.
+      [...COMPTEURS, ...(d.compteurs.some((x) => x.type === 'chauffage' && !x.absent) ? [['chauffage', 'Chauffage collectif', ''] as [string, string, string]] : [])].map(([type, libelle, unite]) => {
         const c = d.compteurs.find((x) => x.type === type);
+        const valeur = !c ? null : c.double_tarif ? `HP ${c.index_1 !== null ? nombreFr(c.index_1) : '—'} · HC ${c.index_2 !== null ? nombreFr(c.index_2) : '—'} ${unite}` : c.index_1 !== null ? `${nombreFr(c.index_1)} ${unite}`.trim() : null;
         const index = !c ? 'Non relevé' : c.absent ? 'Pas de compteur individuel'
-          : c.double_tarif ? `HP ${c.index_1 !== null ? nombreFr(c.index_1) : '—'} · HC ${c.index_2 !== null ? nombreFr(c.index_2) : '—'} ${unite}`
-          : c.index_1 !== null ? `${nombreFr(c.index_1)} ${unite}` : 'Non relevé';
+          : c.collectif ? `Compteur collectif${valeur ? ` — ${valeur}` : ''}`
+          : `${valeur ?? 'Non relevé'}${c.verifie ? ' — compteur vérifié (eau coulée)' : ''}`;
         return [libelle, index, c?.numero ?? '', c?.emplacement ?? '', numeros((p) => p.compteur_type === type)];
       }));
   }
@@ -226,15 +288,14 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   } else f.texte('Aucune clé décrite.', { couleur: DISCRET });
 
   // ── Pièce par pièce ─────────────────────────────────────────────────────────────
+  // La description commence en page 3 : la page 2 reste celle des informations, des compteurs et des clés.
+  f.nouvellePage();
   f.titre('Description pièce par pièce');
   f.texte(`États : ${Object.values(LIBELLES_ETAT).join(' · ')}.${sortie ? ' Les lignes teintées signalent un état différent de celui constaté à l\'entrée.' : ''}`, { taille: 8.5, couleur: DISCRET });
   f.espace(4);
   for (const piece of d.pieces) {
     const els = d.elements.filter((x) => x.piece_id === piece.id);
-    f.place(70);
-    f.espace(6);
-    f.texte(piece.nom, { taille: 11, gras: true });
-    f.espace(2);
+    f.bandeau(piece.nom);
     const observation = (el: DonneesPdf['elements'][number]) =>
       [el.fonctionne === false ? 'Ne fonctionne pas.' : el.fonctionne === true ? 'Fonctionne (essayé sur place).' : null, el.observations, el.detail].filter(Boolean).join(' ');
     if (sortie) {
@@ -284,43 +345,66 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     f.y -= 92;
   }
 
-  // ── Annexe photo : six par page, chacune avec son numéro, sa date et son lieu ──────
+  let marqueImage: PDFImage | null = null;
+  if (d.filigraneImage) { try { marqueImage = await pdf.embedPng(d.filigraneImage); } catch { marqueImage = null; } }
+  // ── Annexe photo : deux ou trois colonnes, chaque rangée à la hauteur de ses photos ──
+  // Une photo verticale occupe la même largeur qu'une photo horizontale : elle est simplement plus haute.
   if (photos.length) {
-    const colonnes = 2, rangees = 3, gouttiere = 14;
-    const largeurCellule = (LARGEUR - gouttiere) / colonnes;
-    const hauteurImage = 178, hauteurCellule = hauteurImage + 46;
-    for (let i = 0; i < photos.length; i++) {
-      const position = i % (colonnes * rangees);
-      if (position === 0) {
-        f.nouvellePage();
-        f.texte('Annexe photographique', { taille: 12.5, gras: true, couleur: MARQUE });
-        f.espace(8);
-      }
-      const p = photos[i];
-      const x = MARGE + (position % colonnes) * (largeurCellule + gouttiere);
-      const haut = f.y - Math.floor(position / colonnes) * (hauteurCellule + 8);
-      f.page.drawRectangle({ x, y: haut - hauteurImage, width: largeurCellule, height: hauteurImage, color: FOND });
+    const colonnes = d.photosColonnes === 3 ? 3 : 2;
+    const gouttiere = 12;
+    const lc = (LARGEUR - gouttiere * (colonnes - 1)) / colonnes;
+    const hMax = lc * 1.34;                       // une photo 3:4 tenue verticalement remplit la largeur
+    const petit = colonnes === 3;
+    const hLegende = petit ? 36 : 40;
+    const images: (PDFImage | null)[] = [];
+    for (const p of photos) {
       let image: PDFImage | null = null;
       if (p.octets) { try { image = await pdf.embedJpg(p.octets); } catch { image = null; } }
-      if (image) {
-        // Image entière, proportions gardées, centrée dans sa case.
-        const r = Math.min(largeurCellule / image.width, hauteurImage / image.height);
-        const ix = x + (largeurCellule - image.width * r) / 2, iy = haut - hauteurImage + (hauteurImage - image.height * r) / 2, il = image.width * r;
-        f.page.drawImage(image, { x: ix, y: iy, width: il, height: image.height * r });
-        if (d.filigrane) {
-          // Bandeau au pied de la photo : il ne masque que quelques millimètres, et suit l'image si elle est copiée hors du document.
-          let marque = net(`${d.filigrane} · ${dateHeureFr(p.pris_le)}`);
-          while (marque.length > 8 && f.normal.widthOfTextAtSize(marque, 6.8) > il - 8) marque = `${marque.slice(0, -2)}…`;
-          f.page.drawRectangle({ x: ix, y: iy, width: il, height: 12, color: rgb(0, 0, 0), opacity: 0.5 });
-          f.page.drawText(marque, { x: ix + 4, y: iy + 3.4, size: 6.8, font: f.normal, color: rgb(1, 1, 1), opacity: 0.95 });
-        }
-      } else f.page.drawText('Photo indisponible', { x: x + 8, y: haut - hauteurImage / 2, size: 9, font: f.normal, color: DISCRET });
-      const el = d.elements.find((e) => e.id === p.element_id);
-      const piece = el && d.pieces.find((x) => x.id === el.piece_id);
-      const ou = el ? `${piece?.nom ?? ''}, ${el.libelle}` : p.compteur_type ? `Compteur ${(COMPTEURS.find((c) => c[0] === p.compteur_type)?.[1] ?? '').toLowerCase()}` : 'Vue générale';
-      f.page.drawText(net(`Photo ${i + 1} — ${ou}`).slice(0, 62), { x, y: haut - hauteurImage - 12, size: 8.6, font: f.gras, color: ENCRE });
-      if (p.legende) f.page.drawText(couper(p.legende, f.normal, 8, largeurCellule)[0], { x, y: haut - hauteurImage - 23, size: 8, font: f.normal, color: ENCRE });
-      f.page.drawText(net(`Prise le ${dateHeureFr(p.pris_le)}${p.latitude !== null && p.longitude !== null ? ` · ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}` : ''}`), { x, y: haut - hauteurImage - (p.legende ? 34 : 23), size: 7.5, font: f.normal, color: DISCRET });
+      images.push(image);
+    }
+    f.nouvellePage();
+    f.texte('Annexe photographique', { taille: 12.5, gras: true, couleur: f.accent });
+    f.espace(8);
+    for (let debut = 0; debut < photos.length; debut += colonnes) {
+      const rang = photos.slice(debut, debut + colonnes).map((p, k) => {
+        const image = images[debut + k];
+        const r = image ? Math.min(lc / image.width, hMax / image.height) : 0;
+        return { p, image, r, h: image ? image.height * r : lc * 0.75 };
+      });
+      const hRang = Math.max(...rang.map((c) => c.h));
+      f.place(hRang + hLegende + 10);
+      const haut = f.y;
+      rang.forEach(({ p, image, r }, k) => {
+        const i = debut + k;
+        const x = MARGE + k * (lc + gouttiere);
+        f.page.drawRectangle({ x, y: haut - hRang, width: lc, height: hRang, color: FOND });
+        if (image) {
+          const il = image.width * r, ih = image.height * r;
+          const ix = x + (lc - il) / 2, iy = haut - hRang + (hRang - ih) / 2;
+          f.page.drawImage(image, { x: ix, y: iy, width: il, height: ih });
+          if (marqueImage) {
+            // En bas à droite, comme un tampon : il marque la photo sans cacher ce qu'elle montre.
+            const m = Math.min((il * 0.26) / marqueImage.width, (ih * 0.3) / marqueImage.height);
+            f.page.drawImage(marqueImage, { x: ix + il - marqueImage.width * m - 5, y: iy + (d.filigrane ? 15 : 5), width: marqueImage.width * m, height: marqueImage.height * m, opacity: 0.7 });
+          }
+          if (d.filigrane) {
+            // Bandeau au pied de la photo : il ne masque que quelques millimètres, et suit l'image si elle est copiée hors du document.
+            const taille = petit ? 6 : 6.8;
+            let marque = net(`${d.filigrane} · ${dateHeureFr(p.pris_le)}`);
+            while (marque.length > 8 && f.normal.widthOfTextAtSize(marque, taille) > il - 8) marque = `${marque.slice(0, -2)}…`;
+            f.page.drawRectangle({ x: ix, y: iy, width: il, height: 12, color: rgb(0, 0, 0), opacity: 0.5 });
+            f.page.drawText(marque, { x: ix + 4, y: iy + 3.4, size: taille, font: f.normal, color: rgb(1, 1, 1), opacity: 0.95 });
+          }
+        } else f.page.drawText('Photo indisponible', { x: x + 8, y: haut - hRang / 2, size: 9, font: f.normal, color: DISCRET });
+        const el = d.elements.find((e) => e.id === p.element_id);
+        const piece = el && d.pieces.find((x) => x.id === el.piece_id);
+        const ou = el ? `${piece?.nom ?? ''}, ${el.libelle}` : p.compteur_type ? `Compteur ${(COMPTEURS.find((c) => c[0] === p.compteur_type)?.[1] ?? 'de chauffage').toLowerCase()}` : 'Vue générale';
+        const t1 = petit ? 7.6 : 8.6, t2 = petit ? 7 : 8, t3 = petit ? 6.5 : 7.5;
+        f.page.drawText(couper(`Photo ${i + 1} — ${ou}`, f.gras, t1, lc)[0], { x, y: haut - hRang - 11, size: t1, font: f.gras, color: ENCRE });
+        if (p.legende) f.page.drawText(couper(p.legende, f.normal, t2, lc)[0], { x, y: haut - hRang - 21, size: t2, font: f.normal, color: ENCRE });
+        f.page.drawText(couper(`Prise le ${dateHeureFr(p.pris_le)}${p.latitude !== null && p.longitude !== null ? ` · ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}` : ''}`, f.normal, t3, lc)[0], { x, y: haut - hRang - (p.legende ? 31 : 21), size: t3, font: f.normal, color: DISCRET });
+      });
+      f.y = haut - hRang - hLegende - 8;
     }
   }
 
@@ -334,10 +418,16 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     if (d.mention) page.drawText(net(d.mention), { x: (A4.l - f.normal.widthOfTextAtSize(net(d.mention), 7.5)) / 2, y: MARGE - 9, size: 7.5, font: f.normal, color: DISCRET });
     if (d.apercu) {
       // Écrit aussi à l'horizontale, en clair : un filigrane en biais ne se lit ni à la recherche ni au lecteur d'écran.
-      const bandeau = net('APERÇU SANS VALEUR — document non définitif');
+      const bandeau = net('APERÇU SANS VALEUR — document non finalisé');
       page.drawText(bandeau, { x: A4.l - MARGE - f.gras.widthOfTextAtSize(bandeau, 8), y: A4.h - 26, size: 8, font: f.gras, color: rgb(0.75, 0.2, 0.15) });
     }
-    if (d.apercu) page.drawText(net('APERÇU SANS VALEUR'), { x: 92, y: 250, size: 46, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.14, rotate: degrees(52) });
+    if (d.apercu) {
+      // Filigrane au nom du service, et rappel de ce qui manque pour que le document vaille quelque chose.
+      page.drawText('CONSTATIO', { x: 118, y: 210, size: 74, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.13, rotate: degrees(52) });
+      page.drawText(net('APERÇU NON FINALISÉ'), { x: 250, y: 250, size: 30, font: f.gras, color: rgb(0.75, 0.2, 0.15), opacity: 0.13, rotate: degrees(52) });
+      const rappel = net("Aperçu : ce document n'a aucune valeur. Un état des lieux ne fait foi qu'une fois finalisé et signé par les parties (loi du 6 juillet 1989, art. 3-2).");
+      page.drawText(rappel, { x: (A4.l - f.gras.widthOfTextAtSize(rappel, 6.6)) / 2, y: MARGE + 18, size: 6.6, font: f.gras, color: rgb(0.75, 0.2, 0.15) });
+    }
   });
   return { octets: await pdf.save(), cases };
 }
@@ -367,7 +457,7 @@ export function filigraneDe(o: Ligne | null): string | null {
   return String(o.filigrane_texte || o.entete || o.nom || '').trim().slice(0, 60) || null;
 }
 
-export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu: boolean, logo: Uint8Array | null = null): DonneesPdf {
+export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu: boolean, logo: Uint8Array | null = null, filigraneImage: Uint8Array | null = null): DonneesPdf {
   const range = (lignes: Ligne[]) => [...lignes].sort((a, b) => Number(a.ordre ?? 0) - Number(b.ordre ?? 0) || String(a.created_at ?? a._cree ?? '').localeCompare(String(b.created_at ?? b._cree ?? '')));
   const pieces = range(l.pieces);
   const rangPiece = new Map(pieces.map((p, i) => [p.id, i]));
@@ -375,7 +465,10 @@ export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu:
   const o = l.organisation;
   return {
     apercu, mention: MENTION_CONSTATIO,
+    photosColonnes: o?.photos_colonnes === 3 ? 3 : 2,
+    couleur: o?.type === 'pro' && /^#[0-9a-f]{6}$/i.test(o.couleur_documents ?? '') ? o.couleur_documents : null,
     filigrane: filigraneDe(o),
+    filigraneImage: o?.filigrane_photos ? filigraneImage : null,
     emetteur: { logo: o?.type === 'pro' ? logo : null, nom: o?.entete || o?.nom || '', adresse: o ? [o.adresse, [o.code_postal, o.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null : null },
     edl: { id: l.edl.id, type: l.edl.type, date_edl: l.edl.date_edl, bail_type: l.edl.bail_type, bail_date_entree: l.edl.bail_date_entree ?? null,
       depot_garantie_cents: l.edl.depot_garantie_cents ?? null, realise_par_nom: l.edl.realise_par_nom ?? '', remarques_generales: l.edl.remarques_generales ?? null, date_edl_entree: l.edl.date_edl_entree ?? null },
@@ -384,7 +477,7 @@ export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu:
     pieces: pieces.map((p) => ({ id: p.id, nom: p.nom, observations: p.observations ?? null })),
     elements: elements.map((e) => ({ id: e.id, piece_id: e.piece_id, libelle: e.libelle, nature: e.nature ?? null, etat: e.etat ?? null, fonctionne: e.fonctionne ?? null, observations: e.observations ?? null, detail: e.detail ?? null, origine_id: e.origine_id ?? null })),
     origines: Object.fromEntries(l.elementsEntree.map((e) => [e.id, { etat: e.etat ?? null, observations: e.observations ?? null }])),
-    compteurs: l.compteurs.map((c) => ({ type: c.type, absent: !!c.absent, numero: c.numero ?? null, double_tarif: !!c.double_tarif, index_1: c.index_1 ?? null, index_2: c.index_2 ?? null, emplacement: c.emplacement ?? null })),
+    compteurs: l.compteurs.map((c) => ({ type: c.type, absent: !!c.absent, collectif: !!c.collectif, verifie: !!c.verifie, numero: c.numero ?? null, double_tarif: !!c.double_tarif, index_1: c.index_1 ?? null, index_2: c.index_2 ?? null, emplacement: c.emplacement ?? null })),
     cles: range(l.cles).map((k) => ({ nature: k.nature, nombre: Number(k.nombre ?? 0), destination: k.destination ?? '' })),
     inventaire: range(l.inventaire).map((i) => ({ libelle: i.libelle, quantite: Number(i.quantite ?? 1), etat: i.etat ?? null })),
     photos: l.photos.map((p) => ({ id: p.id, element_id: p.element_id ?? null, compteur_type: p.compteur_type ?? null, legende: p.legende ?? null, pris_le: p.pris_le, latitude: p.latitude ?? null, longitude: p.longitude ?? null, octets: octets.get(p.id) ?? null })),

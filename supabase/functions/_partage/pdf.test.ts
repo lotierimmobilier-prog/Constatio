@@ -9,6 +9,9 @@ import { assembler, construirePdf, empreintePdf, net, type DonneesPdf } from './
 /** Une petite image JPEG valide (8 × 6 pixels gris). */
 const JPEG = Uint8Array.from(atob('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAGAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCSiiitTE//2Q=='), (c) => c.charCodeAt(0));
 
+/** Un rectangle sombre sur fond transparent (200 × 80). */
+const PNG_TRANSPARENT = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAMgAAABQCAYAAABcbTqwAAAAuUlEQVR4nO3TQQ2AQAADQcAATs6/DpygAAzAJiT3IjMC+uouCwAAAAAAAAAAAAAAAAAAADxbZw/uY1yzN+GL8zim/XqbNQR/JBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAgCgSAQCAKBIBAIAoEgEAAAAAAAAAAAAAAAAAAAAN7cp+0EUku0h48AAAAASUVORK5CYII='), (c) => c.charCodeAt(0));
+
 export const exemple = (type: DonneesPdf['edl']['type'] = 'entrant'): DonneesPdf => ({
   apercu: false, mention: 'Réalisé avec Constatio — partenaire Signabail',
   emetteur: { nom: 'ZZREC SCI des Balances', adresse: '12 rue des Balances, 34500 Béziers' },
@@ -60,7 +63,7 @@ describe('PDF de l’état des lieux', () => {
       'Séjour', 'parquet stratifié', 'Bon état', 'Rayure de 10 cm', 'Hors service', 'Ne fonctionne pas.', // pièce par pièce
       'Plaques de cuisson', 'Logement repeint',                                      // inventaire, remarques
       'dix jours', 'premier mois de la période de chauffe',                          // complément (art. 3-2)
-      'Signatures', 'Lu et approuvé', 'Annexe photographique', 'Photo 1 — Séjour, Sol', '43.34420, 3.21580',
+      'SIGNATURES', 'Lu et approuvé', 'Annexe photographique', 'Photo 1 — Séjour, Sol', '43.34420, 3.21580',
       'Réalisé avec Constatio — partenaire Signabail', 'Page 1 / ',
     ]) expect(t, attendu).toContain(attendu);
     expect(t).not.toContain('APERÇU');
@@ -88,7 +91,7 @@ describe('PDF de l’état des lieux', () => {
   it('une partie absente ne signe pas, et son absence est écrite', async () => {
     const t = texte(await construirePdf(exemple()));
     expect(t).toContain('absent(e) le jour de l\'état des lieux');
-    expect(t.slice(t.indexOf('Signatures'))).not.toContain('LOTIER');
+    expect(t.slice(t.indexOf('SIGNATURES'))).not.toContain('LOTIER');
   });
   it('tient un grand logement : plusieurs pages, tableau jamais coupé au milieu d’une ligne', async () => {
     const d = exemple();
@@ -111,6 +114,16 @@ describe('PDF de l’état des lieux', () => {
     const avec = texte(await construirePdf({ ...exemple(), filigrane: 'Cabinet ZZREC' }));
     expect(avec).toContain('Cabinet ZZREC · 15/11/2026 11:05');
     expect(avec.match(/Cabinet ZZREC ·/g)?.length).toBe(2); // deux photos présentes, la troisième est indisponible
+  });
+  it('filigrane en image : posé sur chaque photo présente ; une image illisible ne fait pas échouer le document', async () => {
+    const images = async (d: DonneesPdf) => {
+      const pdf = await PDFDocument.load(await construirePdf(d));
+      return pdf.context.enumerateIndirectObjects().filter(([, o]) => String((o as { dict?: { get: (k: unknown) => unknown } }).dict?.get(PDFName.of('Subtype'))) === '/Image').length;
+    };
+    const base = await images(exemple());
+    // Une image PNG transparente compte pour deux objets (couleurs et transparence), intégrés une seule fois quel que soit le nombre de photos.
+    expect(await images({ ...exemple(), filigraneImage: PNG_TRANSPARENT })).toBe(base + 2);
+    expect(texte(await construirePdf({ ...exemple(), filigraneImage: new Uint8Array([1, 2, 3]) }))).toContain('Annexe photographique');
   });
   it('logo : posé en tête ; un fichier illisible ne fait pas échouer le document', async () => {
     const images = async (d: DonneesPdf) => {

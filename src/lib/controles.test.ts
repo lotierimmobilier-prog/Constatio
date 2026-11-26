@@ -11,7 +11,7 @@ const complet = (): DonneesControle => ({
   elements: [{ id: 'el1', piece_id: 'p1', libelle: 'Sol', etat: 'bon', observations: null }],
   compteurs: [
     { type: 'electricite', absent: false, index_1: 18432, index_2: 9877, double_tarif: true, numero: '0945' },
-    { type: 'eau_froide', absent: false, index_1: 214, index_2: null, double_tarif: false, numero: 'E12' },
+    { type: 'eau_froide', absent: false, verifie: true, index_1: 214, index_2: null, double_tarif: false, numero: 'E12' },
     { type: 'eau_chaude', absent: true, index_1: null, index_2: null, double_tarif: false, numero: null },
     { type: 'gaz', absent: true, index_1: null, index_2: null, double_tarif: false, numero: null },
   ],
@@ -84,11 +84,11 @@ describe('controler', () => {
     d.parties[1].nouvelle_adresse = '3 impasse des Lilas, Trèbes'; d.entreeConnue = true;
     expect(controler(d)).toEqual([]);
   });
-  it('conseille la photo d’un compteur relevé', () => {
+  it('exige la photo d’un compteur relevé', () => {
     const d = complet(); d.photos = [];
     expect(controler(d).map((x) => [x.niveau, x.message])).toEqual([
-      ['conseil', 'Électricité : pas de photo du compteur. Elle évite toute contestation de l’index.'],
-      ['conseil', 'Eau froide : pas de photo du compteur. Elle évite toute contestation de l’index.'],
+      ['bloquant', 'Électricité : la photo du compteur est obligatoire.'],
+      ['bloquant', 'Eau froide : la photo du compteur est obligatoire.'],
     ]);
   });
   it('garage : ni compteur ni inventaire attendus', () => {
@@ -103,5 +103,28 @@ describe('controler', () => {
       { role: 'mandataire_bailleur', nom: 'Agence', adresse: null, nouvelle_adresse: null, represente_id: 'x' },
     ];
     expect(controler(d).filter((a) => a.niveau === 'bloquant').map((a) => a.message)).toEqual(['L’adresse du bailleur (domicile ou siège) est obligatoire.', 'L’adresse du mandataire est obligatoire.']);
+  });
+  it('eau : un compteur collectif se déclare sans index ; un compteur individuel non vérifié fait l’objet d’un conseil', () => {
+    const d = complet();
+    d.compteurs = d.compteurs.map((c) => (c.type === 'eau_froide' ? { ...c, collectif: true, index_1: null } : c.type === 'eau_chaude' ? { ...c, absent: false, index_1: 12, verifie: false } : c));
+    d.photos = [...d.photos, { element_id: null, compteur_type: 'eau_chaude' }];
+    const alertes = controler(d);
+    expect(alertes.filter((a) => a.niveau === 'bloquant')).toEqual([]);
+    expect(alertes.some((a) => /Eau chaude : vérifiez que ce compteur est bien celui du logement/.test(a.message))).toBe(true);
+    expect(alertes.some((a) => /Eau froide/.test(a.message))).toBe(false);
+    d.compteurs = d.compteurs.map((c) => (c.type === 'eau_chaude' ? { ...c, verifie: true } : c));
+    expect(controler(d).some((a) => /vérifiez que ce compteur/.test(a.message))).toBe(false);
+  });
+  it('exige la photo de chaque compteur relevé, du détecteur de fumée et d’une VMC', () => {
+    const d = complet();
+    d.elements = [...d.elements, { id: 'daaf', piece_id: 'p1', libelle: 'Détecteur de fumée', categorie: 'daaf', etat: 'bon', observations: null },
+      { id: 'v1', piece_id: 'p1', libelle: 'VMC / aération', categorie: 'vmc', etat: 'bon', observations: null }, { id: 'v2', piece_id: 'p1', libelle: 'VMC / aération', categorie: 'vmc', etat: 'bon', observations: null },
+      { id: 'gaz', piece_id: 'p1', libelle: 'Détecteur de gaz / CO', categorie: 'detecteur_gaz', etat: 'sans_objet', observations: null }];
+    d.photos = [{ element_id: null, compteur_type: 'electricite' }];
+    expect(controler(d).filter((a) => a.niveau === 'bloquant').map((a) => a.message)).toEqual([
+      'Eau froide : la photo du compteur est obligatoire.', 'Détecteur de fumée : la photo est obligatoire.', 'VMC / aération : au moins une photo est obligatoire.']);
+    // Une seule photo de VMC suffit ; un détecteur noté « sans objet » n'en demande pas.
+    d.photos = [...d.photos, { element_id: null, compteur_type: 'eau_froide' }, { element_id: 'daaf', compteur_type: null }, { element_id: 'v2', compteur_type: null }];
+    expect(controler(d).filter((a) => a.niveau === 'bloquant')).toEqual([]);
   });
 });
