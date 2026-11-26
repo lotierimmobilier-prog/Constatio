@@ -14,7 +14,7 @@ export const EDITEUR = {
   adresse: '40 rue Française, 34500 Béziers',
   telephone: '04 67 11 28 31',
   // Adresse de contact commune avec Signabail tant que constatio.fr n'a pas sa propre boîte.
-  email: 'bonjour@signabail.fr',
+  email: 'bonjour@constatio.fr',
   directeurPublication: 'Nicolas Popovitch, gérant',
   cartePro: 'CPI 3002 2020 000 045 110',
   carteProAutorite: 'CCI de l’Hérault',

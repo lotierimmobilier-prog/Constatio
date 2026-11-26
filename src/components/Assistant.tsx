@@ -56,7 +56,7 @@ export function Assistant() {
     const trouves = chercher(index, q);
     const reponse: Message = trouves.length
       ? { de: 'constant', texte: trouves[0].fiche.r, fiche: trouves[0].fiche, autres: trouves.slice(1).map((t) => t.fiche) }
-      : { de: 'constant', texte: 'Je n’ai pas de réponse sûre à cette question, et je préfère ne pas en inventer. Essayez avec d’autres mots, consultez les guides, ou écrivez-nous à bonjour@signabail.fr.' };
+      : { de: 'constant', texte: 'Je n’ai pas de réponse sûre à cette question, et je préfère ne pas en inventer. Essayez avec d’autres mots, consultez les guides, ou écrivez-nous à bonjour@constatio.fr.' };
     setMessages((m) => [...m, { de: 'vous', texte: q }, reponse]);
     setSaisie('');
   }
