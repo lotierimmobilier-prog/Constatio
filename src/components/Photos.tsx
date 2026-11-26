@@ -70,15 +70,19 @@ export function Photos({ edl, cible, photos, quoi, verrouille, onChange }: {
       <div className="grid grid-cols-4 gap-2">
         {photos.map((p) => <Vignette key={p.id} photo={p} onClick={() => setOuverte(p)} />)}
         {!verrouille && (
-          <label className={`grid aspect-square cursor-pointer place-items-center rounded-xl border-2 border-dashed border-marque p-1 text-center text-sm font-semibold text-marque ${occupe ? 'opacity-50' : ''}`}>
-            {/* « capture » ouvre directement l'appareil photo du téléphone ; plusieurs fichiers restent possibles depuis la galerie. */}
-            <input ref={champ} type="file" accept="image/*" capture="environment" multiple className="sr-only" disabled={occupe} onChange={(e) => choisir(e.target.files)} />
-            {occupe ? 'Un instant…' : photos.length ? '+ Photo' : 'Prendre une photo'}
-          </label>
+          // Par défaut, l'appareil photo s'ouvre en rafale : on enchaîne les prises, chacune est enregistrée aussitôt.
+          <button type="button" onClick={() => setRafale(true)} disabled={occupe} data-testid="ouvrir-rafale"
+            className={`grid aspect-square place-items-center rounded-xl border-2 border-dashed border-marque p-1 text-center text-sm font-semibold text-marque ${occupe ? 'opacity-50' : ''}`}>
+            {occupe ? 'Un instant…' : photos.length ? '+ Photos' : 'Prendre des photos'}
+          </button>
         )}
       </div>
       {!verrouille && (
-        <button type="button" onClick={() => setRafale(true)} className="self-start text-sm font-semibold text-marque underline underline-offset-4" data-testid="ouvrir-rafale">Plusieurs photos à la suite (rafale)</button>
+        <label className="cursor-pointer self-start text-sm font-semibold text-marque underline underline-offset-4">
+          Choisir dans la galerie
+          {/* Sans « capture » : le téléphone propose ses photos existantes ; plusieurs fichiers à la fois. */}
+          <input ref={champ} type="file" accept="image/*" multiple className="sr-only" disabled={occupe} onChange={(e) => choisir(e.target.files)} />
+        </label>
       )}
       {rafale && <Rafale titre={quoi} onPhoto={ajouterUne} onFermer={() => setRafale(false)} />}
       {illisibles > 0 && <Alerte>{illisibles > 1 ? `${illisibles} fichiers n’ont pas pu être lus` : 'Un fichier n’a pas pu être lu'} : ce n’est pas une image, ou son format n’est pas pris en charge par ce téléphone.</Alerte>}

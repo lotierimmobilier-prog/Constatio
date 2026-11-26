@@ -16,14 +16,14 @@ export function Rafale({ titre, onPhoto, onFermer }: { titre: string; onPhoto: (
 
   useEffect(() => {
     let actif = true;
-    if (!navigator.mediaDevices?.getUserMedia) { setErreur('Cet appareil ne permet pas la rafale. Utilisez « + Photo ».'); return; }
+    if (!navigator.mediaDevices?.getUserMedia) { setErreur('Cet appareil ne permet pas la prise de vue ici. Fermez, puis utilisez « Choisir dans la galerie ».'); return; }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false })
       .then((s) => {
         if (!actif) { s.getTracks().forEach((t) => t.stop()); return; }
         flux.current = s;
         if (video.current) { video.current.srcObject = s; void video.current.play().then(() => setPret(true)).catch(() => setPret(true)); }
       })
-      .catch(() => setErreur('L’appareil photo n’est pas accessible. Autorisez-le pour ce site dans les réglages du navigateur, ou utilisez « + Photo ».'));
+      .catch(() => setErreur('L’appareil photo n’est pas accessible. Autorisez-le pour ce site dans les réglages du navigateur, ou fermez et utilisez « Choisir dans la galerie ».'));
     return () => { actif = false; flux.current?.getTracks().forEach((t) => t.stop()); };
   }, []);
 
