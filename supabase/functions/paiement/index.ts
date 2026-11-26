@@ -7,7 +7,7 @@
 // Coupe-circuit : en mode test, seule une clé de test Stripe est acceptée.
 //
 // Exécutée et testée sur la pile locale (e2e/paiement.spec.ts) ; pas encore déployée.
-// Secrets attendus : STRIPE_SECRET_KEY, SITE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
+// Clé Stripe : saisie dans l'administration (migration 12). Secrets attendus : SITE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
 // STRIPE_API_URL ne sert qu'aux tests (faux Stripe local).
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { TARIFS_EN_LIGNE, cleAdmise, corpsCommande, type Tarif } from '../_partage/stripe.ts';
@@ -43,8 +43,11 @@ Deno.serve(async (requete) => {
     if (!qui?.user) throw new Refus(401, 'session');
     const service = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
-    const modeTest = String(lu(await service.from('parametres').select('valeur').eq('cle', 'mode_test').maybeSingle())?.valeur) !== 'false';
-    const cle = Deno.env.get('STRIPE_SECRET_KEY');
+    // Les clés sont saisies dans l'administration ; la base ne rend que celle du mode en cours.
+    // (STRIPE_SECRET_KEY, variable d'environnement, ne sert plus qu'à la pile locale de test.)
+    const cles = lu(await service.rpc('cles_stripe')) as { mode_test: boolean; cle: string | null };
+    const modeTest = cles.mode_test;
+    const cle = cles.cle ?? Deno.env.get('STRIPE_SECRET_KEY');
     const admise = cleAdmise(cle, modeTest);
     if (admise === 'absente') throw new Refus(503, 'ferme');
     if (admise !== 'ok') { console.error('paiement : clé Stripe refusée —', admise); throw new Refus(503, 'ferme'); }

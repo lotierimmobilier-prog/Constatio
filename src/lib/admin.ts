@@ -20,5 +20,5 @@ export const ORIGINES: Record<string, string> = { achat: 'Achat', abonnement: 'A
 export const ACTIONS: Record<string, string> = {
   'admin.designe_par_le_serveur': 'Administrateur désigné au déploiement', 'admin.role': 'Rôle d’administration modifié',
   'credits.offerts': 'Crédits offerts', 'credits.retires': 'Crédits retirés', 'compte.test': 'Compte marqué test',
-  'tarif.modifie': 'Tarif modifié', mode_test: 'Mode test', 'signabail.rejoue': 'Message Signabail rejoué',
+  'tarif.modifie': 'Tarif modifié', mode_test: 'Mode test', 'cle.enregistree': 'Clé de service enregistrée', 'cle.effacee': 'Clé de service effacée', 'signabail.rejoue': 'Message Signabail rejoué',
 };

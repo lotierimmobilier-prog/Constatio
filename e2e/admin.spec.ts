@@ -111,6 +111,21 @@ test('le super administrateur suit les comptes, offre des crédits, règle les t
   await expect(page.getByRole('status').filter({ hasText: 'Mode test réactivé' })).toBeVisible();
   expect(sql(`select valeur from public.parametres where cle = 'mode_test'`)).toBe('true');
 
+  // Clés Stripe : collées ici, jamais réaffichées ; une clé du mauvais monde est refusée.
+  const cleTest = page.getByTestId('cle-stripe_cle_test');
+  await cleTest.getByLabel('Clé secrète de test').fill('sk_live_abcdefghijklmnop0000');
+  await cleTest.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'n\'a pas la forme attendue' })).toBeVisible();
+  await cleTest.getByLabel('Clé secrète de test').fill('sk_test_abcdefghijklmnop4242');
+  await cleTest.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(cleTest.getByText(/se termine par 4242/)).toBeVisible();
+  await expect(cleTest.getByLabel('Clé secrète de test')).toHaveValue('');
+  expect(await page.content()).not.toContain('abcdefghijklmnop');
+  expect(sql(`select public.cles_stripe() ->> 'cle'`)).toBe('sk_test_abcdefghijklmnop4242');
+  await expect(page.getByTestId('adresse-webhook')).toHaveText(/\/functions\/v1\/webhook-stripe$/);
+  await cleTest.getByRole('button', { name: 'Effacer' }).click();
+  await expect(cleTest.getByText('Non renseignée')).toBeVisible();
+
   // Administrateurs : nommer le client, puis lui retirer le rôle.
   await page.getByLabel('Adresse du compte à nommer').fill(client);
   await page.getByRole('button', { name: 'Nommer' }).click();

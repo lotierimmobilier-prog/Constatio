@@ -6,11 +6,35 @@ import { emailValide } from '../../lib/validation';
 import { useDonnee, useRoleAdmin } from './CoquilleAdmin';
 
 const MOT = 'PRODUCTION';
+const ADRESSE_WEBHOOK = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-stripe`;
+const EVENEMENTS = ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'invoice.paid', 'invoice.payment_failed', 'customer.subscription.updated', 'customer.subscription.deleted', 'charge.refunded'];
+const CLES = [
+  { nom: 'stripe_cle_test', libelle: 'Clé secrète de test', exemple: 'sk_test_…' },
+  { nom: 'stripe_webhook_test', libelle: 'Secret du webhook de test', exemple: 'whsec_…' },
+  { nom: 'stripe_cle_reelle', libelle: 'Clé secrète réelle', exemple: 'sk_live_…' },
+  { nom: 'stripe_webhook_reel', libelle: 'Secret du webhook réel', exemple: 'whsec_…' },
+];
+
+/** Une clé en écriture seule : on la colle, on l'enregistre, on n'en revoit que la fin. */
+function ChampCle({ cle, connue, enregistrer }: { cle: (typeof CLES)[number]; connue?: { fin: string; updated_at: string }; enregistrer: (valeur: string) => Promise<void> }) {
+  const [valeur, setValeur] = useState('');
+  return (
+    <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void enregistrer(valeur.trim()).then(() => setValeur('')); }} data-testid={`cle-${cle.nom}`}>
+      <Champ id={cle.nom} libelle={cle.libelle} type="password" autoComplete="off" value={valeur} onChange={(e) => setValeur(e.target.value)} placeholder={cle.exemple}
+        aide={connue ? `Enregistrée le ${jour(connue.updated_at)} · se termine par ${connue.fin}` : 'Non renseignée'} />
+      <div className="flex gap-3">
+        <Bouton type="submit" className="!w-auto px-5" disabled={!valeur.trim()}>Enregistrer</Bouton>
+        {connue && <button type="button" className="font-semibold text-hs underline underline-offset-4" onClick={() => void enregistrer('')}>Effacer</button>}
+      </div>
+    </form>
+  );
+}
 
 /** Réservé au super administrateur : le coupe-circuit « mode test » et les administrateurs. */
 export function AdminReglages() {
   const role = useRoleAdmin();
   const test = useDonnee(async () => (await supabase.from('parametres').select('valeur').eq('cle', 'mode_test').single()).data?.valeur === true);
+  const cles = useDonnee(() => appel<{ nom: string; fin: string; updated_at: string }[]>('admin_cles'));
   const admins = useDonnee(() => appel<{ email: string; role: string; depuis: string }[]>('admin_administrateurs'));
   const [saisie, setSaisie] = useState('');
   const [email, setEmail] = useState('');
@@ -21,7 +45,7 @@ export function AdminReglages() {
   const agir = async (action: () => Promise<unknown>, succes: string) => {
     try { await action(); setRetour({ ton: 'succes', texte: succes }); }
     catch (e) { setRetour({ ton: 'erreur', texte: (e as Error).message }); }
-    await Promise.all([test.recharger(), admins.recharger()]);
+    await Promise.all([test.recharger(), admins.recharger(), cles.recharger()]);
   };
   const ajouter = (e: FormEvent) => {
     e.preventDefault();
@@ -51,6 +75,20 @@ export function AdminReglages() {
             <Bouton variante="contour" className="sm:!w-auto sm:self-start sm:px-6" onClick={() => void agir(() => appel('admin_mode_test', { p_actif: true }), 'Mode test réactivé : plus aucun envoi réel.')}>Réactiver le mode test</Bouton>
           </>
         )}
+      </Carte>
+
+      <Carte>
+        <h2 className="text-lg font-bold">Paiement Stripe</h2>
+        <p className="max-w-[65ch] text-sm">Collez ici les clés de votre compte Stripe (Développeurs → Clés API). Une clé enregistrée ne peut plus être relue : seuls ses quatre derniers caractères restent affichés. En mode test, seules les clés de test servent.</p>
+        {cles.erreur && <Alerte>{cles.erreur}</Alerte>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {CLES.map((c) => <ChampCle key={c.nom} cle={c} connue={cles.donnee?.find((x) => x.nom === c.nom)} enregistrer={(valeur) => agir(() => appel('admin_definir_cle', { p_nom: c.nom, p_valeur: valeur }), valeur ? `${c.libelle} : enregistrée.` : `${c.libelle} : effacée.`)} />)}
+        </div>
+        <div className="flex flex-col gap-1 border-t border-trait pt-3 text-sm">
+          <p className="font-semibold">Adresse à déclarer chez Stripe (Développeurs → Webhooks → Ajouter un point de terminaison)</p>
+          <p className="break-all rounded-lg bg-creux px-2 py-1 font-mono text-xs" data-testid="adresse-webhook">{ADRESSE_WEBHOOK}</p>
+          <p className="text-discret">Événements à cocher : {EVENEMENTS.join(', ')}. Stripe affiche ensuite le « secret de signature » (whsec_…) à coller ci-dessus. À faire une fois en mode test, une fois en mode réel.</p>
+        </div>
       </Carte>
 
       <Carte>

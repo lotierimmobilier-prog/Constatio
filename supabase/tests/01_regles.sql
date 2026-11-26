@@ -465,6 +465,32 @@ begin
     'data', jsonb_build_object('object', jsonb_build_object('id', 'in_9', 'subscription', 'sub_inconnu')))), 'sans_abonnement');
   perform t.egal('type de message non géré', public.stripe_recevoir(jsonb_build_object('id', 'evt_autre', 'type', 'customer.created', 'livemode', false, 'data', jsonb_build_object('object', '{}'::jsonb))), 'ignore');
 
+  -- Clés Stripe : saisies par le super administrateur, jamais relues ---------------------
+  perform t.connecter(a);
+  perform t.refuse('un client enregistre une clé', $q$select public.admin_definir_cle('stripe_cle_test', 'sk_test_abcdefghijklmnop1234')$q$);
+  perform t.refuse('un client liste les clés', 'select * from public.admin_cles()');
+  perform t.refuse('un client lit les clés du serveur', 'select public.cles_stripe()');
+  perform t.refuse('un client lit la table des clés', 'select * from private.cles_service');
+  perform t.connecter(b);   -- super administrateur
+  perform t.refuse('clé réelle rangée comme clé de test', $q$select public.admin_definir_cle('stripe_cle_test', 'sk_live_abcdefghijklmnop1234')$q$);
+  perform t.refuse('clé de test rangée comme clé réelle', $q$select public.admin_definir_cle('stripe_cle_reelle', 'sk_test_abcdefghijklmnop1234')$q$);
+  perform t.refuse('secret de webhook mal formé', $q$select public.admin_definir_cle('stripe_webhook_test', 'sk_test_abcdefghijklmnop1234')$q$);
+  perform public.admin_definir_cle('stripe_cle_test', '  sk_test_abcdefghijklmnop1234  ');
+  perform public.admin_definir_cle('stripe_cle_reelle', 'sk_live_abcdefghijklmnop9876');
+  perform public.admin_definir_cle('stripe_webhook_test', 'whsec_abcdefghijklmnop0001');
+  perform t.egal('l''écran ne revoit que la fin des clés', (select string_agg(nom || ':' || fin, ' ' order by nom) from public.admin_cles()), 'stripe_cle_reelle:9876 stripe_cle_test:1234 stripe_webhook_test:0001');
+  perform t.refuse('même le super administrateur ne relit pas une clé', 'select valeur from private.cles_service');
+  perform t.egal('le journal ne garde pas la valeur', ((public.admin_journal_lire(50))::text like '%abcdefghijklmnop%')::text, 'false');
+  perform t.role('service_role');
+  perform t.egal('mode test : le serveur reçoit la clé de test', public.cles_stripe() ->> 'cle', 'sk_test_abcdefghijklmnop1234');
+  update public.parametres set valeur = 'false' where cle = 'mode_test';
+  perform t.egal('mode réel : le serveur reçoit la clé réelle', public.cles_stripe() ->> 'cle', 'sk_live_abcdefghijklmnop9876');
+  update public.parametres set valeur = 'true' where cle = 'mode_test';
+  perform t.connecter(b);
+  perform public.admin_definir_cle('stripe_cle_test', '');
+  perform t.role('service_role');
+  perform t.egal('clé effacée : paiement fermé', coalesce(public.cles_stripe() ->> 'cle', 'aucune'), 'aucune');
+
   -- Visiteur non connecté -------------------------------------------------------------
   perform t.role('anon');
   perform t.lignes('visiteur lit les tarifs', 'select code from public.tarifs', 8);
