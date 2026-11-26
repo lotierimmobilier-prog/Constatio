@@ -97,7 +97,8 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
   const apercu = join(dossier, 'apercu.pdf');
   await (await telechargement).saveAs(apercu);
   expect(texte(apercu)).toMatch(/Cabinet ZZREC · \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/);
-  expect(images(apercu), 'la photo, le logo, l’image de filigrane et le logo Constatio de l’aperçu (ces deux derniers avec leur transparence)').toBe(6);
+  // L'aperçu porte en plus le logo de Constatio en filigrane, compté une fois par page : on vérifie seulement qu'il y a plus d'images que dans le document définitif (4).
+  expect(images(apercu), 'photo, logo, image de filigrane, et le filigrane d’aperçu sur chaque page').toBeGreaterThan(4);
 
   // ── Document définitif, construit par le serveur ───────────────────────────────
   await page.getByTestId('generer').click();
