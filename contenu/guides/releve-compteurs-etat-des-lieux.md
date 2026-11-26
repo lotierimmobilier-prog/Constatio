@@ -3,6 +3,9 @@ titre: "Relevé des compteurs à l'état des lieux : comment procéder ?"
 description: "Électricité, gaz, eau froide et eau chaude : quels index relever à l'état des lieux, comment les lire et quoi écrire quand il n'y a pas de compteur."
 date: 2027-01-14
 categorie: "Sur place"
+image_chiffre: "2 index"
+image_legende: "à noter en option heures pleines et heures creuses"
+image_alt: "Illustration des deux index qu'affiche le compteur électrique en heures pleines et heures creuses, à noter dans l'état des lieux."
 resume: "Le bailleur ou son mandataire complète l'état des lieux par les relevés des index pour chaque énergie quand le chauffage ou l'eau chaude sont individuels, ou collectifs avec comptage individuel. Sur place, notez chaque index affiché, le numéro du compteur et son emplacement. S'il n'y a pas de compteur individuel, écrivez-le plutôt que de laisser la ligne vide."
 points_cles:
   - "Les relevés d'index par énergie complètent l'état des lieux quand le chauffage ou l'eau chaude sont individuels, ou collectifs avec comptage individuel (loi de 1989, art. 3-2)."

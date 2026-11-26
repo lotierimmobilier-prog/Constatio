@@ -3,6 +3,9 @@ titre: "Pré-état des lieux : faut-il faire une visite avant le départ ?"
 description: "La visite de pré-état des lieux n'est ni obligatoire ni prévue par les textes. Utile, elle prépare le départ sans remplacer l'état des lieux de sortie."
 date: 2027-01-11
 categorie: "Cas particuliers"
+image_chiffre: "Avant-départ"
+image_legende: "une visite de conseil pour préparer l'état des lieux de sortie"
+image_alt: "Illustration de la visite de conseil avant le départ du locataire, qui prépare l'état des lieux de sortie sans le remplacer."
 resume: "La visite de pré-état des lieux est une pratique, pas une obligation : ni la loi du 6 juillet 1989 ni le décret du 30 mars 2016 ne la prévoient. Elle sert à repérer, avant le départ, ce que le locataire peut encore remettre en état. Elle ne remplace pas l'état des lieux de sortie, qui reste le seul document comparé à l'état des lieux d'entrée."
 points_cles:
   - "La loi prévoit un état des lieux à l'entrée et un à la sortie, pas de visite intermédiaire (loi de 1989, article 3-2)."

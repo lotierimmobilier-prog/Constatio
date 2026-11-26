@@ -32,6 +32,11 @@ export function controler(guide, slugs) {
   if (!Array.isArray(guide.points_cles) || guide.points_cles.length < 3) erreurs.push('au moins 3 points clés');
   if (!Array.isArray(guide.questions) || guide.questions.length < 3 || guide.questions.some((x) => !texte(x?.q) || !texte(x?.r))) erreurs.push('au moins 3 questions avec réponse');
   if (!Array.isArray(guide.sources) || !guide.sources.length) erreurs.push('sources manquantes');
+  // Illustration : son texte alternatif est obligatoire (lecteurs d'écran, moteurs de recherche, assistants IA).
+  if (!texte(guide.image_chiffre) || !texte(guide.image_legende)) erreurs.push('« image_chiffre » et « image_legende » manquants');
+  if (!texte(guide.image_alt) || guide.image_alt.length < 60) erreurs.push('« image_alt » manquant ou trop court (60 caractères au moins)');
+  else if (guide.image_alt.length > 150) avis.push(`image_alt de ${guide.image_alt.length} caractères (150 au plus)`);
+  if (/!\[\s*\]\(/.test(guide.corps)) erreurs.push('image sans texte alternatif dans le corps');
   if (/^# /m.test(guide.corps)) erreurs.push('le corps ne doit pas contenir de titre de niveau 1');
   if (/\]\(https?:/.test(guide.corps)) erreurs.push('lien externe dans le corps');
   for (const [, cible] of guide.corps.matchAll(/\]\(\/guides\/([^)#/]+)\/?\)/g)) if (!slugs.includes(cible)) erreurs.push(`lien vers un guide inconnu : ${cible}`);

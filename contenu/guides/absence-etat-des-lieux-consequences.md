@@ -3,6 +3,9 @@ titre: "Pas d'état des lieux : quelles conséquences pour chacun ?"
 description: "Sans état des lieux d'entrée, le locataire est présumé avoir reçu le logement en bon état, sauf si le bailleur a fait obstacle. La règle exacte expliquée."
 date: 2027-01-07
 categorie: "Cas particuliers"
+image_chiffre: "Présomption"
+image_legende: "de bon état : qui peut encore l'invoquer sans état des lieux"
+image_alt: "Illustration de la présomption de bon état du logement, que ne peut invoquer la partie qui a fait obstacle à l'état des lieux."
 resume: "Sans état des lieux d'entrée, le locataire est présumé avoir reçu le logement en bon état de réparations locatives (Code civil, article 1731). Mais la partie qui a fait obstacle à l'établissement de l'état des lieux, ou à sa remise, ne peut pas invoquer cette présomption (loi de 1989, article 3-2). Tout dépend donc de la raison pour laquelle le document manque."
 points_cles:
   - "À défaut d'état des lieux, le locataire est présumé avoir reçu le logement en bon état de réparations locatives (Code civil, article 1731)."

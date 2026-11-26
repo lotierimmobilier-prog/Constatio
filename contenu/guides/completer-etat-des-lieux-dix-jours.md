@@ -3,6 +3,9 @@ titre: "Peut-on compléter un état des lieux d'entrée déjà signé ?"
 description: "Le locataire a dix jours pour demander au bailleur de compléter l'état des lieux d'entrée, et le premier mois de chauffe pour le chauffage. Mode d'emploi."
 date: 2026-12-31
 categorie: "Cas particuliers"
+image_chiffre: "10 jours"
+image_legende: "pour demander à compléter l'état des lieux d'entrée"
+image_alt: "Illustration du délai de dix jours dont dispose le locataire pour demander à compléter l'état des lieux d'entrée."
 resume: "Oui. Le locataire peut demander au bailleur de compléter l'état des lieux d'entrée dans les dix jours qui suivent son établissement. Si le bailleur refuse, le locataire peut saisir la commission départementale de conciliation. Pour le chauffage, la demande peut être faite pendant le premier mois de la période de chauffe."
 points_cles:
   - "Le locataire dispose de dix jours après l'établissement de l'état des lieux d'entrée pour demander qu'il soit complété (loi de 1989, article 3-2)."

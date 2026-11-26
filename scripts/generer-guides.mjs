@@ -36,6 +36,8 @@ const e = (s) => typo(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>
 const dateFr = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const css = readdirSync(`${DIST}assets`).find((f) => /^index-.*\.css$/.test(f));
 const jsonld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
+// L'illustration d'un guide (dessinée par scripts/illustrer-guides.mjs, versionnée dans public/).
+const illustration = (g) => (existsSync(`${DIST}guides/illustrations/${g.slug}.jpg`) ? { src: `/guides/illustrations/${g.slug}.jpg`, alt: g.image_alt } : null);
 const EDITEUR = { '@type': 'Organization', name: 'Constatio', url: `${SITE}/` };
 
 const STYLE = `
@@ -44,6 +46,9 @@ const STYLE = `
 .g-fil{font-size:.875rem;color:rgb(var(--discret))}.g-fil a{text-decoration:underline;text-underline-offset:3px}
 .g h1{font-size:clamp(1.9rem,5vw,2.75rem);line-height:1.1;font-weight:700;margin:1rem 0 .5rem}
 .g-date{font-size:.875rem;color:rgb(var(--discret))}
+.g-image{margin:1.25rem 0 0}.g-image img{display:block;width:100%;height:auto;border-radius:1rem;border:1px solid rgb(var(--trait))}
+.g-image figcaption{font-size:.875rem;color:rgb(var(--discret));margin-top:.5rem}
+.g-vignette{display:block;margin-bottom:.75rem}.g-vignette img{display:block;width:100%;height:auto;border-radius:.75rem;border:1px solid rgb(var(--trait))}
 .g-bref{margin:1.5rem 0;padding:1.25rem;border-radius:1rem;background:rgb(var(--fond))}
 .g-bref h2{font-size:1rem;margin:0 0 .5rem}.g-bref p{margin:0 0 .75rem;font-size:1.0625rem;line-height:1.6}
 .g-bref ul{margin:0;padding-left:1.25rem;display:grid;gap:.35rem;list-style:revert}
@@ -76,7 +81,7 @@ const STYLE = `
 .g-pied{border-top:1px solid rgb(var(--trait));font-size:.875rem;color:rgb(var(--discret));text-align:center;padding:1.5rem 1rem}
 body{background:rgb(var(--surface))}`;
 
-function page({ chemin, titre, description, tete = '', corps }) {
+function page({ chemin, titre, description, tete = '', corps, image = null }) {
   const url = `${SITE}${chemin}`;
   return `<!doctype html>
 <html lang="fr">
@@ -91,7 +96,7 @@ function page({ chemin, titre, description, tete = '', corps }) {
 <meta property="og:title" content="${e(titre)}">
 <meta property="og:description" content="${e(description)}">
 <meta property="og:url" content="${url}">
-<meta property="og:image" content="${SITE}/og.png">
+<meta property="og:image" content="${image ? `${SITE}${image.src}` : `${SITE}/og.png`}">${image ? `\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n<meta property="og:image:alt" content="${e(image.alt)}">\n<meta name="twitter:image" content="${SITE}${image.src}">\n<meta name="twitter:image:alt" content="${e(image.alt)}">` : ''}
 <meta name="twitter:card" content="summary_large_image">
 <link rel="alternate" type="text/plain" href="/llms.txt" title="Résumé pour les assistants IA">
 <meta name="theme-color" content="#0f4c4a">
@@ -129,10 +134,12 @@ rendu.table = function (jeton) {
 
 for (const g of publies) {
   const chemin = `/guides/${g.slug}/`;
+  const image = illustration(g);
   const voisins = publies.filter((x) => x.slug !== g.slug && x.categorie === g.categorie).slice(0, 3);
   const donnees = [
     { '@context': 'https://schema.org', '@type': 'Article', headline: g.titre, description: g.description, abstract: g.resume, inLanguage: 'fr-FR',
-      datePublished: g.date, dateModified: g.maj ?? g.date, author: EDITEUR, publisher: EDITEUR, mainEntityOfPage: `${SITE}${chemin}`, articleSection: g.categorie, citation: g.sources },
+      datePublished: g.date, dateModified: g.maj ?? g.date, author: EDITEUR, publisher: EDITEUR, mainEntityOfPage: `${SITE}${chemin}`, articleSection: g.categorie, citation: g.sources,
+      ...(image ? { image: { '@type': 'ImageObject', url: `${SITE}${image.src}`, width: 1200, height: 630, caption: image.alt } } : {}) },
     { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: g.questions.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.r } })) },
     { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Constatio', item: `${SITE}/` },
@@ -140,12 +147,13 @@ for (const g of publies) {
       { '@type': 'ListItem', position: 3, name: g.titre, item: `${SITE}${chemin}` }] },
   ];
   ecrire(chemin, page({
-    chemin, titre: `${g.titre} | Constatio`, description: g.description,
+    chemin, titre: `${g.titre} | Constatio`, description: g.description, image,
     tete: `<meta property="og:type" content="article">\n<meta property="article:published_time" content="${g.date}">\n${donnees.map(jsonld).join('\n')}`,
     corps: `<main class="g">
 <p class="g-fil"><a href="/">Constatio</a> › <a href="/guides/">Guides</a> › ${e(g.categorie)}</p>
 <h1>${e(g.titre)}</h1>
 <p class="g-date">Publié le <time datetime="${g.date}">${dateFr(g.date)}</time>${g.maj ? `, mis à jour le <time datetime="${g.maj}">${dateFr(g.maj)}</time>` : ''}</p>
+${image ? `<figure class="g-image"><img src="${image.src}" alt="${e(image.alt)}" width="1200" height="630" fetchpriority="high" decoding="async"><figcaption>${e(g.image_chiffre)} : ${e(g.image_legende)}.</figcaption></figure>` : ''}
 <section class="g-bref" aria-labelledby="bref"><h2 id="bref">En bref</h2><p>${e(g.resume)}</p><ul>${g.points_cles.map((p) => `<li>${e(p)}</li>`).join('')}</ul></section>
 <div class="g-corps">${marked.parse(typo(g.corps), { renderer: rendu })}</div>
 <section aria-labelledby="questions"><div class="g-corps"><h2 id="questions">Questions fréquentes</h2></div>
@@ -169,14 +177,14 @@ ecrire('/guides/', page({
 <h1>Guides de l’état des lieux</h1>
 <p class="g-corps">Les règles de l’état des lieux et du dépôt de garantie, expliquées simplement, avec l’article de loi à chaque fois.</p>
 ${publies.length ? CATEGORIES.filter((c) => publies.some((g) => g.categorie === c)).map((c) => `<section aria-labelledby="c-${CATEGORIES.indexOf(c)}"><div class="g-corps"><h2 id="c-${CATEGORIES.indexOf(c)}">${e(c)}</h2></div>
-<ul class="g-cartes">${[...publies].filter((g) => g.categorie === c).reverse().map((g) => `<li><a href="/guides/${g.slug}/">${e(g.titre)}</a><p>${e(g.description)}</p><p class="g-cat"><time datetime="${g.date}">${dateFr(g.date)}</time></p></li>`).join('')}</ul></section>`).join('\n')
+<ul class="g-cartes">${[...publies].filter((g) => g.categorie === c).reverse().map((g) => `<li>${illustration(g) ? `<a class="g-vignette" href="/guides/${g.slug}/" tabindex="-1"><img src="${illustration(g).src}" alt="${e(g.image_alt)}" width="1200" height="630" loading="lazy" decoding="async"></a>` : ''}<a href="/guides/${g.slug}/">${e(g.titre)}</a><p>${e(g.description)}</p><p class="g-cat"><time datetime="${g.date}">${dateFr(g.date)}</time></p></li>`).join('')}</ul></section>`).join('\n')
     : `<p class="g-corps">Le premier guide paraît le ${dateFr(tous[0].date)}.</p>`}
 </main>`,
 }));
 
 // Plan du site, robots, et fichiers destinés aux assistants IA
-const pages = [{ loc: '/', maj: aujourdhui }, { loc: '/guides/', maj: publies.at(-1)?.date ?? aujourdhui }, ...['/mentions-legales/', '/cgv/', '/confidentialite/'].map((loc) => ({ loc, maj: aujourdhui })), ...publies.map((g) => ({ loc: `/guides/${g.slug}/`, maj: g.maj ?? g.date }))];
-writeFileSync(`${DIST}sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => `  <url><loc>${SITE}${p.loc}</loc><lastmod>${p.maj}</lastmod></url>`).join('\n')}\n</urlset>\n`);
+const pages = [{ loc: '/', maj: aujourdhui }, { loc: '/guides/', maj: publies.at(-1)?.date ?? aujourdhui }, ...['/mentions-legales/', '/cgv/', '/confidentialite/'].map((loc) => ({ loc, maj: aujourdhui })), ...publies.map((g) => ({ loc: `/guides/${g.slug}/`, maj: g.maj ?? g.date, image: illustration(g)?.src }))];
+writeFileSync(`${DIST}sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${pages.map((p) => `  <url><loc>${SITE}${p.loc}</loc><lastmod>${p.maj}</lastmod>${p.image ? `<image:image><image:loc>${SITE}${p.image}</image:loc></image:image>` : ''}</url>`).join('\n')}\n</urlset>\n`);
 // Les robots des assistants IA sont nommés un par un : beaucoup d'éditeurs les bloquent par défaut, ici ils sont les bienvenus.
 const ROBOTS_IA = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User', 'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Google-Extended', 'Applebot-Extended', 'MistralAI-User', 'CCBot', 'Bingbot', 'Googlebot'];
 const PRIVE = ['/app', '/admin', '/passage', '/signer', '/reserves', '/rejoindre', '/connexion', '/inscription', '/mot-de-passe-oublie', '/nouveau-mot-de-passe'].map((c) => `Disallow: ${c}`).join('\n');

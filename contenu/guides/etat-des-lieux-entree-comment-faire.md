@@ -3,6 +3,9 @@ titre: "Comment faire un état des lieux d'entrée, étape par étape ?"
 description: "Préparer le rendez-vous, visiter pièce par pièce, relever compteurs et clés, signer, puis gérer les dix jours qui suivent : la méthode pour l'entrée."
 date: 2026-11-26
 categorie: "Obligations"
+image_chiffre: "10 jours"
+image_legende: "pour demander à compléter l'état des lieux d'entrée"
+image_alt: "Illustration des dix jours qui suivent l'état des lieux d'entrée, pendant lesquels le locataire peut demander à le compléter."
 resume: "L'état des lieux d'entrée se fait avec le locataire, pièce par pièce, au moment où il prend possession du logement. Vous décrivez les sols, murs, plafonds et équipements, vous relevez les compteurs et les clés, puis chacun signe et repart avec son exemplaire. Le locataire dispose ensuite de dix jours pour demander à le compléter."
 points_cles:
   - "L'état des lieux d'entrée est établi contradictoirement et amiablement, puis joint au bail (loi du 6 juillet 1989, art. 3-2)."

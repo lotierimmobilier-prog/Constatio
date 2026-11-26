@@ -3,6 +3,9 @@ titre: "L'état des lieux électronique vaut-il un état des lieux papier ?"
 description: "Le décret de 2016 admet l'état des lieux sur téléphone ou tablette. Deux conditions pour qu'il fasse preuve comme le papier : auteur identifié, intégrité."
 date: 2026-12-07
 categorie: "Obligations"
+image_chiffre: "Électronique"
+image_legende: "même force probante que le papier, auteur identifiable"
+image_alt: "Illustration de l'état des lieux électronique, qui a la même force probante que le papier si son auteur est identifiable."
 resume: "Oui. Le décret du 30 mars 2016 prévoit que l'état des lieux est établi sur papier ou sous forme électronique. L'écrit électronique a la même force probante que l'écrit papier, à condition que son auteur puisse être identifié et que son intégrité soit garantie."
 points_cles:
   - "L'état des lieux peut être établi sur papier ou sous forme électronique (décret n° 2016-382 du 30 mars 2016)."

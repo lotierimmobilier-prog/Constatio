@@ -3,6 +3,9 @@ titre: "Comment se déroule l'état des lieux de sortie d'un logement ?"
 description: "Comparaison avec l'entrée, nouvelle adresse du locataire, vétusté, délai de restitution du dépôt de garantie : ce qui change le jour de la sortie."
 date: 2026-11-30
 categorie: "Obligations"
+image_chiffre: "2 mois"
+image_legende: "au plus pour restituer le dépôt après la remise des clés"
+image_alt: "Illustration du délai maximal de deux mois pour restituer le dépôt de garantie, compté à partir de la remise des clés."
 resume: "L'état des lieux de sortie se fait avec le locataire, dans les mêmes formes qu'à l'entrée, et sert à comparer l'état du logement entre les deux dates. Il ajoute la nouvelle adresse du locataire et la date de l'état des lieux d'entrée. Son résultat fixe le délai de restitution du dépôt de garantie : un mois s'il est conforme à l'entrée, deux mois au maximum sinon."
 points_cles:
   - "L'état des lieux de sortie mentionne en plus la nouvelle adresse du locataire et la date de l'état des lieux d'entrée (décret du 30 mars 2016)."

@@ -31,6 +31,15 @@ test('un guide paru porte ses questions en pied d’article et leurs données st
   expect(html.indexOf('Questions fréquentes')).toBeGreaterThan(html.indexOf('En bref'));
   const types = [...html.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1])['@type']);
   expect(types).toEqual(['Article', 'FAQPage', 'BreadcrumbList']);
+  // Illustration : présente, décrite pour qui ne la voit pas, et reprise comme image de partage.
+  const image = /<figure class="g-image"><img src="([^"]+)" alt="([^"]+)" width="1200" height="630"/.exec(html);
+  expect(image, 'illustration du guide').not.toBeNull();
+  expect(image![2].length).toBeGreaterThan(60);
+  expect((await request.get(image![1])).headers()['content-type']).toContain('image/jpeg');
+  expect(html).toContain(`<meta property="og:image" content="https://constatio.fr${image![1]}">`);
+  expect(plan).toContain(`<image:loc>https://constatio.fr${image![1]}</image:loc>`);
+  // Aucune image sans texte alternatif, ici comme dans la liste des guides.
+  for (const page of [html, await (await request.get('/guides/')).text()]) for (const [balise] of page.matchAll(/<img\b[^>]*>/g)) expect(balise, balise).toMatch(/\balt="[^"]+"/);
 });
 
 test('l’espace client ne laisse pas apparaître la page d’accueil écrite dans le HTML', async ({ page }) => {

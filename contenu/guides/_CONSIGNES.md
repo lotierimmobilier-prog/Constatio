@@ -12,6 +12,9 @@ titre: "…"            # 50 à 65 caractères, la question que se pose le lecte
 description: "…"      # 140 à 155 caractères, pour les moteurs de recherche
 date: AAAA-MM-JJ      # date de publication fournie, ne pas la changer
 categorie: "…"        # une parmi : Obligations, Dépôt de garantie, Cas particuliers, Sur place
+image_chiffre: "…"    # 12 caractères au plus : le chiffre ou le mot-clé central (« 10 jours », « 20 % »)
+image_legende: "…"    # 70 caractères au plus : ce que ce chiffre signifie
+image_alt: "…"        # 90 à 140 caractères : texte alternatif de l'illustration, phrase complète, propre à ce guide
 resume: "…"           # 2 à 3 phrases qui répondent tout de suite à la question (c'est ce que citera un assistant IA)
 points_cles:          # 3 à 5 faits vérifiables, une ligne chacun, avec le chiffre ou le délai
   - "…"
@@ -24,6 +27,10 @@ sources:              # les textes cités dans l'article, tels quels
 ```
 
 Puis le corps : 600 à 900 mots, titres `##` formulés comme des questions ou des actions, paragraphes de 2 à 4 phrases, une liste ou un tableau quand il y a une vraie énumération, un exemple chiffré quand il y a un calcul. Pas de titre `#` (le titre vient de l'en-tête). Terminer par une section `## En pratique` : 3 à 5 gestes concrets. Aucun lien externe. Liens internes possibles vers d'autres guides sous la forme `[texte](/guides/<slug>)`, uniquement vers les slugs de la liste ci-dessous.
+
+## Illustration
+
+Chaque guide a une illustration (1200 × 630) dessinée à partir de `image_chiffre`, `image_legende`, du titre et de la catégorie : lancer `node scripts/illustrer-guides.mjs` après avoir écrit ou modifié un guide (`--tout` pour toutes les redessiner), puis versionner le fichier créé dans `public/guides/illustrations/`. Elle sert d'image de tête, de vignette dans la liste et d'image de partage. Toute image ajoutée dans le corps (`![texte alternatif](/chemin)`) porte un texte alternatif : sans lui, la génération échoue.
 
 ## Règle absolue : le droit
 
@@ -74,4 +81,4 @@ Une seule, dans `## En pratique` ou juste avant, en une ou deux phrases sobres. 
 
 ## Slugs existants (pour les liens internes)
 
-etat-des-lieux-mentions-obligatoires, etat-des-lieux-entree-comment-faire, etat-des-lieux-sortie-deroulement, qui-peut-faire-etat-des-lieux, etat-des-lieux-electronique-valeur-juridique, restitution-depot-de-garantie-delais, retenues-depot-de-garantie-justificatifs, grille-de-vetuste-location, degradations-ou-usure-normale, retard-restitution-depot-de-garantie-penalite, inventaire-mobilier-location-meublee, completer-etat-des-lieux-dix-jours, locataire-refuse-signer-etat-des-lieux, absence-etat-des-lieux-consequences, pre-etat-des-lieux-visite-conseil, releve-compteurs-etat-des-lieux, cles-etat-des-lieux-remise, photos-etat-des-lieux-preuve, honoraires-etat-des-lieux-plafond, etat-des-lieux-maison-jardin-exterieurs
+absence-etat-des-lieux-consequences, cles-etat-des-lieux-remise, comparer-etat-des-lieux-entree-sortie, completer-etat-des-lieux-dix-jours, decrire-murs-sols-plafonds-etat-des-lieux, degradations-ou-usure-normale, depot-de-garantie-copropriete-provision, depot-de-garantie-montant-plafond, equipements-obligatoires-logement-meuble, etat-des-lieux-chauffage-premier-mois, etat-des-lieux-commissaire-de-justice, etat-des-lieux-electronique-valeur-juridique, etat-des-lieux-entree-comment-faire, etat-des-lieux-maison-jardin-exterieurs, etat-des-lieux-mandataire-procuration, etat-des-lieux-mentions-obligatoires, etat-des-lieux-sortie-deroulement, exemplaires-etat-des-lieux-remise, grille-de-vetuste-location, honoraires-etat-des-lieux-plafond, inventaire-mobilier-location-meublee, locataire-refuse-signer-etat-des-lieux, nouvelle-adresse-locataire-etat-des-lieux-sortie, photos-etat-des-lieux-preuve, pre-etat-des-lieux-visite-conseil, prescription-trois-ans-litige-location, qui-peut-faire-etat-des-lieux, releve-compteurs-etat-des-lieux, reparations-locatives-charge-locataire, restitution-depot-de-garantie-delais, retard-restitution-depot-de-garantie-penalite, retenues-depot-de-garantie-justificatifs

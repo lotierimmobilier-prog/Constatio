@@ -3,6 +3,9 @@ titre: "Refus de faire ou de signer l'état des lieux : que faire ?"
 description: "Locataire ou bailleur refuse l'état des lieux ? La loi prévoit le recours au commissaire de justice, à frais partagés par moitié. Démarche, délais et coût."
 date: 2027-01-04
 categorie: "Cas particuliers"
+image_chiffre: "7 jours"
+image_legende: "au moins entre la convocation recommandée et l'état des lieux"
+image_alt: "Illustration du délai d'au moins sept jours entre la convocation par lettre recommandée et l'état des lieux du commissaire de justice."
 resume: "Quand l'état des lieux ne peut pas être établi à l'amiable, il l'est par un commissaire de justice, à l'initiative de la partie la plus diligente. Les parties sont convoquées par lettre recommandée avec accusé de réception au moins sept jours à l'avance. Les frais sont partagés par moitié entre le bailleur et le locataire."
 points_cles:
   - "À défaut d'état des lieux amiable, il est établi par un commissaire de justice, à l'initiative de la partie la plus diligente (loi de 1989, article 3-2)."

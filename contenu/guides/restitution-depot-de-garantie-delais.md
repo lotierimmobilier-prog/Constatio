@@ -3,6 +3,9 @@ titre: "Dépôt de garantie : un mois ou deux mois pour le rendre ?"
 description: "Un mois si l'état des lieux de sortie est conforme à celui d'entrée, deux mois sinon. Le délai court à compter de la remise des clés par le locataire."
 date: 2026-12-10
 categorie: "Dépôt de garantie"
+image_chiffre: "2 mois"
+image_legende: "au plus pour rendre le dépôt à compter de la remise des clés"
+image_alt: "Illustration du délai maximal de deux mois pour restituer le dépôt de garantie, ramené à un mois si la sortie est conforme à l'entrée."
 resume: "Le bailleur rend le dépôt de garantie dans un délai maximal de deux mois à compter de la remise des clés. Ce délai tombe à un mois quand l'état des lieux de sortie est conforme à l'état des lieux d'entrée. Dans un immeuble collectif, il peut conserver une provision d'au plus 20 % du dépôt jusqu'à l'arrêté annuel des comptes."
 points_cles:
   - "Délai maximal de restitution : deux mois à compter de la remise des clés (loi du 6 juillet 1989, article 22)."

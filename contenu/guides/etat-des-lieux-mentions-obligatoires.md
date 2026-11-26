@@ -3,6 +3,9 @@ titre: "État des lieux : quelles sont les mentions obligatoires ?"
 description: "Date, parties, clés, compteurs, description pièce par pièce, signatures : la liste des mentions que le décret de 2016 impose à l'entrée et à la sortie."
 date: 2026-11-23
 categorie: "Obligations"
+image_chiffre: "2 mentions"
+image_legende: "de plus à la sortie : nouvelle adresse et date de l'entrée"
+image_alt: "Illustration des deux mentions ajoutées à l'état des lieux de sortie : la nouvelle adresse du locataire et la date de l'entrée."
 resume: "Le décret du 30 mars 2016 fixe la liste des mentions de l'état des lieux : type, date, logement, parties, clés, compteurs, description de chaque pièce et signatures. L'état des lieux de sortie ajoute la nouvelle adresse du locataire et la date de l'état des lieux d'entrée. Le document peut être établi sur papier ou sous forme électronique."
 points_cles:
   - "Les mentions sont fixées par l'article 2 du décret n° 2016-382 du 30 mars 2016."

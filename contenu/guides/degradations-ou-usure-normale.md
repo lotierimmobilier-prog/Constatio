@@ -3,6 +3,9 @@ titre: "Dégradation ou usure normale : comment faire la différence ?"
 description: "L'usure normale reste à la charge du bailleur, la dégradation à celle du locataire. Les questions à se poser et le rôle des états des lieux pour trancher."
 date: 2026-12-21
 categorie: "Dépôt de garantie"
+image_chiffre: "Vétusté"
+image_legende: "l'usure résultant du temps ou de l'usage normal du logement"
+image_alt: "Illustration de la vétusté, usure résultant du temps ou de l'usage normal, qui se distingue des dégradations dont répond le locataire."
 resume: "L'usure normale, ou vétusté, résulte du temps et de l'usage normal : elle n'est pas à la charge du locataire. La dégradation est un dommage survenu pendant la location : le locataire en répond, sauf s'il prouve la force majeure, la faute du bailleur ou le fait d'un tiers qu'il n'a pas introduit. La comparaison des états des lieux d'entrée et de sortie permet de trancher."
 points_cles:
   - "La vétusté est l'usure résultant du temps ou de l'usage normal (décret du 30 mars 2016, article 4)."

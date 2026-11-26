@@ -3,6 +3,9 @@ titre: "Remise des clés à l'état des lieux : que faut-il noter ?"
 description: "Nombre, nature, destination de chaque clé, badges et télécommandes compris : ce que l'état des lieux doit indiquer sur les moyens d'accès au logement."
 date: 2027-01-18
 categorie: "Sur place"
+image_chiffre: "Clés"
+image_legende: "leur détail et leur destination figurent dans l'état des lieux"
+image_alt: "Illustration de la remise des clés, dont le détail et la destination font partie des mentions de l'état des lieux."
 resume: "L'état des lieux mentionne le détail et la destination des clés ou de tout autre moyen d'accès au logement. Notez donc, pour chaque clé, badge ou télécommande, combien il y en a et ce qu'ils ouvrent. À la sortie, la remise des clés fait courir le délai de restitution du dépôt de garantie : datez-la par écrit."
 points_cles:
   - "Le détail et la destination des clés ou de tout autre moyen d'accès font partie des mentions de l'état des lieux (décret n° 2016-382, art. 2)."

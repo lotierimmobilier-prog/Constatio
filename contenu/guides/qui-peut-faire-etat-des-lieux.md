@@ -3,6 +3,9 @@ titre: "Qui peut faire un état des lieux : vous, une agence, un tiers ?"
 description: "Le bailleur et le locataire eux-mêmes, un tiers qu'ils mandatent ou, à défaut d'accord, un commissaire de justice : qui intervient, quand, et qui paie."
 date: 2026-12-03
 categorie: "Obligations"
+image_chiffre: "7 jours"
+image_legende: "au moins pour convoquer les parties devant le commissaire"
+image_alt: "Illustration des sept jours au moins qui séparent la convocation des parties de l'état des lieux établi par un commissaire de justice."
 resume: "L'état des lieux est établi par le bailleur et le locataire eux-mêmes, ou par un tiers qu'ils mandatent. S'il ne peut pas être établi à l'amiable, il l'est par un commissaire de justice, à frais partagés par moitié, après convocation des parties au moins sept jours à l'avance."
 points_cles:
   - "L'état des lieux est établi par les parties ou par un tiers qu'elles mandatent (loi du 6 juillet 1989, art. 3-2)."

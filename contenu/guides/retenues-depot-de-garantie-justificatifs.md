@@ -3,6 +3,9 @@ titre: "Que peut retenir le bailleur sur le dépôt de garantie ?"
 description: "Loyers et charges restant dus, dégradations, réparations locatives non faites : ce que le bailleur peut déduire du dépôt, et comment le justifier."
 date: 2026-12-14
 categorie: "Dépôt de garantie"
+image_chiffre: "Justifiées"
+image_legende: "condition de toute retenue sur le dépôt de garantie"
+image_alt: "Illustration des retenues sur le dépôt de garantie, qui ne sont possibles que si le bailleur les justifie dûment."
 resume: "Le bailleur peut déduire du dépôt de garantie les sommes qui lui restent dues et celles dont le locataire pourrait être tenu, à condition qu'elles soient dûment justifiées. Il ne peut rien retenir pour ce qui relève de la vétusté. Chaque retenue s'appuie sur la comparaison des états des lieux d'entrée et de sortie et sur un chiffrage."
 points_cles:
   - "Les retenues ne sont possibles que si elles sont dûment justifiées (loi du 6 juillet 1989, article 22)."

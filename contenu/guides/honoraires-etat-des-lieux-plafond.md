@@ -3,6 +3,9 @@ titre: "État des lieux : combien peut-on facturer au locataire ?"
 description: "État des lieux d'entrée par un professionnel : la part du locataire est plafonnée à 3 € par mètre carré et ne dépasse pas celle du bailleur. Exemples."
 date: 2027-01-25
 categorie: "Obligations"
+image_chiffre: "3 €/m²"
+image_legende: "au plus à la charge du locataire pour l'état des lieux d'entrée"
+image_alt: "Illustration du plafond de trois euros par mètre carré de surface habitable facturable au locataire pour l'état des lieux d'entrée."
 resume: "Quand un professionnel mandaté réalise l'état des lieux d'entrée, la part facturée au locataire ne dépasse ni celle du bailleur, ni 3 € par mètre carré de surface habitable. Pour un studio de 20 m², cela fait 60 € au plus ; pour une maison de 110 m², 330 € au plus. À la sortie, aucun honoraire ne peut être facturé au locataire."
 points_cles:
   - "Part du locataire pour l'état des lieux d'entrée : 3 € au plus par mètre carré de surface habitable (loi de 1989, art. 5 ; décret n° 2014-890)."

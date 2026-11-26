@@ -3,6 +3,9 @@ titre: "Photos dans un état des lieux : que prouvent-elles vraiment ?"
 description: "Le décret permet d'illustrer l'état des lieux d'images, sans remplacer la description écrite. Comment prendre des photos lisibles, datées et utiles."
 date: 2027-01-21
 categorie: "Sur place"
+image_chiffre: "Photos"
+image_legende: "elles illustrent la description écrite sans la remplacer"
+image_alt: "Illustration des photos d'un état des lieux, qui complètent la description précise de chaque pièce sans la remplacer."
 resume: "Le décret de 2016 permet d'illustrer d'images la description de chaque pièce, mais il exige d'abord une description précise : des photos seules ne font pas un état des lieux. Une photo est utile quand elle est rattachée à une ligne du document, intégrée à l'exemplaire remis à chaque partie, et refaite sous le même angle à la sortie."
 points_cles:
   - "La description de chaque pièce peut être complétée d'observations ou de réserves et illustrée d'images (décret n° 2016-382, art. 2)."

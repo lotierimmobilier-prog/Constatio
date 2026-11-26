@@ -3,6 +3,9 @@ titre: "Inventaire du mobilier en location meublée : que contient-il ?"
 description: "Location meublée : les onze équipements obligatoires, la façon de les constater un par un dans l'inventaire, et ce que le locataire peut se voir facturer."
 date: 2026-12-28
 categorie: "Cas particuliers"
+image_chiffre: "11"
+image_legende: "équipements au minimum dans un logement meublé"
+image_alt: "Illustration des onze équipements que doit comporter au minimum un logement meublé, repris dans l'inventaire du mobilier."
 resume: "En location meublée, un inventaire et un état détaillé du mobilier s'ajoutent à l'état des lieux, à l'entrée et à la sortie, dans les mêmes formes que lui. Le logement doit comporter au minimum onze équipements fixés par décret. L'inventaire ne peut pas être facturé en plus de l'état des lieux."
 points_cles:
   - "Un logement meublé comporte au minimum onze équipements (décret n° 2015-981 du 31 juillet 2015)."
