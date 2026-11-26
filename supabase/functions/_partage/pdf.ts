@@ -15,7 +15,9 @@ export interface DonneesPdf {
   apercu: boolean;
   /** Pied de page des documents sans Premium Pro ; null pour une marque blanche. */
   mention: string | null;
-  emetteur: { nom: string; adresse: string | null };
+  emetteur: { nom: string; adresse: string | null; /** Logo du compte professionnel (PNG ou JPEG), posé en tête du document. */ logo?: Uint8Array | null };
+  /** Texte posé en bandeau sur chaque photo du document, suivi de la date et de l'heure de la prise de vue. null : pas de filigrane. */
+  filigrane?: string | null;
   edl: {
     id: string; type: 'entrant' | 'sortant' | 'releve'; date_edl: string; bail_type: string; bail_date_entree: string | null;
     depot_garantie_cents: number | null; realise_par_nom: string; remarques_generales: string | null; date_edl_entree: string | null;
@@ -172,6 +174,16 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   const numeros = (filtre: (p: DonneesPdf['photos'][number]) => boolean) => photos.filter(filtre).map((p) => ordre.get(p.id)).join(', ');
 
   // ── En-tête ───────────────────────────────────────────────────────────────────
+  if (d.emetteur.logo) {
+    // PNG ou JPEG, reconnu à ses premiers octets. Un logo illisible ne fait pas échouer le document.
+    let logo: PDFImage | null = null;
+    try { logo = d.emetteur.logo[0] === 0x89 ? await pdf.embedPng(d.emetteur.logo) : await pdf.embedJpg(d.emetteur.logo); } catch { logo = null; }
+    if (logo) {
+      const r = Math.min(150 / logo.width, 52 / logo.height, 1);
+      f.page.drawImage(logo, { x: MARGE, y: f.y - logo.height * r, width: logo.width * r, height: logo.height * r });
+      f.espace(logo.height * r + 8);
+    }
+  }
   f.texte(d.emetteur.nom, { taille: 10, gras: true });
   if (d.emetteur.adresse) f.texte(d.emetteur.adresse, { taille: 8.5, couleur: DISCRET });
   f.espace(10);
@@ -254,6 +266,8 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
     f.texte("Le locataire peut demander au bailleur ou à son représentant de compléter le présent état des lieux dans un délai de dix jours à compter de son établissement et, pour l'état des éléments de chauffage, pendant le premier mois de la période de chauffe (loi du 6 juillet 1989, article 3-2).", { taille: 8.8 });
   }
   const signataires = d.parties.filter((p) => p.doit_signer);
+  // Le titre, la phrase et la première rangée de cases restent sur la même page.
+  f.place(176);
   f.titre('Signatures');
   f.texte(`Fait le ${dateFr(d.edl.date_edl)}. Chaque signataire fait précéder sa signature de la mention « Lu et approuvé ».`, { taille: 9 });
   f.espace(6);
@@ -291,7 +305,15 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
       if (image) {
         // Image entière, proportions gardées, centrée dans sa case.
         const r = Math.min(largeurCellule / image.width, hauteurImage / image.height);
-        f.page.drawImage(image, { x: x + (largeurCellule - image.width * r) / 2, y: haut - hauteurImage + (hauteurImage - image.height * r) / 2, width: image.width * r, height: image.height * r });
+        const ix = x + (largeurCellule - image.width * r) / 2, iy = haut - hauteurImage + (hauteurImage - image.height * r) / 2, il = image.width * r;
+        f.page.drawImage(image, { x: ix, y: iy, width: il, height: image.height * r });
+        if (d.filigrane) {
+          // Bandeau au pied de la photo : il ne masque que quelques millimètres, et suit l'image si elle est copiée hors du document.
+          let marque = net(`${d.filigrane} · ${dateHeureFr(p.pris_le)}`);
+          while (marque.length > 8 && f.normal.widthOfTextAtSize(marque, 6.8) > il - 8) marque = `${marque.slice(0, -2)}…`;
+          f.page.drawRectangle({ x: ix, y: iy, width: il, height: 12, color: rgb(0, 0, 0), opacity: 0.5 });
+          f.page.drawText(marque, { x: ix + 4, y: iy + 3.4, size: 6.8, font: f.normal, color: rgb(1, 1, 1), opacity: 0.95 });
+        }
       } else f.page.drawText('Photo indisponible', { x: x + 8, y: haut - hauteurImage / 2, size: 9, font: f.normal, color: DISCRET });
       const el = d.elements.find((e) => e.id === p.element_id);
       const piece = el && d.pieces.find((x) => x.id === el.piece_id);
@@ -339,7 +361,13 @@ export interface LignesEdl {
 }
 export const MENTION_CONSTATIO = 'Réalisé avec Constatio — partenaire Signabail';
 
-export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu: boolean): DonneesPdf {
+/** Texte du filigrane d'un compte : celui qu'il a choisi, sinon son nom. null s'il n'en veut pas. */
+export function filigraneDe(o: Ligne | null): string | null {
+  if (!o?.filigrane_photos) return null;
+  return String(o.filigrane_texte || o.entete || o.nom || '').trim().slice(0, 60) || null;
+}
+
+export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu: boolean, logo: Uint8Array | null = null): DonneesPdf {
   const range = (lignes: Ligne[]) => [...lignes].sort((a, b) => Number(a.ordre ?? 0) - Number(b.ordre ?? 0) || String(a.created_at ?? a._cree ?? '').localeCompare(String(b.created_at ?? b._cree ?? '')));
   const pieces = range(l.pieces);
   const rangPiece = new Map(pieces.map((p, i) => [p.id, i]));
@@ -347,7 +375,8 @@ export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu:
   const o = l.organisation;
   return {
     apercu, mention: MENTION_CONSTATIO,
-    emetteur: { nom: o?.entete || o?.nom || '', adresse: o ? [o.adresse, [o.code_postal, o.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null : null },
+    filigrane: filigraneDe(o),
+    emetteur: { logo: o?.type === 'pro' ? logo : null, nom: o?.entete || o?.nom || '', adresse: o ? [o.adresse, [o.code_postal, o.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null : null },
     edl: { id: l.edl.id, type: l.edl.type, date_edl: l.edl.date_edl, bail_type: l.edl.bail_type, bail_date_entree: l.edl.bail_date_entree ?? null,
       depot_garantie_cents: l.edl.depot_garantie_cents ?? null, realise_par_nom: l.edl.realise_par_nom ?? '', remarques_generales: l.edl.remarques_generales ?? null, date_edl_entree: l.edl.date_edl_entree ?? null },
     logement: { adresse: l.logement.adresse, complement: l.logement.complement ?? null, code_postal: l.logement.code_postal, ville: l.logement.ville, type_bien: l.logement.type_bien, surface_m2: l.logement.surface_m2 ?? null, meuble: !!l.logement.meuble },

@@ -26,6 +26,9 @@ export interface Organisation {
   carte_pro_numero: string | null;
   carte_pro_cci: string | null;
   est_test: boolean;
+  logo_path: string | null;
+  filigrane_photos: boolean;
+  filigrane_texte: string | null;
 }
 
 interface Etat {
@@ -67,17 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await local.effacerTout();
       localStorage.removeItem(CLE_COMPTE);
     } else if (garde) setCompte(garde.compte);
-    const [{ data: profil }, { data: membre }] = await Promise.all([
+    const BASE = 'id, type, nom, siret, adresse, code_postal, ville, carte_pro_numero, carte_pro_cci, est_test';
+    const lireMembre = (colonnes: string) =>
+      supabase.from('organisation_membres').select(`role, organisations(${colonnes})` as '*').eq('user_id', userId).order('created_at').limit(1).single() as unknown as Promise<{ data: { role: Role; organisations: unknown } | null; error: { message: string } | null }>;
+    const [{ data: profil }, complet] = await Promise.all([
       supabase.from('profils').select('id, prenom, nom, telephone').eq('id', userId).single(),
-      supabase
-        .from('organisation_membres')
-        .select('role, organisations(id, type, nom, siret, adresse, code_postal, ville, carte_pro_numero, carte_pro_cci, est_test)')
-        .eq('user_id', userId)
-        .order('created_at')
-        .limit(1)
-        .single(),
+      lireMembre(`${BASE}, logo_path, filigrane_photos, filigrane_texte`),
     ]);
-    const organisation = membre?.organisations as unknown as Organisation | undefined;
+    // Base pas encore à jour (réglages de présentation absents) : le compte s'ouvre quand même, sans eux.
+    const membre = complet.data ?? (complet.error && /column|colonne|schema/i.test(complet.error.message) ? (await lireMembre(BASE)).data : null);
+    const lue = membre?.organisations as unknown as Partial<Organisation> | undefined;
+    const organisation = lue ? ({ logo_path: null, filigrane_photos: false, filigrane_texte: null, ...lue } as Organisation) : undefined;
     if (profil && membre && organisation) {
       const suivant = { profil, organisation, role: membre.role as Role };
       localStorage.setItem(CLE_COMPTE, JSON.stringify({ userId, compte: suivant }));

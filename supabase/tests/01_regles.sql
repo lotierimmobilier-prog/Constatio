@@ -403,6 +403,18 @@ begin
   perform t.role('service_role');
   update public.tarifs set montant_cents = 1490 where code = 'edl_unite';
 
+  -- Présentation : filigrane pour tous, logo pour les comptes professionnels ------------
+  perform t.connecter(b);
+  perform t.lignes('B active le filigrane sur ses photos', format('update public.organisations set filigrane_photos = true, filigrane_texte = ''ZZREC Autre'' where id = %L', org_b), 1);
+  perform t.refuse('filigrane trop long', format('update public.organisations set filigrane_texte = repeat(''x'', 61) where id = %L', org_b));
+  perform t.refuse('logo sur un compte non professionnel', format('update public.organisations set logo_path = %L where id = %L', org_b || '/logo.png', org_b));
+  perform t.lignes('B passe en compte professionnel', format('update public.organisations set type = ''pro'' where id = %L', org_b), 1);
+  perform t.refuse('logo rangé dans le dossier d''un autre compte', format('update public.organisations set logo_path = %L where id = %L', org_a || '/logo.png', org_b));
+  perform t.lignes('logo du compte professionnel', format('update public.organisations set logo_path = %L where id = %L', org_b || '/logo.png', org_b), 1);
+  perform t.lignes('B ne règle pas la présentation de A', format('update public.organisations set filigrane_photos = true where id = %L', org_a), 0);
+  perform t.lignes('B redevient particulier', format('update public.organisations set type = ''particulier'' where id = %L', org_b), 1);
+  perform t.egal('le logo est retiré avec le statut professionnel', coalesce((select logo_path from public.organisations where id = org_b), 'aucun'), 'aucun');
+
   -- Paiements Stripe : tout passe par le serveur, une fois, et le mode test fait barrage ---
   perform t.connecter(b);
   perform t.refuse('B s''attribue un paiement', format('select public.stripe_recevoir(%L)', '{"id":"evt_x","type":"checkout.session.completed"}'));

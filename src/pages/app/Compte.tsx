@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, type TypeCompte } from '../../auth/AuthProvider';
 import { Alerte, Bouton, Carte, Champ, Liste } from '../../components/ui';
@@ -29,6 +29,7 @@ export function Compte() {
       {admin && <Link to="/admin" className="font-semibold text-marque underline underline-offset-4">Ouvrir l’administration de Constatio</Link>}
       <FormulaireProfil key={profil.id} recharger={recharger} />
       <FormulaireOrganisation key={organisation.id} lectureSeule={!peutGerer} recharger={recharger} />
+      <Presentation key={`p-${organisation.id}`} lectureSeule={!peutGerer} recharger={recharger} />
       <FormulaireMotDePasse />
       {!enLigne && <Alerte ton="info">Hors connexion : les modifications du compte seront possibles au retour du réseau.</Alerte>}
       {confirmer && (
@@ -205,6 +206,112 @@ function FormulaireMotDePasse() {
           Changer de mot de passe
         </Bouton>
       </form>
+    </Carte>
+  );
+}
+
+/** Réduit le logo à 600 pixels au plus et le rend en PNG : léger, et lisible par le moteur de documents. */
+async function preparerLogo(fichier: File): Promise<Blob> {
+  const image = await createImageBitmap(fichier);
+  const r = Math.min(1, 600 / Math.max(image.width, image.height));
+  const toile = document.createElement('canvas');
+  toile.width = Math.max(1, Math.round(image.width * r));
+  toile.height = Math.max(1, Math.round(image.height * r));
+  toile.getContext('2d')!.drawImage(image, 0, 0, toile.width, toile.height);
+  return new Promise((ok, ko) => toile.toBlob((b) => (b ? ok(b) : ko(new Error('conversion'))), 'image/png'));
+}
+
+/** Présentation des documents : filigrane sur les photos (tous les comptes), logo en tête (comptes professionnels). */
+function Presentation({ lectureSeule, recharger }: { lectureSeule: boolean; recharger: () => Promise<void> }) {
+  const { organisation } = useAuth();
+  const [filigrane, setFiligrane] = useState(organisation!.filigrane_photos);
+  const [texte, setTexte] = useState(organisation!.filigrane_texte ?? '');
+  const [logo, setLogo] = useState<string | null>(null);
+  const [occupe, setOccupe] = useState(false);
+  const [retour, setRetour] = useState<Retour>(null);
+  const choix = useRef<HTMLInputElement>(null);
+  const org = organisation!;
+  const pro = org.type === 'pro';
+
+  useEffect(() => {
+    if (!org.logo_path) return setLogo(null);
+    let adresse: string | null = null;
+    void supabase.storage.from('marque').download(org.logo_path).then(({ data }) => { if (data) { adresse = URL.createObjectURL(data); setLogo(adresse); } });
+    return () => { if (adresse) URL.revokeObjectURL(adresse); };
+  }, [org.logo_path]);
+
+  async function enregistrer(e: FormEvent) {
+    e.preventDefault();
+    setOccupe(true); setRetour(null);
+    const { error } = await supabase.from('organisations').update({ filigrane_photos: filigrane, filigrane_texte: texte.trim() || null }).eq('id', org.id);
+    setOccupe(false);
+    if (error) return setRetour({ ton: 'erreur', texte: traduireErreur(error) });
+    await recharger();
+    setRetour({ ton: 'succes', texte: 'Présentation enregistrée. Elle s’applique aux prochains documents générés.' });
+  }
+  async function deposer(fichier: File | undefined) {
+    if (!fichier) return;
+    setRetour(null);
+    if (!['image/png', 'image/jpeg'].includes(fichier.type)) return setRetour({ ton: 'erreur', texte: 'Choisissez une image PNG ou JPEG.' });
+    setOccupe(true);
+    try {
+      const image = await preparerLogo(fichier);
+      // Nom nouveau à chaque dépôt : l'ancien logo ne reste pas en mémoire des navigateurs.
+      const chemin = `${org.id}/logo-${Date.now()}.png`;
+      const depot = await supabase.storage.from('marque').upload(chemin, image, { contentType: 'image/png' });
+      if (depot.error) throw depot.error;
+      const maj = await supabase.from('organisations').update({ logo_path: chemin }).eq('id', org.id);
+      if (maj.error) throw maj.error;
+      if (org.logo_path) await supabase.storage.from('marque').remove([org.logo_path]);
+      await recharger();
+      setRetour({ ton: 'succes', texte: 'Logo enregistré. Il figurera en tête des prochains documents générés.' });
+    } catch (err) {
+      setRetour({ ton: 'erreur', texte: traduireErreur(err) });
+    } finally {
+      setOccupe(false);
+      if (choix.current) choix.current.value = '';
+    }
+  }
+  async function retirer() {
+    setOccupe(true); setRetour(null);
+    const ancien = org.logo_path;
+    const { error } = await supabase.from('organisations').update({ logo_path: null }).eq('id', org.id);
+    if (!error && ancien) await supabase.storage.from('marque').remove([ancien]);
+    setOccupe(false);
+    if (error) return setRetour({ ton: 'erreur', texte: traduireErreur(error) });
+    await recharger();
+  }
+
+  return (
+    <Carte>
+      <h2 className="text-lg font-bold">Présentation des documents</h2>
+      {retour && <Alerte ton={retour.ton}>{retour.texte}</Alerte>}
+      <form onSubmit={enregistrer} className="flex flex-col gap-3">
+        <label className="flex items-start gap-2">
+          <input type="checkbox" className="mt-1 h-5 w-5" checked={filigrane} disabled={lectureSeule} onChange={(e) => setFiligrane(e.target.checked)} />
+          <span><span className="font-semibold">Filigrane sur les photos</span><span className="block text-sm text-discret">Un bandeau au pied de chaque photo du document : votre nom, la date et l’heure de la prise de vue. Les photos d’origine restent intactes.</span></span>
+        </label>
+        {filigrane && <Champ id="filigrane-texte" libelle="Texte du filigrane" value={texte} maxLength={60} disabled={lectureSeule} onChange={(e) => setTexte(e.target.value)} placeholder={org.nom} aide="Laissez vide pour utiliser le nom du compte." />}
+        {!lectureSeule && <Bouton type="submit" disabled={occupe}>Enregistrer la présentation</Bouton>}
+      </form>
+      <div className="flex flex-col gap-2 border-t border-trait pt-3">
+        <p className="font-semibold">Logo en tête des documents</p>
+        {pro ? (
+          <>
+            {logo ? <img src={logo} alt="Logo du compte" className="max-h-16 max-w-[200px] self-start rounded border border-trait bg-white p-1" data-testid="logo" /> : <p className="text-sm text-discret">Aucun logo. Les documents portent le nom du compte.</p>}
+            {!lectureSeule && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex min-h-[48px] cursor-pointer items-center justify-center rounded-xl border-2 border-marque px-4 text-center font-semibold text-marque">
+                  {logo ? 'Changer de logo' : 'Choisir un logo'}
+                  <input ref={choix} type="file" accept="image/png,image/jpeg" className="sr-only" disabled={occupe} onChange={(e) => void deposer(e.target.files?.[0])} data-testid="choisir-logo" />
+                </label>
+                {logo && <Bouton variante="contour" disabled={occupe} onClick={retirer}>Retirer le logo</Bouton>}
+              </div>
+            )}
+            <p className="text-sm text-discret">PNG ou JPEG, de préférence sur fond blanc ou transparent.</p>
+          </>
+        ) : <p className="text-sm text-discret">Réservé aux comptes professionnels. Choisissez « Professionnel » dans « Bailleur ou société » ci-dessus pour l’activer.</p>}
+      </div>
     </Carte>
   );
 }

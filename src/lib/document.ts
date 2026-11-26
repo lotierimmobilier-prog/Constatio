@@ -10,10 +10,28 @@ type Ligne = Record<string, unknown> & { id: string };
 async function organisation(id: string): Promise<Ligne | null> {
   const cle = `constatio.organisation.${id}`;
   try {
-    const { data } = await supabase.from('organisations').select('id, nom, entete, adresse, code_postal, ville').eq('id', id).maybeSingle();
+    const lire = (colonnes: string) => supabase.from('organisations').select(colonnes as '*').eq('id', id).maybeSingle() as unknown as Promise<{ data: Ligne | null }>;
+    let { data } = await lire('id, type, nom, entete, adresse, code_postal, ville, logo_path, filigrane_photos, filigrane_texte');
+    // Base pas encore à jour : on se passe des réglages de présentation.
+    if (!data) ({ data } = await lire('id, type, nom, entete, adresse, code_postal, ville'));
     if (data) { try { localStorage.setItem(cle, JSON.stringify(data)); } catch { /* stockage refusé : sans gravité */ } return data as Ligne; }
   } catch { /* hors connexion */ }
   try { return JSON.parse(localStorage.getItem(cle) ?? 'null'); } catch { return null; }
+}
+
+/** Le logo du compte, gardé sur l'appareil (il est petit) pour que l'aperçu le porte aussi sans réseau. */
+async function logo(org: Ligne | null): Promise<Uint8Array | null> {
+  if (!org || org.type !== 'pro' || typeof org.logo_path !== 'string') return null;
+  const cle = `constatio.logo.${org.logo_path}`;
+  try {
+    const { data } = await supabase.storage.from('marque').download(org.logo_path);
+    if (data) {
+      const octets = new Uint8Array(await data.arrayBuffer());
+      try { let texte = ''; for (let i = 0; i < octets.length; i += 8192) texte += String.fromCharCode(...octets.subarray(i, i + 8192)); localStorage.setItem(cle, btoa(texte)); } catch { /* stockage refusé */ }
+      return octets;
+    }
+  } catch { /* hors connexion */ }
+  try { const garde = localStorage.getItem(cle); return garde ? Uint8Array.from(atob(garde), (c) => c.charCodeAt(0)) : null; } catch { return null; }
 }
 
 export interface Apercu { pdf: Uint8Array; photos: number; photosAbsentes: number }
@@ -34,15 +52,16 @@ export async function construireApercu(edlId: string): Promise<Apercu | null> {
     }
     if (fichier) octets.set(p.id, new Uint8Array(await fichier.arrayBuffer()));
   }
+  const org = await organisation(edl.organisation_id);
   const lignes: LignesEdl = {
-    edl, logement, organisation: await organisation(edl.organisation_id),
+    edl, logement, organisation: org,
     parties: await fille('edl_parties'), pieces: await fille('edl_pieces'), elements: await fille('edl_elements'), compteurs: await fille('edl_compteurs'),
     cles: await fille('edl_cles'), inventaire: await fille('edl_inventaire'), photos,
     elementsEntree: edl.entree_id ? await fille('edl_elements', edl.entree_id) : [],
   };
   // Le moteur de mise en page (350 ko) n'est chargé qu'ici ; il est gardé sur l'appareil pour le hors connexion.
   const { assembler, construirePdf } = await import('../../supabase/functions/_partage/pdf');
-  return { pdf: await construirePdf(assembler(lignes, octets, true)), photos: photos.length, photosAbsentes: photos.length - octets.size };
+  return { pdf: await construirePdf(assembler(lignes, octets, true, await logo(org))), photos: photos.length, photosAbsentes: photos.length - octets.size };
 }
 
 export type Generation =

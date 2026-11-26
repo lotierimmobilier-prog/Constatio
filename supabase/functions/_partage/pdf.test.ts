@@ -2,9 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
-import { construirePdf, empreintePdf, net, type DonneesPdf } from './pdf';
+import { assembler, construirePdf, empreintePdf, net, type DonneesPdf } from './pdf';
 
 /** Une petite image JPEG valide (8 × 6 pixels gris). */
 const JPEG = Uint8Array.from(atob('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAAGAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCSiiitTE//2Q=='), (c) => c.charCodeAt(0));
@@ -104,6 +104,33 @@ describe('PDF de l’état des lieux', () => {
     expect(net('L’état → « neuf » 😀 œuvre !')).toBe("L'état -> « neuf » ? œuvre !");
     const d = exemple(); d.elements[0].observations = 'Tache 😀 d’huile → à nettoyer\nsur deux lignes';
     expect(texte(await construirePdf(d))).toContain("d'huile ->");
+  });
+  it('filigrane : un bandeau sur chaque photo, avec le texte du compte et l’heure de la prise de vue', async () => {
+    const sans = texte(await construirePdf(exemple()));
+    expect(sans).not.toContain('Cabinet ZZREC ·');
+    const avec = texte(await construirePdf({ ...exemple(), filigrane: 'Cabinet ZZREC' }));
+    expect(avec).toContain('Cabinet ZZREC · 15/11/2026 11:05');
+    expect(avec.match(/Cabinet ZZREC ·/g)?.length).toBe(2); // deux photos présentes, la troisième est indisponible
+  });
+  it('logo : posé en tête ; un fichier illisible ne fait pas échouer le document', async () => {
+    const images = async (d: DonneesPdf) => {
+      const pdf = await PDFDocument.load(await construirePdf(d));
+      return pdf.context.enumerateIndirectObjects().filter(([, o]) => String((o as { dict?: { get: (k: unknown) => unknown } }).dict?.get(PDFName.of('Subtype'))) === '/Image').length;
+    };
+    const d = exemple();
+    const base = await images(d);
+    expect(await images({ ...d, emetteur: { ...d.emetteur, logo: JPEG } })).toBe(base + 1);
+    expect(texte(await construirePdf({ ...d, emetteur: { ...d.emetteur, logo: new Uint8Array([1, 2, 3]) } }))).toContain('ZZREC SCI des Balances');
+  });
+  it('assemblage : filigrane au nom du compte par défaut ; logo réservé aux comptes professionnels', () => {
+    const lignes = (organisation: Record<string, unknown>) => ({ edl: { id: 'e', type: 'entrant', date_edl: '2026-11-15T10:00:00Z', bail_type: 'vide' }, logement: { adresse: 'a', code_postal: '34500', ville: 'Béziers', type_bien: 'studio' },
+      organisation, parties: [], pieces: [], elements: [], compteurs: [], cles: [], inventaire: [], photos: [], elementsEntree: [] });
+    const logo = new Uint8Array([1]);
+    expect(assembler(lignes({ nom: 'ZZREC Agence', type: 'pro', filigrane_photos: true }), new Map(), false, logo)).toMatchObject({ filigrane: 'ZZREC Agence', emetteur: { logo } });
+    expect(assembler(lignes({ nom: 'ZZREC Agence', type: 'pro', filigrane_photos: true, filigrane_texte: 'Texte choisi' }), new Map(), false).filigrane).toBe('Texte choisi');
+    const particulier = assembler(lignes({ nom: 'ZZREC Vidal', type: 'particulier', filigrane_photos: false }), new Map(), false, logo);
+    expect(particulier.filigrane).toBeNull();
+    expect(particulier.emetteur.logo).toBeNull();
   });
   it('l’empreinte change si un seul octet change', async () => {
     const a = await construirePdf(exemple());

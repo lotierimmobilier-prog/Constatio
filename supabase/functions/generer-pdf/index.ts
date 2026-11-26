@@ -91,7 +91,15 @@ Deno.serve(async (requete) => {
       else console.error('generer-pdf : photo illisible', p.id, fichier.error?.message);
     }
     const manquantes = lignes.photos.length - octets.size;
-    const { octets: pdf, cases } = await construireDocument(assembler(lignes, octets, false));
+    // Logo du compte professionnel, s'il en a déposé un.
+    let logo: Uint8Array | null = null;
+    const org = lignes.organisation;
+    if (org?.type === 'pro' && org.logo_path) {
+      const fichier = await client.storage.from('marque').download(org.logo_path);
+      if (fichier.data) logo = new Uint8Array(await fichier.data.arrayBuffer());
+      else console.error('generer-pdf : logo illisible', fichier.error?.message);
+    }
+    const { octets: pdf, cases } = await construireDocument(assembler(lignes, octets, false, logo));
     const sha256 = await empreintePdf(pdf);
     const pages = (await PDFDocument.load(pdf)).getPageCount();
     const chemin = `${lignes.edl.organisation_id}/${edl_id}/pdf/${sha256.slice(0, 16)}.pdf`;
