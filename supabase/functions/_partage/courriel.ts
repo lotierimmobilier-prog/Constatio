@@ -102,3 +102,52 @@ export async function envoyer(boite: Boite, m: Message): Promise<void> {
     try { lien.close(); } catch { /* déjà fermée */ }
   }
 }
+
+// ── E-mails de compte (confirmation, mot de passe oublié…) confiés par le service de comptes ─────────
+/** Vérifie la signature de l'appel (« Standard Webhooks ») : secret « v1,whsec_… », message daté de moins de cinq minutes. */
+export async function appelSigne(secret: string, entetes: { id: string | null; date: string | null; signature: string | null }, corps: string, maintenant = Date.now()): Promise<boolean> {
+  if (!entetes.id || !entetes.date || !entetes.signature || !/^\d+$/.test(entetes.date)) return false;
+  if (Math.abs(maintenant / 1000 - Number(entetes.date)) > 300) return false;
+  let cle: Uint8Array;
+  try { cle = Uint8Array.from(atob(secret.replace(/^v1,/, '').replace(/^whsec_/, '')), (c) => c.charCodeAt(0)); } catch { return false; }
+  const k = await crypto.subtle.importKey('raw', cle as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', k, utf8.encode(`${entetes.id}.${entetes.date}.${corps}`)));
+  let attendu = ''; for (const o of mac) attendu += String.fromCharCode(o);
+  attendu = btoa(attendu);
+  // Plusieurs signatures possibles, séparées par des espaces ; comparaison sans fuite de durée.
+  return entetes.signature.split(' ').some((s) => {
+    const recu = s.replace(/^v1,/, '');
+    if (recu.length !== attendu.length) return false;
+    let d = 0; for (let i = 0; i < recu.length; i++) d |= recu.charCodeAt(i) ^ attendu.charCodeAt(i);
+    return d === 0;
+  });
+}
+
+export interface DemandeCompte { user: { email?: string; new_email?: string }; email_data: { token?: string; token_hash?: string; token_hash_new?: string; redirect_to?: string; email_action_type?: string; site_url?: string } }
+/** Le message de compte à envoyer, ou null si la demande n'est pas reconnue. */
+export function messageDeCompte(d: DemandeCompte, adresseComptes: string, site: string): Message | null {
+  const type = d.email_data?.email_action_type ?? '';
+  const a = (type === 'email_change' && d.user?.new_email ? d.user.new_email : d.user?.email ?? '').trim();
+  if (!adresseValide(a)) return null;
+  // Le retour après le clic reste sur le site : une adresse étrangère est remplacée par l'accueil.
+  const retour = d.email_data.redirect_to && d.email_data.redirect_to.startsWith(site) ? d.email_data.redirect_to : site;
+  const lien = (jeton: string | undefined, t: string) => `${adresseComptes}/verify?token=${encodeURIComponent(jeton ?? '')}&type=${t}&redirect_to=${encodeURIComponent(retour)}`;
+  const jeton = d.email_data.token_hash;
+  if (!jeton && type !== 'reauthentication') return null;
+  const ignorer = 'Si vous n’êtes pas à l’origine de cette demande, ignorez ce message : rien ne changera.';
+  switch (type) {
+    case 'signup':
+      return habiller({ a, sujet: 'Confirmez votre adresse e-mail — Constatio', titre: 'Bienvenue sur Constatio', paragraphes: ['Il reste une étape : confirmez votre adresse e-mail pour ouvrir votre espace et commencer votre premier état des lieux. Le brouillon est gratuit.'], bouton: { libelle: 'Confirmer mon adresse', adresse: lien(jeton, 'signup') }, apres: [ignorer] });
+    case 'recovery':
+      return habiller({ a, sujet: 'Votre nouveau mot de passe — Constatio', titre: 'Choisir un nouveau mot de passe', paragraphes: ['Vous avez demandé à changer le mot de passe de votre compte Constatio. Le lien ci-dessous est valable une heure et ne sert qu’une fois.'], bouton: { libelle: 'Choisir un nouveau mot de passe', adresse: lien(jeton, 'recovery') }, apres: [ignorer] });
+    case 'email_change':
+      return habiller({ a, sujet: 'Confirmez votre nouvelle adresse e-mail — Constatio', titre: 'Confirmer votre nouvelle adresse', paragraphes: ['Vous avez demandé à utiliser cette adresse pour votre compte Constatio. Elle deviendra votre identifiant de connexion après confirmation.'], bouton: { libelle: 'Confirmer cette adresse', adresse: lien(d.email_data.token_hash_new || jeton, 'email_change') }, apres: [ignorer] });
+    case 'magiclink':
+    case 'invite':
+      return habiller({ a, sujet: 'Votre lien de connexion — Constatio', titre: 'Ouvrir votre espace Constatio', paragraphes: ['Voici votre lien personnel de connexion. Il ne sert qu’une fois.'], bouton: { libelle: 'Ouvrir mon espace', adresse: lien(jeton, type) }, apres: [ignorer] });
+    case 'reauthentication':
+      return d.email_data.token ? habiller({ a, sujet: 'Votre code de vérification — Constatio', titre: 'Code de vérification', paragraphes: [`Saisissez ce code pour confirmer l’opération en cours : ${d.email_data.token}`], apres: [ignorer] }) : null;
+    default:
+      return null;
+  }
+}

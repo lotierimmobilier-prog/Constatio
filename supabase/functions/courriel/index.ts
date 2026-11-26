@@ -7,7 +7,7 @@
 // En mode test, rien ne part. Un message en échec est retenté (cinq fois au plus), sans bloquer les autres.
 // À déployer sans vérification de session (verify_jwt = false) : la base n'en a pas.
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { adresseValide, envoyer, habiller, type Boite, type Message } from '../_partage/courriel.ts';
+import { adresseValide, appelSigne, envoyer, habiller, messageDeCompte, type Boite, type DemandeCompte, type Message } from '../_partage/courriel.ts';
 
 const SITE = (Deno.env.get('SITE_URL') ?? 'https://constatio.fr').replace(/\/+$/, '');
 const json = (statut: number, corps: unknown) => new Response(JSON.stringify(corps), { status: statut, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -102,6 +102,19 @@ Deno.serve(async (requete) => {
   if (requete.method !== 'POST') return json(405, { statut: 'refuse' });
   try {
     const service = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+    // ── E-mail de compte, confié par le service de comptes (appel signé) ───────────────────
+    if (requete.headers.has('webhook-signature')) {
+      const refus = (code: number, message: string) => json(code, { error: { http_code: code, message } });
+      const corps = await requete.text();
+      const c = lu(await service.rpc('cles_courriel')) as { utilisateur: string | null; mot_de_passe: string | null; hote: string; comptes_secret: string | null };
+      if (!c.comptes_secret || !(await appelSigne(c.comptes_secret, { id: requete.headers.get('webhook-id'), date: requete.headers.get('webhook-timestamp'), signature: requete.headers.get('webhook-signature') }, corps))) return refus(401, 'Appel non reconnu.');
+      if (!c.utilisateur || !c.mot_de_passe) return refus(503, 'L’envoi des e-mails n’est pas encore réglé. Réessayez dans quelques minutes.');
+      const message = messageDeCompte(JSON.parse(corps) as DemandeCompte, `${Deno.env.get('SUPABASE_URL')!.replace(/\/+$/, '')}/auth/v1`, SITE);
+      if (!message) return refus(400, 'Demande non reconnue.');
+      try { await envoyer({ hote: c.hote, utilisateur: c.utilisateur, motDePasse: c.mot_de_passe }, message); }
+      catch (e) { console.error('courriel de compte', e instanceof Error ? e.message : e); return refus(502, 'Le message n’a pas pu être envoyé. Réessayez dans quelques minutes.'); }
+      return json(200, {});
+    }
     const attendu = lu(await service.rpc('cle_releve')) as string | null;
     if (!attendu || requete.headers.get('x-releve') !== attendu) return json(401, { statut: 'refuse', motif: 'session' });
     const cles = lu(await service.rpc('cles_courriel')) as { mode_test: boolean; hote: string; utilisateur: string | null; mot_de_passe: string | null };

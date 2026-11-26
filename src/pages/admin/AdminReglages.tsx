@@ -112,7 +112,7 @@ export function AdminReglages() {
 
       <Carte>
         <h2 className="text-lg font-bold">Envoi des e-mails</h2>
-        <p className="max-w-[65ch] text-sm">La boîte du domaine (Hostinger → E-mails). Elle envoie l’exemplaire signé à chaque partie, prévient d’une réserve à valider et de sa réponse. Le mot de passe n’est jamais réaffiché. En mode test, aucun message ne part. Tant que la boîte n’est pas réglée, les messages attendent (sept jours au plus).</p>
+        <p className="max-w-[65ch] text-sm">La boîte du domaine (Hostinger → E-mails). Elle envoie l’exemplaire signé à chaque partie, prévient d’une réserve à valider et de sa réponse, et porte les e-mails de compte (confirmation d’adresse, mot de passe oublié). C’est le seul endroit où elle se règle. Le mot de passe n’est jamais réaffiché. En mode test, aucun message ne part. Tant que la boîte n’est pas réglée, les messages attendent (sept jours au plus).</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {CLES_COURRIEL.map((c) => <ChampCle key={c.nom} cle={c} connue={cles.donnee?.find((x) => x.nom === c.nom)} enregistrer={(valeur) => agir(() => appel('admin_definir_cle', { p_nom: c.nom, p_valeur: valeur }), valeur ? `${c.libelle} : enregistré.` : `${c.libelle} : effacé.`)} />)}
         </div>
