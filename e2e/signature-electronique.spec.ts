@@ -127,7 +127,7 @@ test('signature électronique : 5 € réglés, envoi par DocuSeal, document sig
   expect(await (await tache(sql(`select valeur from private.cles_service where nom = 'releve_secret'`))).json()).toMatchObject({ statut: 'ok', relevees: 1, signees: 1, echecs: 0 });
   // À l'ouverture de l'écran, le document signé est là, sans clic.
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Document signé' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Document signé', exact: true })).toBeVisible({ timeout: 30_000 });
   expect(sql(`select statut || ' ' || pdf_signe_sha256 from public.edl where id = '${edl}'`)).toBe(`signe ${createHash('sha256').update(SIGNE).digest('hex')}`);
   expect(sql(`select count(*) || ' ' || min(mode) || ' ' || min(fournisseur) || ' ' || min(fournisseur_ref) from public.edl_signatures where edl_id = '${edl}'`)).toBe('2 electronique docuseal 77');
   const octets = await (await page.request.get((await page.getByTestId('ouvrir-signe').getAttribute('href'))!)).body();

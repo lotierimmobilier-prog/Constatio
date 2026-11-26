@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -9,6 +9,7 @@ const BASE = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const sql = (requete: string) => execFileSync('psql', [BASE, '-At', '-v', 'ON_ERROR_STOP=1', '-c', requete], { encoding: 'utf8' }).trim();
 const email = `zzrec-sig-${Date.now()}@constatio.test`;
 const captures = process.env.CAPTURES;
+const CLE = (readFileSync('.env.production.local', 'utf8').match(/VITE_SUPABASE_(?:ANON|PUBLISHABLE)_KEY=(.+)/) ?? [])[1]?.trim() ?? '';
 const dossier = mkdtempSync(join(tmpdir(), 'cst-sig-'));
 const texte = (fichier: string) => execFileSync('pdftotext', ['-layout', fichier, '-'], { encoding: 'utf8' }).replace(/\s+/g, ' ');
 
@@ -105,7 +106,7 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   // ── Côté propriétaire : l'état des lieux est signé, l'exemplaire est là ────────────
   expect(sql(`select statut from public.edl where id = '${edl}'`)).toBe('signe');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Document signé' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Document signé', exact: true })).toBeVisible();
   const empreinteSigne = (await page.getByTestId('empreinte-signe').innerText()).replace('Empreinte SHA-256 : ', '').trim();
   const octets = await (await page.request.get((await page.getByTestId('ouvrir-signe').getAttribute('href'))!)).body();
   expect(createHash('sha256').update(octets).digest('hex')).toBe(empreinteSigne);
@@ -122,7 +123,7 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
 
   // ── Réserves du locataire : dix jours pour compléter l'état des lieux d'entrée ────────
   await expect(page.getByTestId('delai-reserves')).toContainText('dix jours');
-  await page.getByTestId('creer-lien-reserves').click();
+  await page.getByTestId('partie-lien').filter({ hasText: 'Marty' }).getByTestId('creer-lien-reserves').click();
   const lienReserves = (await page.getByTestId('lien-reserves').innerText()).trim();
   expect(lienReserves).toMatch(/\/reserves\/[A-Za-z0-9_-]{40,}$/);
   const chezLui = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -131,15 +132,32 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   await expect(p3.getByText(/Ce lien n’est pas valable/)).toBeVisible();
   await p3.goto(lienReserves);
   await expect(p3.getByTestId('locataire')).toHaveText('M. Hugo ZZREC Marty');
+  // Il retrouve d'abord son exemplaire signé.
+  await expect(p3.getByTestId('document-signe')).toHaveAttribute('href', /\/storage\/v1\/object\/sign\/edl\/.+\.pdf\?token=/);
+  const pieceChoisie = sql(`select nom from public.edl_pieces where edl_id = '${edl}' order by ordre, nom limit 1`);
+  await p3.getByLabel('Pièce concernée').selectOption({ label: pieceChoisie });
+  await p3.getByTestId('photos-reserve').setInputFiles({ name: 'fissure.png', mimeType: 'image/png', buffer: await p3.screenshot() });
+  await expect(p3.getByTestId('photo-reserve')).toHaveCount(1);
   await p3.getByLabel('Votre réserve').fill('Fissure au plafond du garage, côté porte, non relevée.');
   await p3.getByRole('button', { name: 'Déposer cette réserve' }).click();
   await expect(p3.getByText(/Réserve enregistrée/)).toBeVisible();
   await expect(p3.getByTestId('ma-reserve')).toContainText('En attente de réponse');
+  await expect(p3.getByTestId('ma-reserve')).toContainText(pieceChoisie);
+  await expect.poll(() => p3.getByTestId('ma-reserve').locator('img').first().evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0), { timeout: 10_000 }).toBe(true);
+  expect(sql(`select cardinality(photo_paths) || ' ' || (piece_id is not null) from public.edl_complements where edl_id = '${edl}'`)).toBe('1 true');
+  // Sans son lien, personne n'écrit dans ce dossier, et lui-même ne peut rien y lire.
+  const hors = await p3.evaluate(async ([o, e, cle]) => {
+    const depot = await fetch(`/storage/v1/object/edl/${o}/${e}/reserves/${'0'.repeat(64)}/${crypto.randomUUID()}.jpg`, { method: 'POST', headers: { apikey: cle, Authorization: `Bearer ${cle}`, 'Content-Type': 'image/jpeg' }, body: new Blob(['x'], { type: 'image/jpeg' }) });
+    return depot.status;
+  }, [org, edl, CLE] as const);
+  expect(hors).toBeGreaterThanOrEqual(400);
 
   // Le bailleur la retrouve, y répond, et édite l'annexe.
   await page.reload();
   const reserve = page.getByTestId('reserve');
   await expect(reserve).toContainText('Fissure au plafond du garage');
+  await expect(reserve).toContainText(pieceChoisie);
+  await expect.poll(() => reserve.getByTestId('photo-reserve').evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0), { timeout: 10_000 }).toBe(true);
   await reserve.getByLabel('Votre réponse').fill('Constaté sur place le lendemain.');
   await reserve.getByRole('button', { name: 'Accepter' }).click();
   await expect(reserve.getByText('Acceptée')).toBeVisible();
@@ -148,11 +166,30 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   const fichierAnnexe = join(dossier, 'annexe.pdf');
   await (await annexe).saveAs(fichierAnnexe);
   const ta = texte(fichierAnnexe);
-  for (const attendu of ['Annexe — réserves du locataire', '8 rue de la Signature, 34500 Béziers', 'Fissure au plafond du garage', 'acceptée — Constaté sur place le lendemain.', empreinteSigne]) expect(ta, attendu).toContain(attendu);
+  for (const attendu of ['Annexe — réserves du locataire', '8 rue de la Signature, 34500 Béziers', 'Fissure au plafond du garage', pieceChoisie, '1 photo jointe par le locataire', 'acceptée — Constaté sur place le lendemain.', empreinteSigne]) expect(ta, attendu).toContain(attendu);
+  expect(execFileSync('pdfimages', ['-list', fichierAnnexe], { encoding: 'utf8' }).trim().split('\n').length).toBe(3);
+  if (captures) writeFileSync(`${captures}/annexe-reserves.pdf`, execFileSync('cat', [fichierAnnexe]));
   // Le locataire lit la décision par son lien.
   await p3.reload();
   await expect(p3.getByTestId('ma-reserve')).toContainText('Acceptée');
   await expect(p3.getByTestId('ma-reserve')).toContainText('Constaté sur place le lendemain.');
+  const annexeLocataire = p3.waitForEvent('download');
+  await p3.getByTestId('annexe-reserves').click();
+  const fichierLocataire = join(dossier, 'annexe-locataire.pdf');
+  await (await annexeLocataire).saveAs(fichierLocataire);
+  expect(texte(fichierLocataire)).toContain('acceptée — Constaté sur place le lendemain.');
+  expect(execFileSync('pdfimages', ['-list', fichierLocataire], { encoding: 'utf8' }).trim().split('\n').length).toBe(3);
+  if (captures) await p3.screenshot({ path: `${captures}/31-lien-document-locataire.png`, fullPage: true });
+
+  // Le bailleur renvoie le document : son propre lien ne permet que de consulter, réserves comprises.
+  await page.getByTestId('partie-lien').filter({ hasText: 'Vidal' }).getByTestId('creer-lien-reserves').click();
+  const lienBailleur = (await page.getByTestId('partie-lien').filter({ hasText: 'Vidal' }).getByTestId('lien-reserves').innerText()).trim();
+  await p3.goto(lienBailleur);
+  await expect(p3.getByRole('heading', { name: 'Votre état des lieux signé' })).toBeVisible();
+  await expect(p3.getByTestId('document-signe')).toBeVisible();
+  await expect(p3.getByTestId('ma-reserve')).toContainText('Fissure au plafond du garage');
+  await expect(p3.getByLabel('Votre réserve')).toHaveCount(0);
+  if (captures) await page.screenshot({ path: `${captures}/30-remettre-document.png`, fullPage: true });
   await chezLui.close();
-  expect(sql(`select string_agg(evenement, ',' order by id) from public.edl_journal where edl_id = '${edl}' and evenement like 'reserve%'`)).toBe('reserves_lien_cree,reserve_deposee,reserve_repondue');
+  expect(sql(`select string_agg(evenement, ',' order by id) from public.edl_journal where edl_id = '${edl}' and evenement like 'reserve%'`)).toBe('reserves_lien_cree,reserve_deposee,reserve_repondue,reserves_lien_cree');
 });

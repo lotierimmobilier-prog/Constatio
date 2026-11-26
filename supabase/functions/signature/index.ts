@@ -156,6 +156,22 @@ Deno.serve(async (requete) => {
       return json(200, { statut: 'ok', relevees: enCours.length, signees, echecs });
     }
 
+    // ── Lien du document signé : l'exemplaire signé et les photos des réserves ─────────
+    if (corps.action === 'dossier') {
+      if (typeof corps.jeton !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(corps.jeton)) throw new Refus(410, 'lien');
+      const jeton = lu(await service.from('edl_jetons').select('edl_id, expire_le').eq('jeton_hash', await empreinteJeton(corps.jeton)).eq('usage', 'complement').maybeSingle());
+      if (!jeton || new Date(jeton.expire_le) < new Date()) throw new Refus(410, 'lien');
+      const edl = lu(await service.from('edl').select('statut, pdf_signe_path').eq('id', jeton.edl_id).single());
+      if (edl.statut !== 'signe') throw new Refus(410, 'lien');
+      const relatif = (adresse: string) => new URL(adresse).pathname.replace(/^\/storage\/v1/, '') + new URL(adresse).search;
+      const signe = edl.pdf_signe_path ? await service.storage.from('edl').createSignedUrl(edl.pdf_signe_path, 900) : null;
+      const reserves = lu(await service.from('edl_complements').select('photo_paths').eq('edl_id', jeton.edl_id).eq('type', 'general')) ?? [];
+      const chemins = reserves.flatMap((r) => (r.photo_paths ?? []) as string[]);
+      const photos: Record<string, string> = {};
+      if (chemins.length) for (const p of (await service.storage.from('edl').createSignedUrls(chemins, 900)).data ?? []) if (p.path && p.signedUrl) photos[p.path] = relatif(p.signedUrl);
+      return json(200, { statut: 'ok', document: signe?.data?.signedUrl ? relatif(signe.data.signedUrl) : null, photos });
+    }
+
     // ── Avec le jeton d'un lien ────────────────────────────────────────────────
     if (corps.action === 'consulter' || corps.action === 'signer_lien') {
       if (typeof corps.jeton !== 'string' || !/^[A-Za-z0-9_-]{40,64}$/.test(corps.jeton)) throw new Refus(410, 'lien');

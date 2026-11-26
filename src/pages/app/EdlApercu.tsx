@@ -142,7 +142,7 @@ export function EdlApercu() {
         </Carte>
       )}
 
-      {edl.statut === 'signe' && edl.type === 'entrant' && logement && <Reserves edl={edl} logement={logement} signeLe={(edl as EdlLigne & { signe_le?: string | null }).signe_le ?? null} />}
+      {edl.statut === 'signe' && logement && <Reserves edl={edl} logement={logement} signeLe={(edl as EdlLigne & { signe_le?: string | null }).signe_le ?? null} />}
 
       {edl.statut === 'termine' && (
         <>

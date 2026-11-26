@@ -184,9 +184,26 @@ begin
   perform t.connecter(b);
   perform t.refuse('un autre compte crée un lien de réserves', format('select public.reserves_lien(%L, %L, %L)', e1, p_loc, encode(sha256('res-1'), 'hex')));
   perform t.connecter(a);
-  perform t.refuse('lien de réserves pour le bailleur', format('select public.reserves_lien(%L, %L, %L)', e1, p_bail, encode(sha256('res-0'), 'hex')));
   perform t.refuse('lien de réserves sur un brouillon', format('select public.reserves_lien(%L, %L, %L)', e2, p_loc, encode(sha256('res-0'), 'hex')));
   perform public.reserves_lien(e1, p_loc, encode(sha256('res-1'), 'hex'));
+  -- Le bailleur aussi a son lien : il y retrouve le document, sans pouvoir déposer.
+  perform t.egal('lien du bailleur : pas de dépôt', coalesce(public.reserves_lien(e1, p_bail, encode(sha256('res-0'), 'hex'))::text, 'aucun'), 'aucun');
+  perform t.role('anon');
+  perform t.egal('le bailleur consulte', (public.reserves_consulter('res-0') ->> 'ouvert'), 'false');
+  perform t.refuse('le bailleur ne dépose pas de réserve', $q$select public.reserves_deposer('res-0', 'Je me réserve le droit')$q$);
+  -- Photos : seulement dans le dossier de son propre lien.
+  perform t.refuse('photo hors de son dossier', format($q$insert into storage.objects (bucket_id, name) values ('edl', %L)$q$, org_a || '/' || e1 || '/photos/' || gen_random_uuid() || '.jpg'));
+  perform t.refuse('photo dans le dossier du bailleur', format($q$insert into storage.objects (bucket_id, name) values ('edl', %L)$q$, org_a || '/' || e1 || '/reserves/' || encode(sha256('res-0'), 'hex') || '/' || gen_random_uuid() || '.jpg'));
+  perform set_config('t.photo', org_a || '/' || e1 || '/reserves/' || encode(sha256('res-1'), 'hex') || '/' || gen_random_uuid() || '.jpg', false);
+  insert into storage.objects (bucket_id, name) values ('edl', current_setting('t.photo'));
+  perform t.refuse('photo jamais envoyée', format($q$select public.reserves_deposer('res-1', 'Tache au mur du séjour', null, array[%L])$q$, replace(current_setting('t.photo'), '.jpg', '0.jpg')));
+  perform t.refuse('pièce d''un autre état des lieux', format($q$select public.reserves_deposer('res-1', 'Tache au mur du séjour', %L)$q$, gen_random_uuid()));
+  perform public.reserves_deposer('res-1', 'Tache au mur du séjour, avec photo.', (public.reserves_consulter('res-1') #>> '{pieces,0,id}')::uuid, array[current_setting('t.photo')]);
+  perform t.egal('réserve rattachée à sa pièce', ((public.reserves_consulter('res-1') #>> '{reserves,0,piece}') is not null)::text, 'true');
+  perform t.egal('réserve avec photo', (public.reserves_consulter('res-1') #>> '{reserves,0,photos,0}'), current_setting('t.photo'));
+  perform t.role('postgres');
+  delete from public.edl_complements where edl_id = e1;
+  perform t.connecter(a);
   perform t.role('anon');
   perform t.egal('le locataire voit de quel logement il s''agit', (public.reserves_consulter('res-1') ->> 'ouvert'), 'true');
   perform t.egal('lien inconnu : rien', coalesce(public.reserves_consulter('res-faux')::text, 'rien'), 'rien');
@@ -207,10 +224,11 @@ begin
   perform t.egal('le locataire lit la décision', (public.reserves_consulter('res-1') #>> '{reserves,0,statut}') || ' ' || (public.reserves_consulter('res-1') #>> '{reserves,0,reponse}'), 'accepte Constaté lors de ma visite du lendemain.');
   -- Onzième jour : plus de réserve possible.
   perform t.role('postgres');
-  update public.edl_jetons set expire_le = now() - interval '1 minute' where usage = 'complement';
+  update public.edl_jetons set depot_jusqu_au = now() - interval '1 minute' where usage = 'complement' and depot_jusqu_au is not null;
   perform t.role('anon');
   perform t.refuse('réserve après le dixième jour', $q$select public.reserves_deposer('res-1', 'Trop tard, robinet qui goutte')$q$);
   perform t.egal('le lien reste lisible, mais fermé', (public.reserves_consulter('res-1') ->> 'ouvert'), 'false');
+  perform t.refuse('plus de photo après le dixième jour', format($q$insert into storage.objects (bucket_id, name) values ('edl', %L)$q$, replace(current_setting('t.photo'), '.jpg', 'a.jpg')));
   perform t.role('service_role');
 
 
