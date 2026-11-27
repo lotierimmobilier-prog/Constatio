@@ -1,23 +1,26 @@
 // Expédie la file des e-mails (table « courriels ») par la boîte du domaine.
 //   { action: 'expedier' }   appelée par la base (secret « x-releve ») : à chaque message inscrit, puis toutes les dix minutes.
 // Trois messages :
-//   document_signe    chaque partie ayant une adresse reçoit le lien personnel de son exemplaire signé ;
-//   reserve_deposee   la personne qui a réalisé l'état des lieux est prévenue qu'une réserve attend sa réponse ;
-//   reserve_repondue  le locataire est prévenu de la réponse.
+// Quatre événements, et pour chacun un message à chaque partie ayant une adresse (bailleur, locataire, mandataires),
+// rédigé pour elle (_partage/courriel-edl.ts), avec le lien personnel de son exemplaire :
+//   document_signe       après les signatures ;
+//   reserve_deposee      une réserve est déposée (la personne qui a réalisé l'état des lieux reçoit en plus de quoi y répondre) ;
+//   reserve_repondue     une réserve est acceptée ou refusée ;
+//   delai_reserves_clos  le délai de dix jours s'achève : bilan des réserves.
 // En mode test, rien ne part. Un message en échec est retenté (cinq fois au plus), sans bloquer les autres.
 // À déployer sans vérification de session (verify_jwt = false) : la base n'en a pas.
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { rediger, type Contexte, type Evenement, type Role } from '../_partage/courriel-edl.ts';
 import { adresseValide, appelSigne, envoyer, habiller, messageDeCompte, type Boite, type DemandeCompte, type Message } from '../_partage/courriel.ts';
 
 const SITE = (Deno.env.get('SITE_URL') ?? 'https://constatio.fr').replace(/\/+$/, '');
 const json = (statut: number, corps: unknown) => new Response(JSON.stringify(corps), { status: statut, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 const lu = <T>(r: { data: T; error: { message: string } | null }): T => { if (r.error) throw new Error(r.error.message); return r.data; };
-const TITRES: Record<string, string> = { entrant: 'état des lieux d’entrée', sortant: 'état des lieux de sortie' };
 const nom = (p: { civilite: string | null; prenom: string | null; nom: string }) => [p.civilite, p.prenom, p.nom].filter(Boolean).join(' ');
 const jour = (iso: string) => new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
 
-interface Ligne { id: string; edl_id: string; type: 'document_signe' | 'reserve_deposee' | 'reserve_repondue'; reference: string | null; tentatives: number }
-interface Partie { id: string; role: string; civilite: string | null; prenom: string | null; nom: string; email: string | null }
+interface Ligne { id: string; edl_id: string; type: 'document_signe' | 'reserve_deposee' | 'reserve_repondue' | 'delai_reserves_clos'; reference: string | null; tentatives: number }
+interface Partie { id: string; role: string; civilite: string | null; prenom: string | null; nom: string; email: string | null; represente_id: string | null }
 
 /** Crée le lien personnel du document d'une partie (seule l'empreinte du jeton est gardée). */
 async function lienDocument(service: SupabaseClient, edl: { id: string; type: string; signe_le: string }, partie: Partie): Promise<{ adresse: string; depot: Date | null }> {
@@ -29,73 +32,61 @@ async function lienDocument(service: SupabaseClient, edl: { id: string; type: st
   return { adresse: `${SITE}/reserves/${jeton}`, depot };
 }
 
-/** Les messages d'une ligne de la file. Une liste vide : personne à prévenir. */
+/** Les messages d'une ligne de la file : un par partie ayant une adresse, chacun avec son texte. Une liste vide : personne à prévenir. */
 async function preparer(service: SupabaseClient, l: Ligne): Promise<Message[]> {
   const edl = lu(await service.from('edl').select('id, organisation_id, logement_id, type, statut, date_edl, signe_le, realise_par').eq('id', l.edl_id).single());
   if (edl.statut !== 'signe' || !edl.signe_le) return [];
   const logement = lu(await service.from('logements').select('adresse, code_postal, ville').eq('id', edl.logement_id).single());
   const lieu = `${logement.adresse}, ${logement.code_postal} ${logement.ville}`;
-  const quoi = TITRES[edl.type] ?? 'état des lieux';
-  const parties = (lu(await service.from('edl_parties').select('id, role, civilite, prenom, nom, email').eq('edl_id', edl.id).order('ordre')) ?? []) as Partie[];
+  const parties = (lu(await service.from('edl_parties').select('id, role, civilite, prenom, nom, email, represente_id').eq('edl_id', edl.id).order('ordre')) ?? []) as Partie[];
+  const limite = edl.type === 'entrant' ? new Date(new Date(edl.signe_le).getTime() + 10 * 86_400_000) : null;
+  const contexte: Contexte = { type: edl.type, lieu, signeLe: jour(edl.signe_le), limite: limite ? jour(limite.toISOString()) : null };
+  const evenement: Evenement = l.type === 'document_signe' ? 'signe' : l.type === 'reserve_deposee' ? 'depot' : l.type === 'reserve_repondue' ? 'reponse' : 'cloture';
 
-  if (l.type === 'document_signe') {
-    const vus = new Set<string>();
-    const messages: Message[] = [];
-    for (const p of parties) {
-      const a = (p.email ?? '').trim().toLowerCase();
-      if (!adresseValide(a) || vus.has(a)) continue;
-      vus.add(a);
-      const lien = await lienDocument(service, edl, p);
-      messages.push(habiller({
-        a, sujet: `Votre ${quoi} signé — ${lieu}`, titre: `Votre ${quoi} est signé`,
-        paragraphes: [`Bonjour ${nom(p)},`, `L’${quoi} du logement situé ${lieu} a été signé par toutes les parties le ${jour(edl.signe_le)}. Votre exemplaire est disponible par le lien personnel ci-dessous, valable un an.`],
-        bouton: { libelle: 'Ouvrir mon exemplaire signé', adresse: lien.adresse },
-        apres: [
-          ...(lien.depot ? [`Vous avez dix jours, jusqu’au ${jour(lien.depot.toISOString())}, pour demander à compléter cet état des lieux d’entrée (loi du 6 juillet 1989, article 3-2). Depuis ce même lien, vous pouvez signaler une réserve en précisant la pièce et en joignant des photos.`] : []),
-          'Téléchargez le document et conservez-le pendant toute la durée de la location. Ce lien vous est personnel : ne le transférez pas.',
-        ],
-      }));
-    }
-    return messages;
+  let auteurId: string | null = null;
+  if (evenement === 'depot' || evenement === 'reponse') {
+    const reserve = l.reference ? lu(await service.from('edl_complements').select('id, partie_id, piece_id, texte, statut, reponse, photo_paths').eq('id', l.reference).maybeSingle()) : null;
+    if (!reserve || (evenement === 'reponse' && reserve.statut === 'demande')) return [];
+    const auteur = parties.find((p) => p.id === reserve.partie_id);
+    auteurId = auteur?.id ?? null;
+    const piece = reserve.piece_id ? lu(await service.from('edl_pieces').select('nom').eq('id', reserve.piece_id).maybeSingle())?.nom ?? null : null;
+    contexte.reserve = { auteur: auteur ? nom(auteur) : 'Le locataire', piece, texte: reserve.texte, photos: reserve.photo_paths?.length ?? 0, statut: reserve.statut, reponse: reserve.reponse };
+  }
+  if (evenement === 'cloture') {
+    if (edl.type !== 'entrant') return [];
+    const toutes = (lu(await service.from('edl_complements').select('statut').eq('edl_id', edl.id).eq('type', 'general')) ?? []) as { statut: string }[];
+    contexte.bilan = { total: toutes.length, acceptees: toutes.filter((x) => x.statut === 'accepte').length, refusees: toutes.filter((x) => x.statut === 'refuse').length, attente: toutes.filter((x) => x.statut === 'demande').length };
   }
 
-  const reserve = l.reference ? lu(await service.from('edl_complements').select('id, partie_id, piece_id, texte, statut, reponse, photo_paths').eq('id', l.reference).maybeSingle()) : null;
-  if (!reserve) return [];
-  const auteur = parties.find((p) => p.id === reserve.partie_id);
-  const piece = reserve.piece_id ? lu(await service.from('edl_pieces').select('nom').eq('id', reserve.piece_id).maybeSingle())?.nom : null;
-
-  if (l.type === 'reserve_deposee') {
-    // Prévenu : la personne qui a réalisé l'état des lieux ; à défaut, les administrateurs du compte.
+  const messages: Message[] = [];
+  const vus = new Set<string>();
+  // Réserve déposée : la personne qui a réalisé l'état des lieux la traite depuis son espace. Elle passe en premier :
+  // si son adresse est aussi celle d'une partie, c'est ce message-là (avec le bouton pour répondre) qu'elle reçoit.
+  if (evenement === 'depot' && contexte.reserve) {
     const comptes: string[] = edl.realise_par ? [edl.realise_par] : [];
     if (!comptes.length) comptes.push(...((lu(await service.from('organisation_membres').select('user_id, role').eq('organisation_id', edl.organisation_id)) ?? []) as { user_id: string; role: string }[]).filter((m) => m.role !== 'membre').map((m) => m.user_id));
-    const adresses = new Set<string>();
-    for (const id of comptes.slice(0, 5)) { const u = await service.auth.admin.getUserById(id); const a = u.data.user?.email?.toLowerCase(); if (adresseValide(a)) adresses.add(a); }
-    const nb = reserve.photo_paths?.length ?? 0;
-    return [...adresses].map((a) => habiller({
-      a, sujet: `Réserve à valider — ${lieu}`, titre: 'Une réserve attend votre réponse',
-      paragraphes: [
-        `${auteur ? nom(auteur) : 'Le locataire'} a déposé une réserve sur l’état des lieux d’entrée du logement situé ${lieu}${piece ? `, pièce « ${piece} »` : ''}${nb ? `, avec ${nb} photo${nb > 1 ? 's' : ''}` : ''} :`,
-        `« ${reserve.texte} »`,
-        'Vous pouvez l’accepter ou la refuser, avec votre réponse, depuis votre espace. Elle sera reprise dans l’annexe de l’état des lieux.',
-      ],
-      bouton: { libelle: 'Répondre à cette réserve', adresse: `${SITE}/app/edl/${edl.id}/apercu` },
-    }));
+    const r = contexte.reserve;
+    for (const id of comptes.slice(0, 5)) {
+      const a = (await service.auth.admin.getUserById(id)).data.user?.email?.toLowerCase();
+      if (!adresseValide(a) || vus.has(a)) continue;
+      vus.add(a);
+      messages.push(habiller({
+        a, sujet: `Réserve à valider — ${lieu}`, titre: 'Une réserve attend votre réponse',
+        paragraphes: [`${r.auteur} a déposé une réserve sur l’état des lieux d’entrée du logement situé ${lieu}${r.piece ? `, pièce « ${r.piece} »` : ''}${r.photos ? `, avec ${r.photos} photo${r.photos > 1 ? 's' : ''}` : ''} :`, `« ${r.texte} »`, 'Vous pouvez l’accepter ou la refuser, avec votre réponse, depuis votre espace. Chaque partie sera prévenue de votre décision, et la réserve reprise dans l’annexe de l’état des lieux.'],
+        bouton: { libelle: 'Répondre à cette réserve', adresse: `${SITE}/app/edl/${edl.id}/apercu` },
+      }));
+    }
   }
-
-  // reserve_repondue : au locataire qui l'a déposée.
-  const a = (auteur?.email ?? '').trim().toLowerCase();
-  if (!auteur || !adresseValide(a) || reserve.statut === 'demande') return [];
-  const lien = await lienDocument(service, edl, auteur);
-  return [habiller({
-    a, sujet: `Réponse à votre réserve — ${lieu}`, titre: reserve.statut === 'accepte' ? 'Votre réserve a été acceptée' : 'Votre réserve a été refusée',
-    paragraphes: [
-      `Bonjour ${nom(auteur)},`,
-      `Votre réserve${piece ? ` sur la pièce « ${piece} »` : ''} (« ${reserve.texte} ») a été ${reserve.statut === 'accepte' ? 'acceptée' : 'refusée'} par votre bailleur.`,
-      ...(reserve.reponse ? [`Sa réponse : « ${reserve.reponse} »`] : []),
-    ],
-    bouton: { libelle: 'Voir mes réserves et l’annexe', adresse: lien.adresse },
-    apres: reserve.statut === 'refuse' ? ['En cas de désaccord, vous pouvez saisir la commission départementale de conciliation (loi du 6 juillet 1989, article 3-2).'] : [],
-  })];
+  for (const p of parties) {
+    const a = (p.email ?? '').trim().toLowerCase();
+    if (!adresseValide(a) || vus.has(a)) continue;
+    vus.add(a);
+    const represente = p.represente_id ? parties.find((x) => x.id === p.represente_id) : null;
+    const texte = rediger(evenement, { nom: nom(p), role: p.role as Role, represente: represente ? nom(represente) : null, estAuteur: p.id === auteurId }, contexte);
+    const lien = await lienDocument(service, edl, p);
+    messages.push(habiller({ a, sujet: texte.sujet, titre: texte.titre, paragraphes: texte.paragraphes, bouton: { libelle: texte.bouton, adresse: lien.adresse }, apres: texte.apres }));
+  }
+  return messages;
 }
 
 Deno.serve(async (requete) => {

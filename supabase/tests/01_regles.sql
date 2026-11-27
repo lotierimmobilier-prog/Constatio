@@ -229,6 +229,11 @@ begin
   perform t.refuse('réserve après le dixième jour', $q$select public.reserves_deposer('res-1', 'Trop tard, robinet qui goutte')$q$);
   perform t.egal('le lien reste lisible, mais fermé', (public.reserves_consulter('res-1') ->> 'ouvert'), 'false');
   perform t.refuse('plus de photo après le dixième jour', format($q$insert into storage.objects (bucket_id, name) values ('edl', %L)$q$, replace(current_setting('t.photo'), '.jpg', 'a.jpg')));
+-- Fin du délai : rien tant que les dix jours courent ; l'appel ne lève jamais d'erreur.
+  perform t.role('postgres');
+  perform private.expedier_courriels();
+  perform t.egal('pas de message de fin de délai avant le dixième jour', (select count(*)::text from public.courriels where type = 'delai_reserves_clos'), '0');
+  perform t.egal('file : la signature et les réserves y sont inscrites', (select (count(*) >= 1)::text from public.courriels where type = 'document_signe'), 'true');
   perform t.role('service_role');
 
 

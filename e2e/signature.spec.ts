@@ -146,10 +146,10 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
     expect(recu.sujet).toBe('Votre état des lieux d’entrée signé — 8 rue de la Signature, 34500 Béziers');
     expect(recu.From).toMatchObject({ Address: 'bonjour@constatio.test', Name: 'Constatio' });
     expect(recu.Text).toContain('Bonjour M. Hugo ZZREC Marty,');
-    expect(recu.Text).toContain('Vous avez dix jours');
+    expect(recu.Text).toContain('Vous disposez de dix jours');
     const lienRecu = /http:\/\/127\.0\.0\.1:5173\/reserves\/[A-Za-z0-9_-]{40,}/.exec(recu.Text)![0];
     expect(recu.HTML).toContain(lienRecu);
-    expect((await boite('bailleur.vidal@constatio.test'))!.Text).not.toContain('Vous avez dix jours');
+    expect((await boite('bailleur.vidal@constatio.test'))!.Text).toContain('Le locataire dispose de dix jours');
     // Le lien reçu ouvre bien l'exemplaire signé, sans compte.
     const parMail = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const p4 = await parMail.newPage();
@@ -217,15 +217,28 @@ test('signature : sur place puis à distance, exemplaire signé et dossier de pr
   sql(`update public.parametres set valeur = 'false' where cle = 'mode_test'`);
   try {
     await fetch('http://127.0.0.1:54324/api/v1/messages', { method: 'DELETE' });
-    expect(await expedier()).toMatchObject({ statut: 'ok', envoyes: 2, echecs: 0 });
+    // Dépôt : le compte (de quoi répondre), le bailleur, le locataire (accusé de réception). Réponse : bailleur et locataire.
+    expect(await expedier()).toMatchObject({ statut: 'ok', envoyes: 5, echecs: 0 });
     const alerte = (await boite(email))!;
     expect(alerte.sujet).toBe('Réserve à valider — 8 rue de la Signature, 34500 Béziers');
     expect(alerte.Text).toContain('Fissure au plafond du garage');
     expect(alerte.Text).toContain(`/app/edl/${edl}/apercu`);
     const reponse = (await boite('hugo.marty@constatio.test'))!;
-    expect(reponse.sujet).toContain('Réponse à votre réserve');
+    expect(reponse.sujet).toBe('Réserve acceptée — 8 rue de la Signature, 34500 Béziers');
+    expect(reponse.Text).toContain('Votre réserve');
     expect(reponse.Text).toContain('acceptée');
     expect(reponse.Text).toContain('Constaté sur place le lendemain.');
+    expect((await boite('bailleur.vidal@constatio.test'))!.Text).toContain('La réserve de M. Hugo ZZREC Marty');
+    // Fin du délai de dix jours : chaque partie reçoit le bilan.
+    await fetch('http://127.0.0.1:54324/api/v1/messages', { method: 'DELETE' });
+    sql(`insert into public.courriels (edl_id, type) values ('${edl}', 'delai_reserves_clos')`);
+    expect(await expedier()).toMatchObject({ statut: 'ok', envoyes: 2, echecs: 0 });
+    const bilan = (await boite('hugo.marty@constatio.test'))!;
+    expect(bilan.sujet).toBe('Fin du délai de réserves — 8 rue de la Signature, 34500 Béziers');
+    expect(bilan.Text).toContain('1 réserve a été déposée : 1 acceptée');
+    expect(bilan.Text).toContain('période de chauffe');
+    // Une seule fois par état des lieux.
+    expect(() => sql(`insert into public.courriels (edl_id, type) values ('${edl}', 'delai_reserves_clos')`)).toThrow();
   } finally {
     sql(`update public.parametres set valeur = 'true' where cle = 'mode_test'; delete from private.cles_service where nom like 'smtp_%'`);
   }
