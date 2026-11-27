@@ -2,8 +2,9 @@
 // Ne fait que deux choses : vérifier que le message vient bien de Signabail,
 // puis le confier à la base (signabail_recevoir), qui porte toute la logique.
 //
-// Variables d'environnement (secrets Supabase, jamais dans le dépôt) :
-//   SIGNABAIL_WEBHOOK_SECRET   secret partagé, sens Signabail → Constatio
+// Le secret partagé avec Signabail se saisit dans l'administration (clé « signabail_secret »).
+// Variables d'environnement :
+//   SIGNABAIL_WEBHOOK_SECRET   le même secret, pour le banc d'essai local seulement
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   fournis par Supabase
 //
 // Exécutée et testée sur la pile locale (e2e/signabail.spec.ts) ; pas encore déployée. La
@@ -15,8 +16,10 @@ const json = (statut: number, corps: unknown) => new Response(JSON.stringify(cor
 
 Deno.serve(async (requete) => {
   if (requete.method !== 'POST') return json(405, { erreur: 'methode_refusee' });
-  const secret = Deno.env.get('SIGNABAIL_WEBHOOK_SECRET');
-  if (!secret) return json(500, { erreur: 'configuration_manquante' });
+  const base = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+  // Le secret partagé se saisit dans l'administration ; la variable d'environnement ne sert qu'au banc d'essai local.
+  const secret = ((await base.rpc('cle_signabail')).data as string | null) ?? Deno.env.get('SIGNABAIL_WEBHOOK_SECRET');
+  if (!secret) return json(503, { erreur: 'liaison_non_reglee' });
 
   // La signature porte sur le corps exact reçu : on le lit en texte, avant toute interprétation.
   const corps = await requete.text();
@@ -30,7 +33,6 @@ Deno.serve(async (requete) => {
     return json(400, { erreur: 'json_invalide' });
   }
 
-  const base = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
   const { data, error } = await base.rpc('signabail_recevoir', { p: message });
   if (error) {
     // 22023 : message incomplet, inutile de le renvoyer. Tout le reste : Signabail réessaiera.

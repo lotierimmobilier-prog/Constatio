@@ -23,10 +23,10 @@ const json = (statut: number, corps: unknown) => new Response(JSON.stringify(cor
 Deno.serve(async (requete) => {
   if (requete.method === 'OPTIONS') return new Response(null, { headers: ENTETES });
   if (requete.method !== 'POST') return json(405, { statut: 'refuse', motif: 'methode' });
-  const secret = Deno.env.get('SIGNABAIL_WEBHOOK_SECRET');
-  if (!secret) return json(500, { statut: 'erreur' });
-
   const service = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+  // Le secret partagé se saisit dans l'administration ; la variable d'environnement ne sert qu'au banc d'essai local.
+  const secret = ((await service.rpc('cle_signabail')).data as string | null) ?? Deno.env.get('SIGNABAIL_WEBHOOK_SECRET');
+  if (!secret) return json(503, { statut: 'erreur', motif: 'liaison_non_reglee' });
   const echec = <T>(r: { data: T; error: { message: string } | null }): T => {
     if (r.error) throw new Error(r.error.message);
     return r.data;
