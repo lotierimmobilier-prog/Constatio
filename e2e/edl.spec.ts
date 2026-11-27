@@ -166,6 +166,46 @@ test('sortie : repart de l’entrée et affiche l’état d’origine', async ({
   await page.getByRole('link', { name: '← Toutes les pièces' }).click();
   await page.getByRole('link', { name: /Parties/ }).click();
   await expect(page.getByLabel('Nouvelle adresse du locataire')).toBeVisible();
+
+  // ── Dépôt de garantie : la dégradation relevée devient une retenue, vétusté déduite ──────────
+  await page.getByRole('link', { name: '← Retour à l’état des lieux' }).click();
+  await expect(page.getByTestId('envoi')).toHaveCount(0, { timeout: 20_000 });
+  await page.getByTestId('lien-decompte').click();
+  await expect(page.getByRole('heading', { name: 'Dépôt de garantie', level: 1 })).toBeVisible();
+  await expect(page.getByTestId('ecart')).toHaveCount(1);
+  await expect(page.getByTestId('ecart')).toContainText('Séjour · Sol');
+  await expect(page.getByTestId('ecart')).toContainText('Bon état à l’entrée, mauvais état à la sortie');
+  await page.getByLabel('Dépôt de garantie versé (€)').fill('800');
+  await page.getByLabel('Dépôt de garantie versé (€)').blur();
+  // Sans retenue, une dégradation suffit à faire passer le délai à deux mois.
+  await expect(page.getByTestId('a-restituer')).toHaveText('800,00 €');
+  await expect(page.getByTestId('delai')).toContainText('deux mois');
+  await page.getByTestId('ecart').getByRole('button', { name: 'Ajouter une retenue' }).click();
+  const retenue = page.getByTestId('retenue');
+  await expect(retenue.getByLabel('Réparation')).toHaveValue('Séjour : sol');
+  await retenue.getByLabel('Montant du devis ou de la facture (€)').fill('450');
+  await retenue.getByLabel('Montant du devis ou de la facture (€)').blur();
+  await expect(retenue.getByTestId('montant-retenu')).toHaveText('450,00 €');
+  await retenue.getByLabel('Vétusté à déduire').selectOption({ label: 'Parquet, stratifié · durée de vie 15 ans' });
+  await retenue.getByLabel('Âge de l’élément à la sortie (années)').fill('6');
+  await retenue.getByLabel('Âge de l’élément à la sortie (années)').blur();
+  // 6 ans sur 15, 15 % restant toujours au locataire : 34 % de vétusté, 297 € retenus.
+  await expect(retenue).toContainText('Vétusté déduite : 34 %');
+  await expect(retenue.getByTestId('montant-retenu')).toHaveText('297,00 €');
+  await page.getByLabel('Loyers ou charges impayés (€)').fill('53,50');
+  await page.getByLabel('Loyers ou charges impayés (€)').blur();
+  await expect(page.getByTestId('a-restituer')).toHaveText('449,50 €');
+  await photo(page, '11-decompte');
+  const { execFileSync } = await import('node:child_process');
+  const telechargement = page.waitForEvent('download');
+  await page.getByTestId('telecharger-decompte').click();
+  const fichier = await (await telechargement).path();
+  const pdf = execFileSync('pdftotext', ['-layout', fichier, '-'], { encoding: 'utf8' }).replace(/\s+/g, ' ');
+  for (const attendu of ['Décompte de restitution du dépôt de garantie', 'Séjour : sol', '- 297,00 €', 'vétusté déduite : 34 %', 'Somme restituée au locataire 449,50 €', 'deux mois après la remise des clés', 'ZZREC Marty']) expect(pdf, attendu).toContain(attendu);
+  // Tout est gardé : au rechargement, le décompte est intact.
+  await page.reload();
+  await expect(page.getByTestId('a-restituer')).toHaveText('449,50 €');
+  await expect(page.getByTestId('retenue')).toHaveCount(1);
 });
 
 test('un brouillon se supprime après confirmation', async ({ page }) => {

@@ -53,7 +53,7 @@ const CONTROLES: [string, string, string][] = [
   ['Décret n° 2015-981, art. 2', 'Inventaire du meublé', 'Les onze équipements obligatoires sont pointés un par un ; celui qui manque est nommé.'],
   ['Art. 3-2, loi de 1989', 'Complément d’état des lieux', 'Le locataire peut le demander pendant dix jours, et pour le chauffage pendant le premier mois de chauffe.'],
   ['Art. 3-2, loi de 1989', 'Sortie', 'Nouvelle adresse du locataire exigée en sortie, date de l’état des lieux d’entrée rappelée sur le document.'],
-  ['Art. 22, loi de 1989', 'Dépôt de garantie', 'Entrée et sortie côte à côte pour chaque élément : chaque écart est signalé, pour justifier une retenue. Chiffrage et décompte : bientôt.'],
+  ['Art. 22, loi de 1989', 'Dépôt de garantie', 'Entrée et sortie côte à côte pour chaque élément : chaque écart est signalé, pour justifier une retenue. Chiffrage des retenues et décompte du dépôt de garantie.'],
 ];
 
 /** Ce que risque un bailleur dont l'état des lieux est absent ou mal fait. Textes à faire relire par un avocat avant mise en ligne. */
@@ -63,10 +63,10 @@ const RISQUES = [
     reference: 'Art. 7 c et 22, loi du 6 juillet 1989', parade: 'Même trame à l’entrée et à la sortie, un état par élément, les écarts affichés côte à côte avec les photos.' },
   { cause: 'Dépôt de garantie rendu en retard', consequence: '10 % du loyer par mois de retard',
     texte: 'Le dépôt se rend dans le mois si la sortie est conforme à l’entrée, dans les deux mois sinon. Passé ce délai, chaque mois de retard commencé coûte 10 % du loyer mensuel.',
-    reference: 'Art. 22, loi de 1989', parade: 'Écarts entre l’entrée et la sortie signalés dans le document. Calcul de la date limite et décompte : bientôt.' },
+    reference: 'Art. 22, loi de 1989', parade: 'Écarts entre l’entrée et la sortie signalés dans le document. Retenues chiffrées, date limite de restitution calculée et décompte à remettre au locataire.' },
   { cause: 'Vétusté non prise en compte', consequence: 'Une retenue contestée devant le juge',
     texte: 'Le locataire ne répond pas de l’usure normale. Lui facturer une peinture de dix ans au prix du neuf, c’est s’exposer à devoir tout rembourser.',
-    reference: 'Art. 7 d, loi de 1989 ; décret n° 2016-382, art. 4', parade: 'État d’entrée et état de sortie en regard pour chaque élément. Grille de vétusté : bientôt.' },
+    reference: 'Art. 7 d, loi de 1989 ; décret n° 2016-382, art. 4', parade: 'État d’entrée et état de sortie en regard pour chaque élément. Grille de vétusté indicative pour chiffrer chaque retenue.' },
   { cause: 'Inventaire du mobilier absent ou incomplet', consequence: 'Un meublé requalifié en location vide',
     texte: 'Sans les onze équipements exigés, le logement n’est pas un meublé. Le locataire peut demander au juge d’appliquer les règles de la location vide : bail de trois ans, préavis allongé.',
     reference: 'Art. 25-4 et 25-5, loi de 1989 ; décret n° 2015-981', parade: 'Inventaire pointé avec l’état des lieux ; l’équipement manquant bloque le document.' },
@@ -232,7 +232,7 @@ export function Accueil() {
                   ['Mentions obligatoires vérifiées', 'À chaque étape', 'Non', 'Oui'],
                   ['Photos datées, rattachées au document', 'Oui', 'Non', 'Selon le prestataire'],
                   ['Comparaison entrée / sortie', 'Automatique', 'À la main', 'Selon le prestataire'],
-                  ['Vétusté et décompte du dépôt', 'Bientôt', 'Non', 'Rarement'],
+                  ['Vétusté et décompte du dépôt', 'Calculés, décompte en PDF', 'Non', 'Rarement'],
                   ['Délai', '20 minutes, quand vous voulez', 'Variable', 'Sur rendez-vous'],
                 ].map(([c, a, b, d]) => (
                   <tr key={c} className="border-b border-trait">

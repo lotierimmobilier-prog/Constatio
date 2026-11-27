@@ -190,6 +190,8 @@ export function Edl() {
         </>
       )}
 
+      {edl.type === 'sortant' && <Link to="decompte" className={classesBouton('contour')} data-testid="lien-decompte">Dépôt de garantie : retenues et décompte</Link>}
+
       {edl.statut === 'brouillon' && !edl.credit_consomme &&
         (aSupprimer ? (
           <Carte>
