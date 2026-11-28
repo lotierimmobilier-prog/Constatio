@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EnteteEdl, useVerrou } from '../../components/EnteteEdl';
 import { Bouton, Carte, Champ, Liste, classesBouton } from '../../components/ui';
+import { Photos } from '../../components/Photos';
 import { local } from '../../lib/local';
+import type { Photo } from '../../lib/photos';
 
 type Nature = 'cle' | 'badge' | 'bip' | 'telecommande' | 'carte' | 'autre';
 interface Cle { id: string; nature: Nature; nombre: number; destination: string; ordre: number }
@@ -21,11 +23,15 @@ const COURANTS: { nature: Nature; destination: string }[] = [
 export function EdlCles() {
   const { id, verrouille } = useVerrou();
   const [cles, setCles] = useState<Cle[] | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [organisationId, setOrganisationId] = useState('');
   const minuteurs = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const charger = useCallback(async () => {
     await local.tirerEdl(id);
     setCles(await local.lister<Cle>('edl_cles', 'edl_id', id));
+    setPhotos((await local.lister<Photo>('edl_photos', 'edl_id', id)).filter((p) => p.objet === 'cles'));
+    setOrganisationId(((await local.lire<{ organisation_id: string }>('edl', id))?.organisation_id) ?? '');
   }, [id]);
   useEffect(() => { void charger(); }, [charger]);
 
@@ -91,6 +97,16 @@ export function EdlCles() {
           </div>
           <Bouton variante="contour" onClick={() => ajouter('cle', '')}>Autre clé ou accès</Bouton>
         </div>
+      )}
+      {cles.length > 0 && (
+        <Carte>
+          <h2 className="text-lg font-bold">Photo du trousseau</h2>
+          <p className="text-sm text-discret">Obligatoire. Étalez toutes les clés, badges et télécommandes remis sur une surface claire et photographiez-les ensemble : c’est la preuve de ce qui devra être rendu à la sortie.</p>
+          {photos.length === 0 && !verrouille && <p className="rounded-r-xl border-l-4 border-mauvais bg-fond px-3 py-2 text-sm font-semibold" data-testid="trousseau-manquant">Il manque la photo du trousseau.</p>}
+          <fieldset disabled={verrouille}>
+            <Photos edl={{ id, organisation_id: organisationId }} cible={{ objet: 'cles' }} photos={photos} quoi="trousseau de clés" verrouille={verrouille} onChange={setPhotos} />
+          </fieldset>
+        </Carte>
       )}
       <Link to={`/app/edl/${id}/controles`} className={classesBouton('plein')}>Continuer : contrôles</Link>
     </>

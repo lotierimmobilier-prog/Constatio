@@ -163,7 +163,7 @@ test('tout complété : plus aucun point bloquant, les conseils restent', async 
   await fiche.getByRole('button', { name: 'Enregistrer' }).click();
   await expect(page.getByRole('heading', { name: 'Locataire · ZZREC Marty' })).toBeVisible();
   await retour(page);
-  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 6 points à corriger');
+  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 7 points à corriger');
 
   // Visite : « bon état » partout, sauf un élément hors service laissé sans observation.
   await page.getByRole('listitem').first().getByRole('link').click();
@@ -192,11 +192,15 @@ test('tout complété : plus aucun point bloquant, les conseils restent', async 
   await page.getByLabel('Remarques générales').fill('Logement repeint avant l’entrée.');
   await page.getByRole('heading', { name: 'Pièces' }).click();
   // Il manque la photo de la VMC : l'écran des contrôles la demande et permet de la prendre sur place.
-  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 1 point à corriger');
+  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 2 points à corriger');
   await page.getByTestId('lien-controles').click();
   await expect(page.getByText('VMC / aération : au moins une photo est obligatoire.')).toBeVisible();
+  await expect(page.getByText('Clés : la photo du trousseau est obligatoire.')).toBeVisible();
   const vue = Buffer.from(await page.evaluate(() => { const t = document.createElement('canvas'); t.width = 800; t.height = 600; const c = t.getContext('2d')!; c.fillStyle = '#888'; c.fillRect(0, 0, 800, 600); return t.toDataURL('image/jpeg', 0.8).split(',')[1]; }), 'base64');
-  await page.getByTestId('photo-demandee').setInputFiles({ name: 'vmc.jpg', mimeType: 'image/jpeg', buffer: vue });
+  await page.getByTestId('photo-demandee').first().setInputFiles({ name: 'vmc.jpg', mimeType: 'image/jpeg', buffer: vue });
+  // Le trousseau se photographie de la même façon, sans quitter l'écran des contrôles.
+  await expect(page.getByTestId('photo-demandee')).toHaveCount(1);
+  await page.getByTestId('photo-demandee').setInputFiles({ name: 'trousseau.jpg', mimeType: 'image/jpeg', buffer: vue });
   await expect(page.getByTestId('verdict')).toHaveText('Toutes les mentions obligatoires sont renseignées.');
   await expect(page.getByText(/Entrée : interphone \/ sonnette en mauvais état sans observation/)).toBeVisible();
   await photo(page, '15-controles-complets');

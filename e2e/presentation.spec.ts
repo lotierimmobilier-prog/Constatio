@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { photoTrousseau } from './trousseau';
 import { expect, test } from '@playwright/test';
 
 const BASE = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
@@ -91,6 +92,7 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
        insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le) values ('${org}', 'geste_commercial', 1, 1, now() + interval '1 year');`);
 
   // ── Aperçu, construit sur l'appareil ───────────────────────────────────────────
+  await photoTrousseau(page, edl);
   await page.goto(`/app/edl/${edl}/apercu`);
   const telechargement = page.waitForEvent('download');
   await page.getByTestId('telecharger-apercu').click();
@@ -110,5 +112,5 @@ test('présentation : logo du compte professionnel et filigrane sur les photos, 
   if (captures) writeFileSync(`${captures}/presentation.pdf`, execFileSync('cat', [definitif]));
   expect(texte(definitif)).toMatch(/Cabinet ZZREC · \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/);
   expect(texte(definitif)).toContain('ZZREC Cabinet Vidal');
-  expect(images(definitif), 'la photo, le logo, l’image de filigrane et sa transparence').toBe(4);
+  expect(images(definitif), 'deux photos (l’élément et le trousseau), le logo, et sur chaque photo l’image de filigrane avec sa transparence').toBe(7);
 });

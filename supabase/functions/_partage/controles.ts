@@ -45,7 +45,7 @@ export interface DonneesControle {
   compteurs: { type: TypeCompteur; absent: boolean; collectif?: boolean; verifie?: boolean; index_1: number | null; index_2: number | null; double_tarif: boolean; numero: string | null }[];
   cles: { nombre: number; destination: string }[];
   inventaire: { code_decret: string | null }[];
-  photos: { element_id: string | null; compteur_type: string | null }[];
+  photos: { element_id: string | null; compteur_type: string | null; objet?: string | null }[];
 }
 
 export interface Alerte {
@@ -56,7 +56,7 @@ export interface Alerte {
   vers: string;
   action: string;
   /** Il manque une photo : l'écran des contrôles propose de la prendre sur place, sans changer de page. */
-  photo?: { piece_id: string; element_id: string } | { compteur_type: TypeCompteur };
+  photo?: { piece_id: string; element_id: string } | { compteur_type: TypeCompteur } | { objet: 'cles' };
 }
 
 const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
@@ -126,6 +126,9 @@ export function controler(d: DonneesControle): Alerte[] {
   if (!d.cles.length) bloquant('Aucune clé n’est décrite.', 'cles', 'Aller aux clés');
   else if (d.cles.some((k) => !k.destination.trim() || k.nombre < 1))
     bloquant('Une clé n’a pas de destination ou de nombre.', 'cles', 'Aller aux clés');
+  // La photo du trousseau prouve ce qui a été remis : elle est exigée dès qu'une clé est décrite.
+  if (d.cles.length && !d.photos.some((ph) => ph.objet === 'cles'))
+    a.push({ niveau: 'bloquant', message: 'Clés : la photo du trousseau est obligatoire.', vers: 'cles', action: 'Aller aux clés', photo: { objet: 'cles' } });
 
   // Meublé : liste minimale du décret
   if (d.meuble && !d.sansCompteurs) {

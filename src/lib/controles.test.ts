@@ -17,7 +17,7 @@ const complet = (): DonneesControle => ({
   ],
   cles: [{ nombre: 3, destination: 'Porte palière' }],
   inventaire: [],
-  photos: [{ element_id: null, compteur_type: 'electricite' }, { element_id: null, compteur_type: 'eau_froide' }],
+  photos: [{ element_id: null, compteur_type: 'electricite' }, { element_id: null, compteur_type: 'eau_froide' }, { element_id: null, compteur_type: null, objet: 'cles' }],
 });
 const messages = (d: DonneesControle) => controler(d).map((x) => x.message);
 
@@ -63,6 +63,15 @@ describe('controler', () => {
       ['conseil', 'Électricité : le numéro du compteur n’est pas noté.'],
     ]);
   });
+  it('exige la photo du trousseau dès qu’une clé est décrite, et propose de la prendre', () => {
+    const d = complet(); d.photos = d.photos.filter((p) => p.objet !== 'cles');
+    const sans = controler(d);
+    const alerte = sans.find((a) => a.message === 'Clés : la photo du trousseau est obligatoire.');
+    expect(alerte).toMatchObject({ niveau: 'bloquant', vers: 'cles', photo: { objet: 'cles' } });
+    // Sans clé décrite, c'est l'absence de clé qui est signalée, pas celle de la photo.
+    const vide = complet(); vide.cles = []; vide.photos = [];
+    expect(controler(vide).some((a) => a.message.includes('trousseau'))).toBe(false);
+  });
   it('exige des clés décrites', () => {
     const d = complet(); d.cles = [];
     expect(messages(d)).toEqual(['Aucune clé n’est décrite.']);
@@ -89,6 +98,7 @@ describe('controler', () => {
     expect(controler(d).map((x) => [x.niveau, x.message])).toEqual([
       ['bloquant', 'Électricité : la photo du compteur est obligatoire.'],
       ['bloquant', 'Eau froide : la photo du compteur est obligatoire.'],
+      ['bloquant', 'Clés : la photo du trousseau est obligatoire.'],
     ]);
   });
   it('garage : ni compteur ni inventaire attendus', () => {
@@ -120,7 +130,7 @@ describe('controler', () => {
     d.elements = [...d.elements, { id: 'daaf', piece_id: 'p1', libelle: 'Détecteur de fumée', categorie: 'daaf', etat: 'bon', observations: null },
       { id: 'v1', piece_id: 'p1', libelle: 'VMC / aération', categorie: 'vmc', etat: 'bon', observations: null }, { id: 'v2', piece_id: 'p1', libelle: 'VMC / aération', categorie: 'vmc', etat: 'bon', observations: null },
       { id: 'gaz', piece_id: 'p1', libelle: 'Détecteur de gaz / CO', categorie: 'detecteur_gaz', etat: 'sans_objet', observations: null }];
-    d.photos = [{ element_id: null, compteur_type: 'electricite' }];
+    d.photos = [{ element_id: null, compteur_type: 'electricite' }, { element_id: null, compteur_type: null, objet: 'cles' }];
     expect(controler(d).filter((a) => a.niveau === 'bloquant').map((a) => a.message)).toEqual([
       'Eau froide : la photo du compteur est obligatoire.', 'Détecteur de fumée : la photo est obligatoire.', 'VMC / aération : au moins une photo est obligatoire.']);
     // Une seule photo de VMC suffit ; un détecteur noté « sans objet » n'en demande pas.

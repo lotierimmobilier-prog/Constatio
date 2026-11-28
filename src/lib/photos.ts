@@ -18,6 +18,8 @@ export interface Photo {
   piece_id: string | null;
   element_id: string | null;
   compteur_type: string | null;
+  /** Photo rattachée aux clés remises (le trousseau). */
+  objet?: 'cles' | null;
   storage_path: string;
   nom: string;
   mime: string;
@@ -31,7 +33,7 @@ export interface Photo {
   precision_m: number | null;
   legende: string | null;
 }
-export type Cible = { piece_id: string; element_id: string } | { compteur_type: string } | Record<string, never>;
+export type Cible = { piece_id: string; element_id: string } | { compteur_type: string } | { objet: 'cles' } | Record<string, never>;
 
 /** Dimensions après réduction : le plus grand côté ramené à `max`, proportions gardées, jamais d'agrandissement. */
 export function dimensionsCibles(largeur: number, hauteur: number, max = COTE_MAX): { largeur: number; hauteur: number } {
@@ -88,7 +90,7 @@ export async function ajouterPhotos(edl: { id: string; organisation_id: string }
     }
     const id = crypto.randomUUID();
     const photo: Photo = {
-      id, edl_id: edl.id, piece_id: null, element_id: null, compteur_type: null, ...cible,
+      id, edl_id: edl.id, piece_id: null, element_id: null, compteur_type: null, objet: null, ...cible,
       storage_path: `${edl.organisation_id}/${edl.id}/photos/${id}.jpg`,
       nom: fichier.name || 'photo.jpg', mime: 'image/jpeg', taille: reduite.contenu.size,
       largeur: reduite.largeur, hauteur: reduite.hauteur, sha256: await empreinte(reduite.contenu),

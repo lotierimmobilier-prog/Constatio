@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash, createHmac } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
+import { photoTrousseau } from './trousseau';
 import { expect, test, type Page } from '@playwright/test';
 
 const BASE = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
@@ -71,6 +72,7 @@ test('signature électronique : 5 € réglés, envoi par DocuSeal, document sig
        insert into public.edl_cles (edl_id, nature, nombre, destination) values ('${edl}', 'cle', 1, 'Porte du garage');
        delete from public.credit_lots where organisation_id = '${org}';
        insert into public.credit_lots (organisation_id, origine, quantite, restant, expire_le) values ('${org}', 'geste_commercial', 1, 1, now() + interval '1 year');`);
+  await photoTrousseau(page, edl);
   await page.goto(`/app/edl/${edl}/apercu`);
   await page.getByTestId('generer').click();
   await page.getByTestId('renonciation').check();

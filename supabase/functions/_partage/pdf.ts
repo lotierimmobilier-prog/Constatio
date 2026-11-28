@@ -38,7 +38,7 @@ export interface DonneesPdf {
   compteurs: { type: string; absent: boolean; collectif?: boolean; verifie?: boolean; numero: string | null; double_tarif: boolean; index_1: number | null; index_2: number | null; emplacement: string | null }[];
   cles: { nature: string; nombre: number; destination: string }[];
   inventaire: { libelle: string; quantite: number; etat: Etat }[];
-  photos: { id: string; element_id: string | null; compteur_type: string | null; legende: string | null; pris_le: string; latitude: number | null; longitude: number | null; octets: Uint8Array | null }[];
+  photos: { id: string; element_id: string | null; compteur_type: string | null; objet?: string | null; legende: string | null; pris_le: string; latitude: number | null; longitude: number | null; octets: Uint8Array | null }[];
 }
 
 export const LIBELLES_ETAT: Record<string, string> = { neuf: 'Neuf', bon: 'Bon état', usage: "État d'usage", mauvais: 'Mauvais état', hors_service: 'Hors service', sans_objet: 'Sans objet' };
@@ -204,7 +204,7 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   const ordre = new Map<string, number>();
   const rang = (p: DonneesPdf['photos'][number]) => {
     const el = d.elements.find((x) => x.id === p.element_id);
-    return el ? d.pieces.findIndex((x) => x.id === el.piece_id) * 1000 + d.elements.indexOf(el) : p.compteur_type ? 900_000 : 950_000;
+    return el ? d.pieces.findIndex((x) => x.id === el.piece_id) * 1000 + d.elements.indexOf(el) : p.compteur_type ? 900_000 : p.objet === 'cles' ? 920_000 : 950_000;
   };
   const photos = [...d.photos].sort((a, b) => rang(a) - rang(b) || a.pris_le.localeCompare(b.pris_le));
   photos.forEach((p, i) => ordre.set(p.id, i + 1));
@@ -287,7 +287,8 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
   if (d.cles.length) {
     f.tableau([{ titre: 'Nature', largeur: 110 }, { titre: 'Nombre', largeur: 60 }, { titre: 'Destination', largeur: LARGEUR - 170 }],
       d.cles.map((k) => [CLES[k.nature] ?? k.nature, String(k.nombre), k.destination]));
-    f.texte(`Total remis : ${d.cles.reduce((s, k) => s + k.nombre, 0)}`, { taille: 9, gras: true });
+    const trousseau = photos.filter((p) => p.objet === 'cles').map((p) => ordre.get(p.id)).join(', ');
+    f.texte(`Total remis : ${d.cles.reduce((s, k) => s + k.nombre, 0)}${trousseau ? ` · photo${trousseau.includes(',') ? 's' : ''} du trousseau : n° ${trousseau}` : ''}`, { taille: 9, gras: true });
   } else f.texte('Aucune clé décrite.', { couleur: DISCRET });
 
   // ── Pièce par pièce ─────────────────────────────────────────────────────────────
@@ -404,7 +405,7 @@ export async function construireDocument(d: DonneesPdf): Promise<{ octets: Uint8
         } else f.page.drawText('Photo indisponible', { x: x + 8, y: haut - hRang / 2, size: 9, font: f.normal, color: DISCRET });
         const el = d.elements.find((e) => e.id === p.element_id);
         const piece = el && d.pieces.find((x) => x.id === el.piece_id);
-        const ou = el ? `${piece?.nom ?? ''}, ${el.libelle}` : p.compteur_type ? `Compteur ${(COMPTEURS.find((c) => c[0] === p.compteur_type)?.[1] ?? 'de chauffage').toLowerCase()}` : 'Vue générale';
+        const ou = el ? `${piece?.nom ?? ''}, ${el.libelle}` : p.compteur_type ? `Compteur ${(COMPTEURS.find((c) => c[0] === p.compteur_type)?.[1] ?? 'de chauffage').toLowerCase()}` : p.objet === 'cles' ? 'Trousseau de clés remis' : 'Vue générale';
         const t1 = petit ? 7.6 : 8.6, t2 = petit ? 7 : 8, t3 = petit ? 6.5 : 7.5;
         f.page.drawText(couper(`Photo ${i + 1} — ${ou}`, f.gras, t1, lc)[0], { x, y: haut - hRang - 11, size: t1, font: f.gras, color: ENCRE });
         if (p.legende) f.page.drawText(couper(p.legende, f.normal, t2, lc)[0], { x, y: haut - hRang - 21, size: t2, font: f.normal, color: ENCRE });
@@ -493,6 +494,6 @@ export function assembler(l: LignesEdl, octets: Map<string, Uint8Array>, apercu:
     compteurs: l.compteurs.map((c) => ({ type: c.type, absent: !!c.absent, collectif: !!c.collectif, verifie: !!c.verifie, numero: c.numero ?? null, double_tarif: !!c.double_tarif, index_1: c.index_1 ?? null, index_2: c.index_2 ?? null, emplacement: c.emplacement ?? null })),
     cles: range(l.cles).map((k) => ({ nature: k.nature, nombre: Number(k.nombre ?? 0), destination: k.destination ?? '' })),
     inventaire: range(l.inventaire).map((i) => ({ libelle: i.libelle, quantite: Number(i.quantite ?? 1), etat: i.etat ?? null })),
-    photos: l.photos.map((p) => ({ id: p.id, element_id: p.element_id ?? null, compteur_type: p.compteur_type ?? null, legende: p.legende ?? null, pris_le: p.pris_le, latitude: p.latitude ?? null, longitude: p.longitude ?? null, octets: octets.get(p.id) ?? null })),
+    photos: l.photos.map((p) => ({ id: p.id, element_id: p.element_id ?? null, compteur_type: p.compteur_type ?? null, objet: p.objet ?? null, legende: p.legende ?? null, pris_le: p.pris_le, latitude: p.latitude ?? null, longitude: p.longitude ?? null, octets: octets.get(p.id) ?? null })),
   };
 }

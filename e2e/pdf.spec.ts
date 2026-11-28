@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { photoTrousseau } from './trousseau';
 import { expect, test } from '@playwright/test';
 
 const BASE = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
@@ -53,6 +54,10 @@ test('document : aperçu gratuit, génération payée par un crédit, verrou, r�
        insert into public.edl_parties (edl_id, role, civilite, prenom, nom, email) values ('${edl}', 'locataire', 'M.', 'Hugo', 'ZZREC Marty', 'hugo@constatio.test');
        insert into public.edl_cles (edl_id, nature, nombre, destination) values ('${edl}', 'telecommande', 2, 'Porte du garage');
        delete from public.credit_lots where organisation_id = '${org}';`);
+  // Il ne manque plus que la photo du trousseau, exigée dès qu'une clé est décrite.
+  await page.goto(`/app/edl/${edl}`);
+  await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : 1 point à corriger');
+  await photoTrousseau(page, edl);
   await page.goto(`/app/edl/${edl}`);
   await expect(page.getByTestId('lien-controles')).toHaveText('Contrôles : tout est complet');
 
